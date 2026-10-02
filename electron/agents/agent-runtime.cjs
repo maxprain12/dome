@@ -841,7 +841,8 @@ async function setupHarness(surface, opts) {
   const withoutStaleMemory = typeof opts.userMemory === 'string' && opts.userMemory
     ? providedSystemPrompt.replaceAll(opts.userMemory, '') : providedSystemPrompt;
   const identity = memoryContext.soul && !withoutStaleMemory.includes(memoryContext.soul) ? memoryContext.soul : '';
-  const rawSystemPrompt = [identity, withoutStaleMemory, memoryContext.volatileMemory].filter(Boolean).join('\n\n');
+  const browserPrompt = require('../browser-native/workspace.cjs').workspace.prompt(effectiveThreadId);
+  const rawSystemPrompt = [identity, withoutStaleMemory, memoryContext.volatileMemory, browserPrompt].filter(Boolean).join('\n\n');
   opts.userMemory = memoryContext.volatileMemory;
   const baseSystemPrompt = workspaceSession
     ? [

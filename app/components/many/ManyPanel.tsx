@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyHeader, { type ManyPanelViewId } from './panel/ManyHeader';
+import { OpenBrowserButton } from '@/components/browser/OpenBrowserButton';
+import { useBrowserWorkspaceStore } from '@/lib/store/useBrowserWorkspaceStore';
 import ManyHistoryView from './panel/ManyHistoryView';
 import ManyContextView from './panel/ManyContextView';
 import ManyConversation, {
@@ -109,6 +111,7 @@ export default function ManyPanel({
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [view, setView] = useState<ManyPanelViewId>('chat');
   const [fullscreenHistoryOpen, setFullscreenHistoryOpen] = useState(isFullscreen);
+  const browserOpen = useBrowserWorkspaceStore(state => !!state.panels[currentSessionId || '']);
   const [isLoading, setIsLoading] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [planRefineArmed, setPlanRefineArmed] = useState(false);
@@ -490,6 +493,7 @@ export default function ManyPanel({
           historyOpen={fullscreenHistoryOpen}
           onToggleHistory={() => setFullscreenHistoryOpen((v) => !v)}
           showHistoryToggle={isFullscreen}
+          primaryActions={!isPopout ? <OpenBrowserButton /> : undefined}
           onStartNewChat={handleStartNewChat}
           onClear={handleClear}
           canClear={messages.length > 0}
@@ -618,7 +622,7 @@ export default function ManyPanel({
 
           <ManyPlanPanel />
 
-          {isFullscreen && fullscreenHistoryOpen ? (
+          {isFullscreen && fullscreenHistoryOpen && !browserOpen ? (
             <aside className="flex w-[clamp(13rem,24%,18rem)] max-w-[42%] shrink-0 flex-col border-l border-sidebar-border bg-sidebar">
               <ManyHistoryView
                 onSelectSession={handleSelectSession}

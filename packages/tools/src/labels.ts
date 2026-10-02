@@ -4,6 +4,7 @@
  */
 export const TOOL_LABELS: Readonly<Record<string, string>> = {
   // Web
+  browser_open_in_dome: 'Open in Dome',
   browser_configure: 'Configure Browser',
   browser_sessions: 'Browser Sessions',
   browser_read_page: 'Read Page',

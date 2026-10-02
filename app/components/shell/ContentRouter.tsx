@@ -29,6 +29,8 @@ const EmailView = lazy(() => import('@/components/email/EmailView'));
 const SocialHubView = lazy(() => import('@/components/social/SocialHubView'));
 const PeopleHubView = lazy(() => import('@/components/people/PeopleHubView'));
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
+import { useBrowserWorkspaceStore } from '@/lib/store/useBrowserWorkspaceStore';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
@@ -150,6 +152,18 @@ function NoResource() {
 
 function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   const [ManyPanelComp, setManyPanelComp] = useState<ManyPanelComponent | null>(null);
+  const browserSessionId = useBrowserWorkspaceStore(state => state.panels[sessionId]);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [compactBrowser, setCompactBrowser] = useState(false);
+  useEffect(() => {
+    if (!workspaceRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setCompactBrowser(width < 800);
+    });
+    observer.observe(workspaceRef.current);
+    return () => observer.disconnect();
+  }, [ManyPanelComp]);
 
   const prevSessionIdRef = useRef<string | null>(null);
   if (sessionId && prevSessionIdRef.current !== sessionId) {
@@ -171,7 +185,12 @@ function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () =>
     return <Loading />;
   }
 
-  return <ManyPanelComp width={0} onClose={onClose} isVisible isFullscreen />;
+  const chat = <ManyPanelComp width={0} onClose={onClose} isVisible isFullscreen />;
+  return <div ref={workspaceRef} className="h-full min-w-0"><ResizablePanelGroup orientation={compactBrowser ? 'vertical' : 'horizontal'}>
+    <ResizablePanel id="many-chat" defaultSize="45%" minSize="30%">{chat}</ResizablePanel>
+    {browserSessionId ? <ResizableHandle withHandle /> : null}
+    {browserSessionId ? <ResizablePanel id="many-browser" defaultSize="55%" minSize="30%"><Suspense fallback={<Loading />}><NativeBrowserPage sessionId={browserSessionId} conversationId={sessionId} embedded /></Suspense></ResizablePanel> : null}
+  </ResizablePanelGroup></div>;
 }
 
 

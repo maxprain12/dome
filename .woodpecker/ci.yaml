@@ -80,6 +80,7 @@ steps:
       - pnpm run build
       - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-native-browser.cjs
+      - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-browser-workspace.cjs
 
   - name: depcruise
     image: node:24-bookworm

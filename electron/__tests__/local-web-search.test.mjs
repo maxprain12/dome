@@ -109,3 +109,23 @@ test('signed Google organic redirects resolve locally, cancel bodies and reject 
   }});
   assert.deepEqual(result,[{title:'A',url:'https://example.org/final'}]);assert.equal(requests,2);assert.equal(cancelled,2);
 });
+
+test('shared-profile search preserves the selected page and never uses anonymous or stale login cache', async () => {
+  let calls = 0; let closes = 0; let next = 0;
+  const original = { id: 'shared', view: { webContents: { close() {} } } };
+  const item = { id: 'desktop:research', activeTabId: original.id, tabs: new Map([[original.id, original]]) };
+  const browser = {
+    async run(owner, signal, fn) { assert.equal(owner, item.id); return fn(item); },
+    async newTab(session) { const tab = { id: `search-${next++}`, view: { webContents: { close() { closes++; } } } }; session.tabs.set(tab.id, tab); session.activeTabId = tab.id; return tab; },
+    async navigate(session, url, signal, tabId) { assert.notEqual(tabId, original.id); assert.equal(session.activeTabId, original.id); calls++; },
+    async evaluate() { return { status: 'success', entries: [{ title: `Login revision ${calls}`, url: 'https://example.org/profile' }] }; },
+    unhost() {}, close() { throw new Error('Must retain the user profile'); },
+  };
+  const service = createSearchService(browser);
+  const binding = { sessionId: item.id, tabId: original.id };
+  const first = await service.search({ query: 'fixture' }, undefined, binding);
+  const second = await service.search({ query: 'fixture' }, undefined, binding);
+  assert.notEqual(first.results[0].title, second.results[0].title);
+  assert.equal(calls, 2); assert.equal(closes, 2);
+  assert.equal(item.activeTabId, original.id); assert.equal(item.tabs.size, 1);
+});

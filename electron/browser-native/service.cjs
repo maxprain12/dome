@@ -89,10 +89,14 @@ class NativeBrowserService {
   }
 
   async newTab(item) {
+    if (item.tabs.size >= 20) throw new Error('Close a browser page before opening another one');
     const view = await item.makeView();
     const id = randomUUID();
     const tab = { id, view, initializedUrl: null, hostWindow: null };
     item.tabs.set(id, tab);
+    // Reloads and manual sign-in redirects can end at the same URL with a new
+    // document. Invalidate injected page helpers on every document commit.
+    view.webContents.on?.('did-navigate', () => { tab.initializedUrl = null; });
     view.setBounds({ x: 0, y: 0, ...item.options.viewport });
     this.park(item, tab);
     if (item.options.userAgent) view.webContents.setUserAgent(item.options.userAgent);
@@ -102,6 +106,7 @@ class NativeBrowserService {
       void this.run(item.id, undefined, async (session) => {
         const tab = await this.newTab(session);
         await this.navigate(session, url, undefined, tab.id);
+        if (session.visible) this.attach(session.id, session.visible.window, session.visible.view.getBounds());
       }).catch(() => {});
       return { action: 'deny' };
     });
@@ -152,7 +157,8 @@ class NativeBrowserService {
         throw error;
       })(), signal, 5000);
     }
-    await require('./cdp.cjs').command(tab.view.webContents, 'Emulation.setDeviceMetricsOverride', { ...item.options.viewport, deviceScaleFactor: item.options.deviceScaleFactor, mobile: item.options.mobile }, signal);
+    const viewport = item.visible?.view === tab.view ? tab.view.getBounds() : item.options.viewport;
+    await require('./cdp.cjs').command(tab.view.webContents, 'Emulation.setDeviceMetricsOverride', { width: viewport.width, height: viewport.height, deviceScaleFactor: item.options.deviceScaleFactor, mobile: item.options.mobile }, signal);
     if (item.options.waitAfterLoadMs) await wait(new Promise((resolve) => setTimeout(resolve, item.options.waitAfterLoadMs)), signal);
     return this.snapshot(item, signal, tab.id);
   }
@@ -255,6 +261,7 @@ class NativeBrowserService {
     tab.hostWindow = window;
     view.setBounds(bounds);
     item.visible = { window, view };
+    this.resizeViewport(item, tab, bounds);
   }
 
   detach(owner) {
@@ -277,6 +284,15 @@ class NativeBrowserService {
     tab.view.setBounds({ x: -width - 1, y: -height - 1, width, height });
     window.contentView.addChildView(tab.view);
     tab.hostWindow = window;
+    // Do not attach a debugger to a newly created, unloaded WebContents.
+    // Existing loaded tabs already have the CDP session used by navigation.
+    if (tab.view.webContents.debugger?.isAttached()) this.resizeViewport(item, tab, { width, height });
+  }
+
+  resizeViewport(item, tab, { width, height }) {
+    void require('./cdp.cjs').command(tab.view.webContents, 'Emulation.setDeviceMetricsOverride', {
+      width, height, deviceScaleFactor: item.options.deviceScaleFactor || 1, mobile: !!item.options.mobile,
+    }).catch(() => {});
   }
 
   unhost(tab) {

@@ -10,6 +10,7 @@ const target = { snapshotId: z.string().uuid(), elementId: z.string().min(1).max
 const base = { tabId: z.string().uuid().optional(), frameId: z.string().min(1).max(100).optional() };
 const text = z.string().max(200000);
 const schemas = {
+  browser_open_in_dome: z.object({ url: z.string().url().max(8192) }),
   browser_configure: z.object({ options: BrowserOptionsSchema }),
   browser_sessions: z.object({}),
   browser_read_page: z.object({ ...base, includeScreenshot: z.boolean().optional() }),
@@ -40,6 +41,7 @@ const schemas = {
   browser_done: z.object({ result: z.unknown() }),
 };
 const descriptions = {
+  browser_open_in_dome: 'Open a website in Dome with its saved local cookies for manual login or exploration. Return an Open in Dome action. The user chooses Continue with Many to share the selected page; then use browser_read_page. Never request passwords in chat.',
   browser_configure: 'Configure this isolated local browser before navigation. Chromium launch options are optional; Electron is the default.',
   browser_sessions: 'List only the browser session assigned to this run, including explicit recovery sessions.',
   browser_read_page: 'Read the controlled local tab and return current text, tables, limitations and fresh element references. Read before acting.',
@@ -107,7 +109,8 @@ async function act(browser, item, name, args, context) {
   if (name === 'browser_close_tab') {
     if (item.tabs.size === 1) throw new Error('Cannot close the last controlled tab');
     browser.unhost(tab);
-    contents.close(); item.tabs.delete(tab.id); item.activeTabId = item.tabs.keys().next().value;
+    contents.close(); item.tabs.delete(tab.id);
+    item.activeTabId = [...item.tabs.keys()].find(id => !context.allowedBrowserTabs || context.allowedBrowserTabs.has(id));
   }
   if (name === 'browser_tabs') return { tabs: [...item.tabs.values()].map((entry) => ({ id: entry.id, url: entry.view.webContents.getURL(), title: entry.view.webContents.getTitle() })), activeTabId: item.activeTabId };
   if (['browser_click', 'browser_fill', 'browser_select'].includes(name) || (name === 'browser_scroll' && args.elementId)) {
@@ -169,9 +172,18 @@ async function execute(name, raw, context = {}) {
   const args = schemas[name].strict().parse(raw || {});
   if (name.endsWith('_file') && name !== 'browser_upload_file') return fileAction(name, args, context);
   const { browser } = require('./service.cjs');
-  const owner = context.browserSessionId || `agent:${context.threadId || context.executionId}`;
+  const { workspace } = require('./workspace.cjs');
+  if (name === 'browser_open_in_dome') {
+    if (context.threadId && !workspace.resolve(context.threadId)) await browser.finish(`agent:${context.threadId}`);
+    const { sessionId, tabId, url, title, persistent } = await workspace.open(args.url, context.signal);
+    workspace.onOpened({ sessionId, conversationId: context.threadId });
+    return { success: true, data: { sessionId, tabId, url, title, persistent }, needsUserAction: true };
+  }
+  const binding = !context.browserSessionId && workspace.resolve(context.threadId);
+  const owner = context.browserSessionId || binding?.sessionId || `agent:${context.threadId || context.executionId}`;
   if (!context.threadId && !context.browserSessionId && !context.executionId) throw new Error('Browser actions require a run-bound session');
   if (name === 'browser_configure') {
+    if (binding) throw new Error('The user shared a saved Dome profile. Configure a separate isolated run instead.');
     await browser.finish(owner);
     await browser.close(owner);
     const options = { ...args.options, outputDirectory: context.browserOutputDirectory };
@@ -179,6 +191,8 @@ async function execute(name, raw, context = {}) {
     return { success: true, sessionId: owner };
   }
   if (name === 'browser_sessions') return { sessions: browser.sessions.has(owner) ? [{ id: owner }] : [] };
+  if (binding && ['browser_export_state', 'browser_import_state'].includes(name)) throw new Error('State export/import is disabled for the shared user profile');
+  if (binding) context = { ...context, allowedBrowserTabs: binding.allowedTabs };
   if (name === 'browser_done') {
     const result = await require('./extraction.cjs').validateOutput(args.result, context.outputSchema);
     const item = browser.sessions.get(owner);
@@ -188,7 +202,17 @@ async function execute(name, raw, context = {}) {
   const stepSignal = AbortSignal.timeout(context.stepTimeoutMs || 120000);
   context = { ...context, signal: context.signal ? AbortSignal.any([context.signal, stepSignal]) : stepSignal };
   return browser.run(owner, context.signal, async (item) => {
+    if (binding) {
+      if (args.tabId && !binding.allowedTabs.has(args.tabId)) throw new Error('This page has not been shared with this conversation');
+      if (name === 'browser_close_tab' && [...binding.allowedTabs].filter(id => item.tabs.has(id)).length < 2) throw new Error('Cannot close the last shared page');
+      item.activeTabId = args.tabId || binding.tabId;
+      if (name === 'browser_tabs') return { success: true, data: { tabs: [...item.tabs.values()].filter(tab => binding.allowedTabs.has(tab.id)).map(tab => ({ id: tab.id, url: tab.view.webContents.getURL(), title: tab.view.webContents.getTitle() })), activeTabId: item.activeTabId } };
+    }
     const result = await act(browser, item, name, args, context);
+    if (binding && name === 'browser_new_tab') binding.allowedTabs.add(item.activeTabId);
+    if (binding && ['browser_new_tab', 'browser_switch_tab', 'browser_close_tab'].includes(name)) {
+      binding.tabId = [...binding.allowedTabs].find(id => id === item.activeTabId) || [...binding.allowedTabs].find(id => item.tabs.has(id));
+    }
     if (item.options.waitBetweenActionsMs) await bounded(new Promise((resolve) => setTimeout(resolve, item.options.waitBetweenActionsMs)), context.signal);
     return { success: true, data: result };
   }, { ...context.browserOptions, outputDirectory: context.browserOutputDirectory });

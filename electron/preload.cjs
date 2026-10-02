@@ -285,6 +285,11 @@ const ALLOWED_CHANNELS = {
   'ai:provider-login-status',
   'ai:provider-login-answer',
   'ai:provider-login-cancel',
+  'native-browser:open',
+  'native-browser:state',
+  'native-browser:control',
+  'native-browser:share',
+  'native-browser:unshare',
   'native-browser:search',
     'native-browser:recover',
     'native-browser:attach',
@@ -739,6 +744,7 @@ const ALLOWED_CHANNELS = {
   ],
   // Canales para on/once (main → renderer)
   on: [
+    'native-browser:opened',
     // GitHub project sync (main → renderer broadcasts)
     'github:sync:status',
     'github:data:updated',

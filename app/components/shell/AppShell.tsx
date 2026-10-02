@@ -294,7 +294,7 @@ export default function AppShell() {
   }, []);
 
   const showManyInSidebar = Boolean(
-    rightSidebarOpen && !isSettingsTab && (!isChatTab || manyRightOverride),
+    rightSidebarOpen && !isSettingsTab && activeTab?.type !== 'browser' && (!isChatTab || manyRightOverride),
   );
   const showManyInDesktopSidebar = showManyInSidebar && !narrowShell;
 

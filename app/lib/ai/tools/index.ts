@@ -320,6 +320,7 @@ export {
 import type { AnyAgentTool } from './types';
 import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
 import { createBrowserActiveTabTool } from './browser-active-tab';
+import { createLocalBrowserTools } from './browser-tools';
 import { createImageCropTool, type ImageCropConfig } from './image-crop';
 import { createImageThumbnailTool, type ImageThumbnailConfig } from './image-thumbnail';
 import { createResourceTools } from './resources';
@@ -373,6 +374,7 @@ export function createDefaultTools(config?: DefaultToolsConfig): AnyAgentTool[] 
   const tools: AnyAgentTool[] = [];
 
   if (config?.includeWeb !== false) {
+    tools.push(...createLocalBrowserTools());
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
@@ -388,6 +390,7 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Web tools
   if (config?.includeWeb !== false) {
+    tools.push(...createLocalBrowserTools());
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
@@ -503,6 +506,7 @@ export function createManyToolsForContext(
 
   const tools: AnyAgentTool[] = [];
   if (config?.includeWeb !== false) {
+    tools.push(...createLocalBrowserTools());
     tools.push(createWebFetchTool(config?.webFetch));
     if (typeof window !== 'undefined' && window.electron?.isMac) {
       tools.push(createBrowserActiveTabTool());

@@ -12,6 +12,8 @@ import { showToast } from '@/lib/store/useToastStore';
 import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useBrowserWorkspaceStore } from '@/lib/store/useBrowserWorkspaceStore';
+import { showDomeBrowser } from '@/lib/browser/openDomeBrowser';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
 import { subscribeSettingsCloudUpdates } from '@/lib/settings';
@@ -128,6 +130,17 @@ function MainApp() {
     });
     return () => unsubscribe?.();
   }, [addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject]);
+
+  // Show the agent's browser in its originating conversation.
+  useEffect(() => {
+    const win = globalThis.window;
+    if (!win?.electron?.on) return;
+    return win.electron.on('native-browser:opened', (data: { sessionId?: string; conversationId?: string }) => {
+      if (!data.sessionId) return;
+      if (data.conversationId) useBrowserWorkspaceStore.getState().openPanel(data.conversationId, data.sessionId);
+      else showDomeBrowser(data.sessionId);
+    });
+  }, []);
 
   // Handle dome://resource/ID deep links
   useEffect(() => {

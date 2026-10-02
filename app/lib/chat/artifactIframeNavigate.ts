@@ -1,4 +1,6 @@
-/** postMessage protocol for sandboxed artifact iframes → parent opens external URLs. */
+import { openDomeHref } from '@/lib/links/openDomeHref';
+
+/** postMessage protocol for sandboxed artifact iframes → parent opens validated links. */
 export const DOME_ARTIFACT_MSG = 'dome-artifact';
 
 /** srcdoc / sandboxed frames are opaque; `app://artifact` is a real origin. */
@@ -63,5 +65,5 @@ export function handleArtifactNavigateMessage(
 }
 
 export function openArtifactExternalUrl(href: string): void {
-  void window.electron?.invoke?.('open-external-url', href).catch(() => {});
+  void openDomeHref(href);
 }

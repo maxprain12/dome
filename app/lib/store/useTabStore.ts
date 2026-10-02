@@ -30,6 +30,7 @@ export interface DomeTab {
   artifactPayload?: string;
   pluginId?: string;
   browserSessionId?: string;
+  browserConversationId?: string;
   pinned?: boolean;
   color?: string;
   /**
@@ -129,7 +130,7 @@ export function tabsFromParsedPayload(
   activeProjectId?: string | null,
 ): { tabs: DomeTab[]; activeTabId: string } {
   if (parsed.tabs.length === 0) return defaultTabsState();
-  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.flatMap((tab) => {
+  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.filter(tab => tab.type !== 'browser').flatMap((tab) => {
     if (!['semantic-graph', 'transcriptions', 'transcription-detail'].includes(tab.type as string)) return [tab];
     return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('sectionGuide.library.title'), resourceId: tab.projectId || activeProjectId || 'default' }];
   }), activeProjectId));
@@ -157,7 +158,7 @@ function saveTabs(tabs: DomeTab[], activeTabId: string) {
     // Persist only the activeTabId and global tabs. Project-scoped tabs
     // are intentionally excluded so they cannot be restored in a different
     // project after a hard reload.
-    const persistable = tabs.filter((t) => !isProjectScopedTab(t));
+    const persistable = tabs.filter((t) => !isProjectScopedTab(t) && t.type !== 'browser');
     const persistableActive = persistable.some((t) => t.id === activeTabId)
       ? activeTabId
       : persistable[0]?.id ?? HOME_TAB_ID;
