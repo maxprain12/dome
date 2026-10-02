@@ -70,3 +70,18 @@ Se instala el lockfile sin scripts para habilitar validación en este worktree.
 - Los nueve controles pasaron (lint: 118 advertencias existentes, cero errores).
   No se ha realizado una sesión real con proveedores externos en cada superficie.
 - PR 1730 (MCP/imágenes/skills) fusionada con CI correcto.
+
+### Bloque 3 — Embeddings y relaciones
+
+- Servicios vectoriales, LanceDB, proveedores, grafos, backlinks, herramientas,
+  paneles y sincronización de menciones retirados. P-010 deja de ser regla activa.
+- SQLite FTS5 conserva extracción/OCR y filtra por proyecto antes del límite.
+  El texto derivado se guarda en content_text sin reemplazar el documento.
+- Migración 79: conserva tablas históricas, retira triggers, depura selecciones
+  y desactiva automatizaciones dependientes con explicación. Las instalaciones
+  nuevas no crean tablas de vectores ni relaciones. Grafos restaurados abren
+  el recurso o la biblioteca. Ajustes de indexación antiguos redirigen a IA.
+- Pruebas: migración/FTS/OCR/archivos 19/19, actualización/empaquetado 25/25,
+  UI 553/553. Los nueve controles pasaron; lint 114 advertencias, cero errores.
+  Catálogo: 151 herramientas/151 handlers; IPC: 639 canales. Build de paquetes
+  correcto. PR 1731 (memoria) fusionada con CI correcto.

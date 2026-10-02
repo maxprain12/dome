@@ -89,27 +89,6 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
   });
 
   /**
-   * Get full text of one semantic chunk (chunk_id from resource_semantic_search)
-   */
-  ipcMain.handle('ai:tools:resourceGetSection', async (event, { resourceId, nodeId, chunkId }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const cid = chunkId || nodeId;
-    try {
-      const result = await aiToolsHandler.resourceGetSection(resourceId, cid);
-      toolTrace('resourceGetSection', { resourceId, chunkId: cid }, result);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', result?.success !== false);
-      return result;
-    } catch (error) {
-      toolTrace('resourceGetSection', { resourceId, chunkId: cid }, null, error);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', false);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
    * List resources with optional filters
    */
   ipcMain.handle('ai:tools:resourceList', async (event, { options }) => {
@@ -126,48 +105,6 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       toolTrace('resourceList', { options }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:resourceList', false);
       console.error('[AI Tools] resourceList error:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
-   * Semantic search using embeddings
-   */
-  ipcMain.handle('ai:tools:resourceSemanticSearch', async (event, { query, options }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const result = await aiToolsHandler.resourceSemanticSearch(query, options || {});
-      toolTrace('resourceSemanticSearch', { query, options }, result);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSemanticSearch', result?.success !== false);
-      return result;
-    } catch (error) {
-      toolTrace('resourceSemanticSearch', { query, options }, null, error);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSemanticSearch', false);
-      console.error('[AI Tools] resourceSemanticSearch error:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
-   * Hybrid search (RRF: semantic + graph + FTS)
-   */
-  ipcMain.handle('ai:tools:resourceHybridSearch', async (event, { query, options }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const result = await aiToolsHandler.resourceHybridSearch(query, options || {});
-      toolTrace('resourceHybridSearch', { query, options }, result);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceHybridSearch', result?.success !== false);
-      return result;
-    } catch (error) {
-      toolTrace('resourceHybridSearch', { query, options }, null, error);
-      broadcastToolAnalytics(windowManager, 'ai:tools:resourceHybridSearch', false);
-      console.error('[AI Tools] resourceHybridSearch error:', error);
       return { success: false, error: error.message };
     }
   });
@@ -904,44 +841,6 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('getDocumentStructure', { resource_id }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:getDocumentStructure', false);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
-   * Create a semantic link between two resources
-   */
-  ipcMain.handle('ai:tools:linkResources', async (event, args) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const result = await aiToolsHandler.linkResources(args || {});
-      toolTrace('linkResources', args, result);
-      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', result?.success !== false);
-      return result;
-    } catch (error) {
-      toolTrace('linkResources', args, null, error);
-      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', false);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
-   * Get all resources linked to/from a given resource
-   */
-  ipcMain.handle('ai:tools:getRelatedResources', async (event, args) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const result = await aiToolsHandler.getRelatedResources(args || {});
-      toolTrace('getRelatedResources', args, result);
-      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', result?.success !== false);
-      return result;
-    } catch (error) {
-      toolTrace('getRelatedResources', args, null, error);
-      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', false);
       return { success: false, error: error.message };
     }
   });

@@ -38,8 +38,6 @@ const TOOL_TIMEOUT_OVERRIDES = {
   // against a wedged process, not the normal control.
   shell_exec: 1_800_000,
   web_fetch: 90_000,
-  resource_index: 180_000,
-  semantic_index_resource: 180_000,
 };
 
 function getToolTimeoutMs(toolName) {

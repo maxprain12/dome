@@ -1,6 +1,5 @@
 import type { TFunction } from 'i18next';
 import { useEffect, useReducer } from 'react';
-import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
 import {
   initialPaletteSearchState,
   paletteSearchReducer,
@@ -54,9 +53,7 @@ export function useCommandPaletteSearch(
 
         let resources: typeof searchState.resources = [];
         if (Array.isArray(result.data.resources) && result.data.resources.length > 0) {
-          const ordered = await orderUnifiedResourcesByHybrid(trimmedQuery, result.data.resources, {
-            mergeTake: 12,
-          });
+          const ordered = result.data.resources;
           resources = ordered.slice(0, 8).map((r) => ({
             id: r.id,
             title: r.title || t('folder.untitled', 'Sin título'),

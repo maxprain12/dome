@@ -223,8 +223,8 @@ function makeUpdateDeps(overrides = {}) {
     handleCorruptionError: mock.fn(() => false),
   };
   const windowManager = { broadcast: mock.fn() };
-  const maybeScheduleKbReindex = mock.fn();
-  const semanticIndexScheduler = { scheduleSemanticReindex: mock.fn() };
+  const scheduleResourceTextIndex = mock.fn();
+  const textIndexScheduler = { scheduleTextIndex: mock.fn() };
   const vaultStore = {
     relocateFolder: mock.fn(),
     relocateResource: mock.fn(),
@@ -236,8 +236,8 @@ function makeUpdateDeps(overrides = {}) {
     database,
     fileStorage: {},
     windowManager,
-    maybeScheduleKbReindex,
-    semanticIndexScheduler,
+    scheduleResourceTextIndex,
+    textIndexScheduler,
     vaultStore,
     _mocks: { run, get },
     ...overrides,
@@ -263,8 +263,8 @@ describe('executeResourcesUpdate', () => {
     assert.equal(result.data.content, 'hi');
     assert.equal(deps._mocks.run.mock.callCount(), 1);
     assert.equal(deps.windowManager.broadcast.mock.callCount(), 1);
-    assert.equal(deps.maybeScheduleKbReindex.mock.callCount(), 1);
-    assert.equal(deps.semanticIndexScheduler.scheduleSemanticReindex.mock.callCount(), 1);
+    assert.equal(deps.scheduleResourceTextIndex.mock.callCount(), 1);
+    assert.equal(deps.textIndexScheduler.scheduleTextIndex.mock.callCount(), 1);
     // note title change → relocateResource
     assert.equal(deps.vaultStore.relocateResource.mock.callCount(), 1);
   });

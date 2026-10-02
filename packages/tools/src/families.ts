@@ -48,9 +48,8 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   web_search: 'web', web_fetch: 'web', deep_research: 'web',
   // resources
   resource_search: 'resources', resource_get: 'resources', resource_list: 'resources',
-  resource_hybrid_search: 'resources', resource_semantic_search: 'resources',
-  resource_get_section: 'resources', get_document_structure: 'resources',
-  link_resources: 'resources', get_related_resources: 'resources', pdf_render_page: 'resources',
+  get_document_structure: 'resources',
+  pdf_render_page: 'resources',
   get_recent_resources: 'resources', get_library_overview: 'resources',
   resource_get_library_overview: 'resources', resource_get_active: 'resources',
   resource_get_pinned: 'resources', resource_create: 'resources', resource_update: 'resources',
@@ -129,7 +128,7 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   git_status: 'git', git_diff: 'git', git_log: 'git',
   git_branch_create: 'git', git_add: 'git', git_commit: 'git',
   // studio / generate
-  generate_knowledge_graph: 'studio', generate_mindmap: 'studio', generate_quiz: 'studio',
+  generate_mindmap: 'studio', generate_quiz: 'studio',
   generate_guide: 'studio', generate_faq: 'studio', generate_timeline: 'studio',
   generate_table: 'studio',
   // ui automation

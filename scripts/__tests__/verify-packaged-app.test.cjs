@@ -67,10 +67,9 @@ test('archName maps electron-builder Arch enum values', () => {
 });
 
 test('flags host-arch prebuilts in a cross-arch build', () => {
-  const unpacked = ['@img/sharp-darwin-arm64', '@lancedb/lancedb', '@lancedb/lancedb-darwin-arm64', 'better-sqlite3'];
+  const unpacked = ['@img/sharp-darwin-arm64', 'better-sqlite3'];
   assert.deepEqual(findArchMismatches(unpacked, 'darwin', 1), [
     { family: '@img/sharp-', expected: '@img/sharp-darwin-x64', found: ['@img/sharp-darwin-arm64'] },
-    { family: '@lancedb/lancedb-', expected: '@lancedb/lancedb-darwin-x64', found: ['@lancedb/lancedb-darwin-arm64'] },
   ]);
   assert.deepEqual(findArchMismatches(unpacked, 'darwin', 3), []);
 });

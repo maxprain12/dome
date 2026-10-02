@@ -77,7 +77,7 @@ function MainApp() {
   useEffect(() => {
     const unsub = subscribeSettingsCloudUpdates((payload) => {
       const keys = payload?.keys ?? [];
-      if (keys.some((k) => k.startsWith('ai_') || k.startsWith('ollama_') || k.startsWith('embeddings_'))) {
+      if (keys.some((k) => k.startsWith('ai_') || k.startsWith('ollama_'))) {
         globalThis.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
       }
     });

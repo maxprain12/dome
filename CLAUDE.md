@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Desktop**: Electron 41 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
-- **Semantic search**: Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB (`dome-lance`); hybrid search combines FTS + graph + vectors; PDF/image text via your configured cloud LLM (vision) where applicable
+- **Resource search**: SQLite FTS5 over original and extracted text; PDF/image OCR uses the configured model when available.
 - **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + **shadcn/ui** (Base UI primitives; config in `components.json`, components in `app/components/ui/`). `app/components/ui/` contains **only** original shadcn components; app-level compositions (SubpageHeader, ListState, DatePicker, ThemeProvider…) live in `app/components/shared/`. The legacy `Dome*`/`Hub*` wrappers were fully removed — see `.claude/sops/shadcn-ui.md`.
@@ -99,8 +99,8 @@ IPC handlers are organized in `electron/ipc/<group>/<domain>.cjs` (one file per 
 
 IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 - `core/`: system, window, init, shell, updater, migration
-- `data/`: database, storage, files, resources, tags, graph, interactions
-- `ai/`: ai, ai-tools, cloud-llm, kb-llm, semantic, embeddings, ollama
+- `data/`: database, storage, files, resources, tags, interactions
+- `ai/`: ai, ai-tools, cloud-llm, kb-llm, ollama
 - `agents/`: agent-team, runs, chat, threads, approval, artifacts
 - `media/`: audio, images, pdf-render, transcription, minimax-files, notebook
 - `learn/`: learn, quiz, flashcards, studio
@@ -121,9 +121,7 @@ IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 - Accessed via `db:*` IPC channels from renderer
 - Docs: [docs/features/database.md](docs/features/database.md), SOP [.claude/sops/drizzle-domain-migration.md](.claude/sops/drizzle-domain-migration.md)
 
-**Semantic index** (`electron/services/embeddings.service.cjs`, LanceDB `dome-lance`):
-
-- Configurable LangChain embeddings (Settings → AI → Embeddings); hybrid search combines FTS + graph + vectors
+**Resource search**: SQLite FTS5; see [docs/features/indexing.md](docs/features/indexing.md).
 
 ### Custom Protocols
 
@@ -151,14 +149,14 @@ dome/
 │   ├── calendar/               # calendar-service, calendar-import/notification, calendar-sync-scheduler, google-calendar-service
 │   ├── mcp/                    # dome-mcp-server, mcp-client, mcp-oauth, mcp-tool-policy (bridge stays an anchor in root)
 │   ├── artifacts/              # artifact-sink, artifact-serialize, artifact-index-sync, artifact-link-sync, artifact-design-layout
-│   ├── storage/                # file-storage, cloud-sync-service, hybrid-rrf, semantic-index-scheduler
+│   ├── storage/                # file-storage, cloud-sync-service, text-index-scheduler
 │   ├── auth/                   # auth-manager, dome-oauth
 │   ├── ollama/                 # ollama-service, ollama-manager(+lazy)
 │   ├── marketplace/            # marketplace-config, marketplace-bundled-catalog, plugin-loader, skills-bootstrap, github-client
 │   ├── feeders/                # web-scraper, html-content-extractor, youtube-service
 │   ├── personality/            # personality-loader, project-memory
 │   ├── ipc/                    # IPC handlers grouped into domain subfolders (core/ data/ ai/ agents/ media/ learn/ sync/ integrations/) + index.cjs
-│   └── services/               # LangChain embeddings, indexing.pipeline, chunking, hybrid search, feeders, web providers
+│   └── services/               # text extraction, OCR, feeders, web providers
 │
 ├── app/                         # Renderer Process (Browser context)
 │   ├── main.tsx                # Vite entry point (BrowserRouter + global providers)
@@ -262,7 +260,7 @@ Artifacts are interactive mini-apps. Two kinds:
 **Key files:**
 - `electron/ipc/artifacts.cjs` — IPC handlers: `artifact:create`, `artifact:get`, `artifact:update`, `artifact:delete`, `artifact:list`, `artifact:export`, `artifact:import`
 - `electron/artifacts/artifact-sink.cjs` — automation binding logic (`applyArtifactSinksForCompletedRun`)
-- `electron/artifacts/artifact-index-sync.cjs` — semantic re-index after artifact mutation
+- `electron/artifacts/artifact-index-sync.cjs` — FTS text refresh after artifact mutation
 - `electron/artifacts/artifact-serialize.cjs` — serialization helpers
 - `app/components/artifacts/ArtifactWorkspaceClient.tsx` — library view (opens via tab)
 - `app/components/chat/artifacts/HtmlArtifactFrame.tsx` — iframe renderer (chat + workspace)

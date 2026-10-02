@@ -222,7 +222,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const handleToggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => {
       const next = !prev;
-      if (next) setInspectorTab('relations');
+      if (next) setInspectorTab('resource');
       return next;
     });
   }, []);
@@ -252,7 +252,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
   const selectInspectorTab = useCallback((tab: WorkspaceInspectorTab) => {
     setInspectorTab(tab);
-    setSidePanelOpen(tab === 'details' || tab === 'relations');
+    setSidePanelOpen(tab === 'details' || tab === 'resource');
     useAppStore.getState().setSourcesPanelOpen(tab === 'sources');
     useAppStore.setState({ studioPanelOpen: tab === 'outputs' });
   }, []);
@@ -347,7 +347,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
           <Button
             type="button"
             onClick={() => { if (typeof window !== 'undefined') window.close(); }}
-            
+
           >
             Close Window
           </Button>

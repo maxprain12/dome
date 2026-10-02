@@ -55,32 +55,13 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'resource_get',
     label: 'Resource Get',
-    description: 'Get resource details. For indexed PDFs returns the structure (TOC with node_ids); for notes and other types returns full content. Use resource_get_section for specific sections.',
-    group: 'resources',
-  },
-  {
-    id: 'resource_get_section',
-    label: 'Resource Get Section',
-    description: 'Get the content of a specific section of a PDF or indexed note by node_id. Use after get_document_structure, resource_hybrid_search, or resource_semantic_search.',
+    description: 'Get resource details. For indexed PDFs returns the structure (TOC with node_ids); for notes and other types returns full content. Use resource_get for specific sections.',
     group: 'resources',
   },
   {
     id: 'resource_list',
     label: 'Resource List',
     description: 'List project resources with optional filters by type, folder, and pagination. Returns name, type, size, and dates. Use to browse available materials.',
-    group: 'resources',
-  },
-  {
-    id: 'resource_hybrid_search',
-    label: 'Hybrid Search',
-    description:
-      'Unified library search: fuses full-text (FTS), chunk embeddings, and knowledge-graph matches via RRF. Preferred over keyword-only or semantic-only search.',
-    group: 'resources',
-  },
-  {
-    id: 'resource_semantic_search',
-    label: 'Semantic Search',
-    description: 'Search resources by semantic meaning using vector embeddings. Finds conceptually related documents even when exact words differ. Optional if you already use resource_hybrid_search.',
     group: 'resources',
   },
   {
@@ -159,7 +140,7 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     id: 'generate_mindmap',
     label: 'Generate Mindmap',
     description:
-      'Gather resource chunks for the model to build a mind map (e.g. artifact:diagram or nodes/edges). For the embedding-based semantic graph, use generate_knowledge_graph.',
+      'Read source content for the model to build a mind map (e.g. artifact:diagram or nodes/edges). Use the source content to construct the visual diagram.',
     group: 'studio',
   },
   {
@@ -183,26 +164,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     label: 'Deep Research',
     description: 'Launch a multi-step deep investigation on a topic using iterative web search. Performs multiple queries, cross-verifies sources, and produces a comprehensive report with citations. Takes longer but generates high-quality analysis.',
     group: 'research',
-  },
-
-  // Graph
-  {
-    id: 'generate_knowledge_graph',
-    label: 'Knowledge Graph',
-    description: 'Generate a visual knowledge graph centered on a resource, showing semantic relationships to related documents. Use to map and explore concept networks in the library.',
-    group: 'graph',
-  },
-  {
-    id: 'get_related_resources',
-    label: 'Related Resources',
-    description: 'Return resources related to a given resource based on knowledge graph links. Lets the agent discover thematic connections between documents the user has explicitly or implicitly linked.',
-    group: 'graph',
-  },
-  {
-    id: 'link_resources',
-    label: 'Link Resources',
-    description: 'Create a semantic link between two library resources with a label describing the relationship (e.g. "contradicts", "extends", "cites"). Links enrich the knowledge graph and enable conceptual navigation.',
-    group: 'graph',
   },
 
   // Notebook

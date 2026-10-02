@@ -1,21 +1,16 @@
-# Indexación semántica (embeddings configurables)
+# Extracción y búsqueda textual
 
-Dome indexa recursos con **embeddings vía LangChain** (OpenAI, Google Gemini u Ollama), almacenados en **LanceDB** (`userData/dome-lance`), y **búsqueda híbrida** (vectores + FTS en Lance + grafo). El texto de PDFs e imágenes proviene del **LLM en la nube** del usuario (visión / multimodal).
+Dome mantiene recursos y texto extraído en SQLite. `resources_fts` (FTS5)
+indexa títulos y `content_text`, con el contenido original como alternativa
+cuando aún no hay texto derivado. Los filtros de proyecto se aplican en SQL
+antes del límite de resultados.
 
-## Configuración
+Los cambios en notas y documentos programan extracción de texto mediante
+`electron/storage/text-index-scheduler.cjs`. PDF conserva su capa de texto y
+OCR cuando necesita visión; las imágenes conservan caption y OCR usando la IA
+configurada. El original y la navegación de menciones permanecen intactos.
 
-**Ajustes → IA → Embeddings**: proveedor, modelo y API key (independientes del chat). Al cambiar proveedor o modelo, Dome borra los vectores y ofrece reindexar la biblioteca.
-
-## Pipeline
-
-1. **resource-text** / transcripción PDF (cloud) / caption+OCR imagen
-2. **chunking.cjs**
-3. **embeddings.service.cjs** (LangChain) → vectores
-4. **lancedb-semantic.cjs** → tabla `semantic_chunks`
-
-## IPC
-
-- `db:semantic:*` — grafo, búsqueda, reindex, estado
-- `embeddings:test`, `embeddings:apply`, `embeddings:getStatus`
-
-Ver [ipc.md](./ipc.md) y [settings.md](./settings.md).
+Los embeddings, LanceDB, búsquedas híbridas, relaciones y grafos se retiraron.
+La migración 79 conserva tablas históricas inactivas, elimina triggers que las
+usan y desactiva automatizaciones dependientes con una explicación. Las nuevas
+instalaciones no crean esas tablas. No existe un fallback de búsqueda semántica.

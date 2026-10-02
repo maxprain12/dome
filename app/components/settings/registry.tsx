@@ -41,7 +41,6 @@ export type SettingsSection =
   | 'skills'
   | 'plugins'
   | 'advanced'
-  | 'indexing'
   | 'cloud'
   | 'dome_sync'
   | 'language'
@@ -81,10 +80,10 @@ const GROUP_DEFS: GroupDef[] = [
     { id: 'features', icon: LayoutGridIcon },
   ] },
   { labelKey: 'settingsGuide.groups.intelligence', sections: [
-    { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' },
+    { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription', 'indexing'], layout: 'wide' },
     { id: 'memory', icon: BrainIcon },
     { id: 'research', icon: Search01Icon, layout: 'wide', legacyAliases: ['agent-reach'] },
-    { id: 'kb_llm', icon: BookMarkedIcon }, { id: 'indexing', icon: DatabaseIcon },
+    { id: 'kb_llm', icon: BookMarkedIcon },
   ] },
   { labelKey: 'settingsGuide.groups.connections', sections: [
     { id: 'cloud', icon: CloudIcon }, { id: 'calendar', icon: Calendar03Icon },
@@ -114,7 +113,6 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   skills: lazy(() => import('./sections/SkillsSection')),
   plugins: lazy(() => import('./sections/PluginsSection')),
   advanced: lazy(() => import('./sections/AdvancedSection')),
-  indexing: lazy(() => import('./sections/IndexingSection')),
   cloud: lazy(() => import('./sections/CloudStorageSection')),
   dome_sync: lazy(() => import('./sections/DomeSyncSection')),
   kb_llm: lazy(() => import('./sections/KbLlmSection')),

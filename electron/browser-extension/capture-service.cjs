@@ -74,10 +74,10 @@ function createCaptureService(deps) {
     windowManager = { broadcast() {} },
     vaultStore = require('../storage/vault-store.cjs'),
     peopleStore = require('../people/people-store.cjs'),
-    semanticIndexScheduler = require('../storage/semantic-index-scheduler.cjs'),
+    textIndexScheduler = require('../storage/text-index-scheduler.cjs'),
   } = deps;
-  if (deps.semanticIndexScheduler == null) {
-    semanticIndexScheduler.init(database);
+  if (deps.textIndexScheduler == null) {
+    textIndexScheduler.init(database);
   }
 
   function queries() {
@@ -168,8 +168,8 @@ function createCaptureService(deps) {
     }
     const created = queries().getResourceById.get(id);
     windowManager.broadcast?.('resource:created', created);
-    if (semanticIndexScheduler.shouldIndex?.(created) !== false) {
-      semanticIndexScheduler.scheduleSemanticReindex(id);
+    if (textIndexScheduler.shouldIndex?.(created) !== false) {
+      textIndexScheduler.scheduleTextIndex(id);
     }
     return { ...getNote(id), domeLink: `dome://resource/${id}/note` };
   }
@@ -209,7 +209,7 @@ function createCaptureService(deps) {
       id,
       updates: { content: markdown, vault_path: mirror.vaultPath, updated_at: now, title: title || latest.title },
     });
-    semanticIndexScheduler.scheduleSemanticReindex(id);
+    textIndexScheduler.scheduleTextIndex(id);
     return getNote(id);
   }
 
@@ -332,7 +332,7 @@ function createCaptureService(deps) {
     }
     const created = queries().getResourceById.get(id);
     windowManager.broadcast?.('resource:created', created);
-    semanticIndexScheduler.scheduleSemanticReindex(id);
+    textIndexScheduler.scheduleTextIndex(id);
     return {
       id,
       title,

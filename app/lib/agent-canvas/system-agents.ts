@@ -41,9 +41,9 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     color: CANVAS_AGENT_COLORS.writer.color,
     bg: CANVAS_AGENT_COLORS.writer.bg,
     emoji: '📚',
-    toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
+    toolIds: ['resource_search', 'resource_get', 'resource_get_section', 'resource_list'],
     systemPrompt: `You are a library agent expert in personal knowledge management.
-- Use resource_hybrid_search to find documents (combines text, semantics, and graph); then resource_get or resource_get_section as needed
+- Use resource_search to find documents (matches words in extracted text); then resource_get as needed
 - Analyze and connect concepts across different library resources
 - Extract key ideas, important quotes, and patterns from documents
 - Suggest connections between related materials
@@ -112,27 +112,21 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
   curator: {
     role: 'curator',
     name: 'Curator Agent',
-    description: 'Knowledge graph curation, flashcards, and resource connections',
+    description: 'Library organization, source notes and flashcards',
     color: CANVAS_AGENT_COLORS.creative.color,
     bg: CANVAS_AGENT_COLORS.creative.bg,
     emoji: '🗂️',
     toolIds: [
-      'generate_knowledge_graph',
-      'get_related_resources',
-      'link_resources',
-      'resource_hybrid_search',
+      'resource_search',
       'resource_list',
       'flashcard_create',
       'resource_create',
     ],
-    systemPrompt: `You are a curator agent expert in knowledge organization and conceptual graph building.
-- Analyze documents to extract key concepts, entities, and semantic relationships
-- Build rich knowledge graphs connecting ideas, authors, theories, and facts with descriptive labels
-- Create semantic links between related resources indicating the relationship type: "extends", "contradicts", "exemplifies", "precedes", "derives from"
-- Identify knowledge gaps by analyzing the graph structure: isolated nodes, poorly connected areas
-- Generate flashcards with questions that capture the most important concepts for spaced repetition
-- Use semantic search to discover non-obvious related resources before creating new links
-- Always present a summary of the graph built with the central concepts and most significant connections`,
+    systemPrompt: `You organize documents and study materials.
+- Find sources with resource_search and resource_list, then read their contents
+- Summarize key concepts with citations to the original resources
+- Identify potential duplicates for user review
+- Generate flashcards with questions that capture the most important concepts`,
   },
 };
 

@@ -9,7 +9,6 @@ import type { ToolDefinition } from '../types.js';
 
 /** The studio-family tool names (subset of the 103-tool catalog). */
 export const STUDIO_TOOL_NAMES = [
-  'generate_knowledge_graph',
   'generate_mindmap',
   'generate_quiz',
   'generate_guide',
@@ -22,26 +21,6 @@ export type StudioToolName = (typeof STUDIO_TOOL_NAMES)[number];
 
 export function studioToolDefinitions(): ToolDefinition[] {
   return [
-    {
-      type: 'function',
-      function: {
-        name: 'generate_knowledge_graph',
-        description:
-          'Build a semantic similarity graph around a focus resource (from library embeddings). Pass focus_resource_id or source_ids (first id used as focus).',
-        parameters: {
-          type: 'object',
-          properties: {
-            focus_resource_id: { type: 'string', description: 'Center resource id' },
-            source_ids: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Optional; first id used as focus if focus_resource_id omitted',
-            },
-            min_weight: { type: 'number', description: 'Min edge similarity 0-1 (default 0.35)' },
-          },
-        },
-      },
-    },
     {
       type: 'function',
       function: {

@@ -155,62 +155,7 @@ interface UnifiedSearchResult {
   sources?: UnifiedSourceHit[];
 }
 
-/** Chunk-level semantic hit (Nomic embeddings, `resource_chunks`) */
-interface SemanticSearchHit {
-  resource_id: string;
-  title: string;
-  type: string;
-  chunk_index: number;
-  char_start: number | null;
-  char_end: number | null;
-  page_number?: number | null;
-  snippet: string;
-  score: number;
-}
-
-/** Estado de indexación de embeddings (LanceDB + proveedor configurado) */
-interface SemanticIndexingStatus {
-  modelVersion: string | null;
-  dimensions?: number | null;
-  configured?: boolean;
-  indexableTotal: number;
-  indexedResourceCount: number;
-  pendingCount: number;
-  chunksTotal: number;
-  allIndexed: boolean;
-}
-
-interface EmbeddingsStatusPayload {
-  configured: boolean;
-  provider: string | null;
-  model: string | null;
-  modelVersion: string | null;
-  dimensions: number | null;
-  chunksTotal: number;
-  indexedResourceCount: number;
-}
-
 // Knowledge Graph Types
-interface GraphNode {
-  id: string;
-  resource_id?: string;
-  label: string;
-  type: 'resource' | 'concept' | 'person' | 'location' | 'event' | 'topic';
-  properties?: Record<string, any>;
-  created_at: number;
-  updated_at: number;
-}
-
-interface GraphEdge {
-  id: string;
-  source_id: string;
-  target_id: string;
-  relation: string;
-  weight: number;
-  metadata?: Record<string, any>;
-  created_at: number;
-  updated_at: number;
-}
 
 declare global {
   // GitHub project sync row shapes (mirror migration 43 columns)
@@ -327,18 +272,7 @@ declare global {
     html_url: string | null;
   }
 
-  /** Row from `semantic_relations` + source resource (backlinks panel). `link_type` is `relation_type`. */
-  interface ResourceSemanticBacklink {
-    id: string;
-    source_id: string;
-    target_id: string;
-    similarity: number;
-    link_type: 'manual' | 'confirmed' | 'auto' | 'rejected';
-    label: string | null;
-    created_at: number;
-    source_title: string | null;
-    source_type: string;
-  }
+
 
   interface Window {
     electron: {
@@ -1156,8 +1090,6 @@ declare global {
             projectId: string,
           ) => Promise<DBResponse<{ movedIds: string[] }>>;
           removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
-          // Backlinks
-          getBacklinks: (resourceId: string) => Promise<DBResponse<ResourceSemanticBacklink[]>>;
           // Search for mentions
           searchForMention: (query: string, projectId?: string) => Promise<DBResponse<Resource[]>>;
         };
@@ -1225,56 +1157,6 @@ declare global {
           addToResource: (resourceId: string, tagId: string) => Promise<DBResponse<void>>;
           removeFromResource: (resourceId: string, tagId: string) => Promise<DBResponse<void>>;
         };
-        semantic: {
-          getGraph: (
-            resourceId: string,
-            threshold?: number,
-          ) => Promise<
-            DBResponse<{
-              nodes: Array<{
-                id: string;
-                label: string;
-                resourceType?: string;
-                connectionCount: number;
-                isCurrentNote: boolean;
-              }>;
-              edges: Array<{
-                id: string;
-                source: string;
-                target: string;
-                similarity: number;
-                relation_type: string;
-                label?: string | null;
-                sourceName?: string;
-                targetName?: string;
-                sourceType?: string;
-                targetType?: string;
-              }>;
-            }>
-          >;
-          confirm: (edgeId: string) => Promise<DBResponse<void>>;
-          reject: (edgeId: string) => Promise<DBResponse<void>>;
-          delete: (edgeId: string) => Promise<DBResponse<void>>;
-          createManual: (payload: {
-            sourceId?: string;
-            targetId?: string;
-            source_id?: string;
-            target_id?: string;
-            label?: string | null;
-          }) => Promise<DBResponse<{ id: string; duplicate?: boolean }>>;
-          indexResource: (resourceId: string) => Promise<DBResponse<unknown>>;
-          reindexAll: () => Promise<DBResponse<unknown>>;
-          search: (
-            query: string,
-            limit?: number,
-            filter?: { type?: string[] },
-          ) => Promise<DBResponse<SemanticSearchHit[]>>;
-          getIndexingStatus: () => Promise<DBResponse<SemanticIndexingStatus>>;
-          resourceHasChunks: (
-            resourceId: string,
-          ) => Promise<DBResponse<{ count: number; hasChunks: boolean }>>;
-          onProgress: (callback: (p: { done: number; total: number; errors?: number; step?: string }) => void) => () => void;
-        };
         cloudLlm: {
           pdfRegionStream: (payload: {
             streamId: string;
@@ -1284,14 +1166,6 @@ declare global {
           }) => Promise<DBResponse<{ streamId?: string }>>;
           onStreamChunk: (callback: (data: { streamId: string; text: string }) => void) => () => void;
           onStreamDone: (callback: (data: { streamId: string; error?: string }) => void) => () => void;
-        };
-        graph: {
-          createNode: (node: Partial<GraphNode>) => Promise<DBResponse<GraphNode>>;
-          getNode: (nodeId: string) => Promise<DBResponse<GraphNode>>;
-          getNodesByType: (type: string) => Promise<DBResponse<GraphNode[]>>;
-          createEdge: (edge: Partial<GraphEdge>) => Promise<DBResponse<GraphEdge>>;
-          getNeighbors: (nodeId: string) => Promise<DBResponse<GraphNode[]>>;
-          searchNodes: (query: string) => Promise<DBResponse<GraphNode[]>>;
         };
         search: {
           unified: (query: string, projectId?: string) => Promise<DBResponse<UnifiedSearchResult>>;
@@ -1759,24 +1633,6 @@ declare global {
             };
             error?: string;
           }>;
-          resourceGetSection: (
-            resourceId: string,
-            chunkId: string
-          ) => Promise<{
-            success: boolean;
-            resource_id?: string;
-            title?: string;
-            chunk_id?: string;
-            section?: {
-              chunk_id: string;
-              title: string;
-              summary: string;
-              text?: string;
-              page_number?: number | null;
-              chunk_index?: number;
-            };
-            error?: string;
-          }>;
           resourceList: (options?: {
             project_id?: string;
             folder_id?: string | null;
@@ -1792,70 +1648,6 @@ declare global {
               type: string;
               project_id: string;
               folder_id?: string | null;
-              created_at: number;
-              updated_at: number;
-              metadata?: Record<string, any>;
-            }>;
-            error?: string;
-          }>;
-          resourceSemanticSearch: (
-            query: string,
-            options?: {
-              project_id?: string;
-              limit?: number;
-            }
-          ) => Promise<{
-            success: boolean;
-            query?: string;
-            method?: 'semantic' | 'fts';
-            count?: number;
-            results?: Array<{
-              id: string;
-              resource_id?: string;
-              title: string;
-              type: string;
-              project_id: string;
-              similarity?: number;
-              score?: number;
-              snippet: string;
-              chunk_id?: string;
-              chunk_index?: number;
-              page_number?: number | null;
-              created_at: number;
-              updated_at: number;
-              metadata?: Record<string, any>;
-            }>;
-            error?: string;
-          }>;
-          resourceHybridSearch: (
-            query: string,
-            options?: {
-              project_id?: string;
-              type?: string;
-              limit?: number;
-              semantic_min_score?: number;
-              include_backlinks?: boolean;
-              candidate_limit?: number;
-              rrf_k?: number;
-            }
-          ) => Promise<{
-            success: boolean;
-            query?: string;
-            method?: string;
-            count?: number;
-            navigation_note?: string | null;
-            results?: Array<{
-              id: string;
-              title: string;
-              type: string;
-              project_id: string;
-              hybrid_sources?: string[];
-              similarity?: number;
-              snippet: string;
-              chunk_id?: string;
-              chunk_index?: number;
-              page_number?: number | null;
-              search_hint?: string | null;
               created_at: number;
               updated_at: number;
               metadata?: Record<string, any>;
@@ -2402,11 +2194,6 @@ declare global {
           models?: Array<{ name: string; size: number; modified_at: string }>;
           error?: string;
         }>;
-        generateEmbedding: (text: string) => Promise<{
-          success: boolean;
-          embedding?: number[];
-          error?: string;
-        }>;
         generateSummary: (text: string) => Promise<{
           success: boolean;
           summary?: string;
@@ -2606,40 +2393,6 @@ declare global {
           cancelled?: boolean;
           error?: string;
         }>;
-      };
-
-      embeddings: {
-        getStatus: () => Promise<DBResponse<EmbeddingsStatusPayload>>;
-        test: (override?: {
-          provider?: string;
-          model?: string;
-          api_key?: string;
-          base_url?: string;
-        }) => Promise<
-          DBResponse<{
-            ok: boolean;
-            dimensions?: number;
-            modelVersion?: string;
-            latencyMs?: number;
-          }>
-        >;
-        listModels: (params?: {
-          provider?: string;
-          api_key?: string;
-          base_url?: string;
-        }) => Promise<
-          DBResponse<{
-            models: Array<{
-              id: string;
-              name: string;
-              dimensions?: number;
-              contextTokens?: number;
-              recommended?: boolean;
-            }>;
-            source: 'remote' | 'static';
-          }>
-        >;
-        apply: () => Promise<DBResponse<unknown>>;
       };
 
       domeMcp: {

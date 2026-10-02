@@ -124,19 +124,6 @@ async function invokeResourceGetPinned(ctx) {
   }
   return getAiToolsHandler().resourceGet(rid, { includeContent: true, maxContentLength: 5000 });
 }
-async function invokeResourceGetSection(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  const rid = args.resource_id || args.resourceId || args.id;
-  const denied = denyUnlessResourceInScope(automationProjectId, rid);
-  if (denied) {
-    result = denied;
-  } else {
-    const chunkId = args.chunk_id || args.chunkId || args.node_id || args.nodeId;
-    result = await fn(rid, chunkId);
-  }
-  return result;
-}
 async function invokeResourceList(ctx) {
   const { fn, args, automationProjectId } = ctx;
   let result;
@@ -146,29 +133,6 @@ async function invokeResourceList(ctx) {
             type: args.type,
             limit: args.limit,
             sort: args.sort,
-          });
-  return result;
-}
-async function invokeResourceSemanticSearch(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  result = await fn(args.query || '', {
-            project_id: automationProjectId || args.project_id || args.projectId,
-            limit: args.limit || args.count || 10,
-          });
-  return result;
-}
-async function invokeResourceHybridSearch(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  result = await fn(args.query || '', {
-            project_id: automationProjectId || args.project_id || args.projectId,
-            type: args.type,
-            limit: args.limit || args.count || 10,
-            semantic_min_score: args.semantic_min_score,
-            include_backlinks: args.include_backlinks,
-            candidate_limit: args.candidate_limit,
-            rrf_k: args.rrf_k,
           });
   return result;
 }
@@ -538,35 +502,6 @@ async function invokeGetDocumentStructure(ctx) {
   else result = await fn({ resource_id: rid });
   return result;
 }
-async function invokeLinkResources(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  const a = denyUnlessResourceInScope(automationProjectId, args.source_id);
-  if (a) {
-    result = a;
-  } else {
-    const b = denyUnlessResourceInScope(automationProjectId, args.target_id);
-    if (b) result = b;
-    else {
-      result = await fn({
-        source_id: args.source_id,
-        target_id: args.target_id,
-        relation: args.relation,
-        description: args.description,
-      });
-    }
-  }
-  return result;
-}
-async function invokeGetRelatedResources(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  const rid = args.resource_id || args.resourceId;
-  const denied = denyUnlessResourceInScope(automationProjectId, rid);
-  if (denied) result = denied;
-  else result = await fn({ resource_id: rid });
-  return result;
-}
 async function invokeInteractionList(ctx) {
   const { fn, args, automationProjectId } = ctx;
   let result;
@@ -575,22 +510,6 @@ async function invokeInteractionList(ctx) {
   if (denied) result = denied;
   else {
     result = await fn(rid, { type: args.type, limit: args.limit });
-  }
-  return result;
-}
-async function invokeGenerateKnowledgeGraph(ctx) {
-  const { fn, args, automationProjectId } = ctx;
-  let result;
-  let rid = args.focus_resource_id || args.resource_id || args.resourceId;
-  const sourceIds = Array.isArray(args.source_ids) ? args.source_ids.filter((x) => typeof x === 'string' && x.trim()) : [];
-  if (!rid && sourceIds.length > 0) rid = sourceIds[0];
-  const denied = denyUnlessResourceInScope(automationProjectId, rid);
-  if (denied) result = denied;
-  else {
-    result = await fn({
-      focus_resource_id: rid,
-      min_weight: args.min_weight,
-    });
   }
   return result;
 }
@@ -847,10 +766,7 @@ const HANDLER_INVOKERS = {
   resourceGet: invokeResourceGet,
   resourceGetActive: invokeResourceGetActive,
   resourceGetPinned: invokeResourceGetPinned,
-  resourceGetSection: invokeResourceGetSection,
   resourceList: invokeResourceList,
-  resourceSemanticSearch: invokeResourceSemanticSearch,
-  resourceHybridSearch: invokeResourceHybridSearch,
   projectList: invokeProjectList,
   projectGet: invokeProjectGet,
   getRecentResources: invokeGetRecentResources,
@@ -888,10 +804,7 @@ const HANDLER_INVOKERS = {
   pptExport: invokePptExport,
   rememberFact: invokeRememberFact,
   getDocumentStructure: invokeGetDocumentStructure,
-  linkResources: invokeLinkResources,
-  getRelatedResources: invokeGetRelatedResources,
   interactionList: invokeInteractionList,
-  generateKnowledgeGraph: invokeGenerateKnowledgeGraph,
   calendarListEvents: invokeCalendarListEvents,
   calendarGetUpcoming: invokeCalendarGetUpcoming,
   calendarCreateEvent: invokeCalendarCreateEvent,

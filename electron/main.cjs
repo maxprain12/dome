@@ -267,7 +267,7 @@ const runEngine = require('./agents/run-engine.cjs');
 const runLifecycle = require('./agents/run-lifecycle.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
-const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
+const textIndexScheduler = require('./storage/text-index-scheduler.cjs');
 const domainSyncScheduler = require('./storage/domain-sync-scheduler.cjs');
 
 // IPC handlers (modularized)
@@ -951,35 +951,6 @@ function trySeedBundledSkills() {
   }
 }
 
-async function initSemanticStack() {
-  const lancedbSemantic = require('./services/lancedb-semantic.cjs');
-  try {
-    await lancedbSemantic.init(app.getPath('userData'));
-    await lancedbSemantic.migrateChunksFromSqliteIfNeeded(database.getDB());
-    await lancedbSemantic.bootstrapLexFromSqliteIfNeeded(database.getDB());
-  } catch (lanceErr) {
-    console.error('[Main] LanceDB:', lanceErr?.message || lanceErr);
-  }
-}
-
-function runEmbeddingsRefactorGuard() {
-  try {
-    const q = database.getQueries();
-    const guard = q.getSetting.get('embeddings_refactor_v1');
-    if (guard?.value === '1') return;
-    try {
-      const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
-      fs.rmSync(cacheDir, { recursive: true, force: true });
-      console.log('[Main] transformers-cache eliminado (refactor embeddings)');
-    } catch {
-      /* ignore */
-    }
-    q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
-  } catch (e) {
-    console.warn('[Main] embeddings refactor guard:', e?.message || e);
-  }
-}
-
 function bindWindowManagerToToolHandlers() {
   excelToolsHandler.setWindowManager(windowManager);
   docxToolsHandler.setWindowManager(windowManager);
@@ -1093,45 +1064,6 @@ function trySyncSentryConsent() {
   } catch (e) {
     console.warn('[Main] Sentry consent sync:', e?.message || e);
   }
-}
-
-// --- Window + post-create schedulers -----------------------------------------
-
-// One-time background semantic chunk reindex; non-blocking (requires embeddings config)
-function scheduleInitialSemanticReindex() {
-  setTimeout(() => {
-    try {
-      if (process.env.NODE_ENV === 'development') return;
-      const q = database.getQueries();
-      const embeddingsService = require('./services/embeddings.service.cjs');
-      if (!embeddingsService.isConfigured(q)) return;
-      const done = q.getSetting.get('semantic_initial_reindex_done_v2');
-      if (done?.value === '1') return;
-      const semanticScheduler = require('./storage/semantic-index-scheduler.cjs');
-      semanticScheduler.init(database);
-      void semanticScheduler
-        .getIndexer()
-        .reindexAll({
-          skipSemanticRelations: true,
-          onProgress: (p) => {
-            try {
-              windowManager.broadcast('semantic:progress', p);
-            } catch {
-              /* ignore */
-            }
-          },
-        })
-        .then(() => {
-          try {
-            q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
-          } catch {
-            /* ignore */
-          }
-        });
-    } catch (e) {
-      console.warn('[Main] semantic initial reindex:', e?.message || e);
-    }
-  }, 90_000);
 }
 
 // Modern Electron display-media handler for system/meeting audio capture.
@@ -1264,9 +1196,8 @@ function kickOffBackgroundInitialization() {
   });
 }
 
-function initSemanticIndexScheduler() {
-  semanticIndexScheduler.init(database);
-  semanticIndexScheduler.startAutoIndexing();
+function initTextIndexScheduler() {
+  textIndexScheduler.init(database);
 }
 
 // Watch the vault for external edits (Obsidian/Finder/etc.). Before the
@@ -1275,7 +1206,7 @@ function initSemanticIndexScheduler() {
 function startVaultWatcher() {
   try {
     const vaultWatcher = require('./storage/vault-watcher.cjs');
-    vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
+    vaultWatcher.start({ database, fileStorage, textIndexScheduler, windowManager });
   } catch (err) {
     console.warn('[App] Vault watcher not started:', err?.message || err);
   }
@@ -1320,8 +1251,6 @@ app
 
     tryStartBackupScheduler();
     trySeedBundledSkills();
-    await initSemanticStack();
-    runEmbeddingsRefactorGuard();
 
     bindWindowManagerToToolHandlers();
 
@@ -1339,10 +1268,9 @@ app
     trySyncSentryConsent();
 
     // Crear ventana principal en cuanto la base de datos está lista
-    // (LanceDB ya se inicializó arriba).
+    // La búsqueda textual usa el índice de SQLite.
     const mainWindow = await createWindow();
 
-    scheduleInitialSemanticReindex();
     installDisplayMediaHandler();
 
     // Create tray icon for background operation (automations, notifications)
@@ -1359,7 +1287,7 @@ app
     initRuntimeServices();
     kickOffBackgroundInitialization();
 
-    initSemanticIndexScheduler();
+    initTextIndexScheduler();
     startVaultWatcher();
 
     scheduleDatabaseCleanup();
@@ -1403,7 +1331,7 @@ app.on('before-quit', async () => {
   try {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
   } catch (e) { /* non-fatal */ }
-  semanticIndexScheduler.stopAutoIndexing?.();
+  textIndexScheduler.stop();
   try { require('./storage/vault-watcher.cjs').stop(); } catch (e) { /* non-fatal */ }
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
@@ -1418,13 +1346,13 @@ app.on('before-quit', async () => {
     console.warn('[Main] sentry flush failed:', e?.message);
   }
   try {
-    const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
-    const indexer = semanticIndexScheduler.getIndexer?.();
+    const textIndexScheduler = require('./storage/text-index-scheduler.cjs');
+    const indexer = textIndexScheduler.getIndexer?.();
     if (indexer && typeof indexer.waitForIndexerIdle === 'function') {
       await indexer.waitForIndexerIdle();
     }
   } catch (e) {
-    console.warn('[Main] semantic indexer idle wait skipped:', e?.message);
+    console.warn('[Main] text indexer idle wait skipped:', e?.message);
   }
   try {
     const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');

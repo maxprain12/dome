@@ -70,9 +70,9 @@ const SYSTEM_AGENTS = {
   },
   library: {
     name: 'Library Agent',
-    toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
+    toolIds: ['resource_search', 'resource_get', 'resource_get', 'resource_list'],
     systemPrompt: `You are a library agent expert in personal knowledge management.
-- Use resource_hybrid_search to find documents (combines text, semantics, and graph); then resource_get or resource_get_section as needed
+- Use resource_search to find documents (searches extracted text); then resource_get as needed
 - Analyze and connect concepts across different library resources
 - Extract key ideas, important quotes, and patterns from documents
 - Suggest connections between related materials
@@ -106,7 +106,7 @@ const SYSTEM_AGENTS = {
   },
   curator: {
     name: 'Curator Agent',
-    toolIds: ['get_related_resources', 'resource_hybrid_search', 'resource_list', 'flashcard_create', 'resource_create'],
+    toolIds: ['resource_search', 'resource_list', 'flashcard_create', 'resource_create'],
     systemPrompt: `You are a curator agent expert in knowledge organization.
 - Identify relationships between resources and concepts
 - Suggest relevant connections

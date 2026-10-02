@@ -12,8 +12,6 @@ export const MANY_TOOL_IDS = MANY_TOOL_CATALOG.map((e) => e.id);
  * (e.g. aliases, graph variants, studio).
  */
 export const MAIN_PROCESS_EXTRA_TOOL_IDS = [
-  'generate_knowledge_graph',
-  'link_resources',
   'remember_fact',
   'get_tool_definition',
   'image_describe',

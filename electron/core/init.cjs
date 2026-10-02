@@ -2,7 +2,7 @@
 /**
  * Initialization Module - Main Process
  * Handles initialization logic for SQLite, filesystem, and settings.
- * Semantic search uses local Nomic embeddings and hybrid search in the main process (see `electron/services/`, `semantic-index-scheduler.cjs`).
+ * Resource search uses SQLite FTS5; text extraction is scheduled in the main process.
  */
 
 const path = require('path');

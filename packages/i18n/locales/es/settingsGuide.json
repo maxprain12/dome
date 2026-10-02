@@ -31,10 +31,6 @@
       "description": "Elige cómo organiza Many su conocimiento y cuándo lo actualiza.",
       "start": "Revisa primero las fuentes y la política de actualización."
     },
-    "indexing": {
-      "description": "Prepara tus documentos para encontrarlos por su significado.",
-      "start": "Configura un modelo en IA → Búsqueda en documentos y después revisa el estado del índice."
-    },
     "cloud": {
       "description": "Conecta Google Drive para acceder a tus archivos desde Dome.",
       "start": "Añade una cuenta de Google. Esta conexión es distinta de sincronizar Dome entre dispositivos."

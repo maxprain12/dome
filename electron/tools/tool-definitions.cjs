@@ -28,10 +28,7 @@ const TOOL_HANDLER_MAP = {
   resource_get: 'resourceGet',
   resource_get_active: 'resourceGetActive',
   resource_get_pinned: 'resourceGetPinned',
-  resource_get_section: 'resourceGetSection',
   resource_list: 'resourceList',
-  resource_semantic_search: 'resourceSemanticSearch',
-  resource_hybrid_search: 'resourceHybridSearch',
   get_document_structure: 'getDocumentStructure',
   project_list: 'projectList',
   project_get: 'projectGet',
@@ -77,10 +74,7 @@ const TOOL_HANDLER_MAP = {
   ppt_export: 'pptExport',
   remember_fact: 'rememberFact',
   // Graph / linking tools
-  link_resources: 'linkResources',
-  get_related_resources: 'getRelatedResources',
   interaction_list: 'interactionList',
-  generate_knowledge_graph: 'generateKnowledgeGraph',
   generate_mindmap: 'gatherStudioMindmapContext',
   generate_quiz: 'gatherStudioQuizContext',
   generate_guide: 'gatherStudioGuideContext',
@@ -247,9 +241,9 @@ function getToolDefsBySubagent() {
   return {
     research: pick('web_search', 'web_fetch', 'deep_research', 'research_capabilities', 'research_search', 'research_read', 'research_profile', 'research_collect'),
     library: pick(
-      'resource_hybrid_search',
+      'resource_search',
       'resource_get',
-      'resource_get_section',
+      'resource_get',
       'resource_list',
       'get_document_structure',
       'get_related_resources',
@@ -307,7 +301,7 @@ function getToolDefsBySubagent() {
       'resource_list',
       'resource_get',
       'artifact_merge_data',
-      'resource_get_section',
+      'resource_get',
       'get_document_structure',
       'get_current_project',
     ),
@@ -433,7 +427,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get',
-        description: 'Get full details of a specific resource. For PDFs, returns the Gemma transcript in content when available. For notes, returns GFM markdown in content (content_format: markdown) — never TipTap/ProseMirror JSON. Use resource_semantic_search for passage-level search and pdf_render_page to view a page as an image. Cite inline as [N] when using in answers.',
+        description: 'Get full details of a specific resource. For PDFs, returns the Gemma transcript in content when available. For notes, returns GFM markdown in content (content_format: markdown) — never TipTap/ProseMirror JSON. Use resource_search for passage-level search and pdf_render_page to view a page as an image. Cite inline as [N] when using in answers.',
         parameters: {
           type: 'object',
           properties: {
@@ -465,97 +459,12 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
-        name: 'resource_hybrid_search',
-        description:
-          'Hybrid library search: merges full-text (FTS), semantic chunk similarity, and knowledge-graph node matches with RRF. Prefer this over resource_search or resource_semantic_search alone. Results may include chunk_id for resource_get_section.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Search query' },
-            project_id: { type: 'string', description: 'Filter by project' },
-            type: { type: 'string', description: 'Filter by resource type' },
-            limit: { type: 'number', description: 'Max results (1-50). Default: 10' },
-            semantic_min_score: { type: 'number', description: 'Min semantic score 0-1. Default: 0.3' },
-            include_backlinks: { type: 'boolean', description: 'Include graph neighbors' },
-          },
-          required: ['query'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'resource_semantic_search',
-        description: 'Semantic search over Nomic chunk embeddings. Results include chunk_id (format resourceId#index). Use resource_get_section(resource_id, chunk_id) for full chunk text, or pdf_render_page to see a PDF page as an image.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Natural language query' },
-            project_id: { type: 'string', description: 'Filter by project' },
-            limit: { type: 'number', description: 'Max results' },
-          },
-          required: ['query'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'resource_get_section',
-        description: 'Get full text of one semantic chunk. Pass chunk_id from resource_semantic_search (e.g. "uuid#3").',
-        parameters: {
-          type: 'object',
-          properties: {
-            resource_id: { type: 'string', description: 'ID of the resource' },
-            chunk_id: { type: 'string', description: 'Chunk id from resource_semantic_search, format resourceId#chunk_index' },
-          },
-          required: ['resource_id', 'chunk_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
         name: 'get_document_structure',
         description: 'Lightweight outline for PDFs with Gemma transcript (page markers). Prefer resource_get for full text.',
         parameters: {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'ID of the resource to get the structure of' },
-          },
-          required: ['resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'link_resources',
-        description: 'Create a semantic relationship between two resources in the user\'s library. Use when the user says "link these", "these are related", "this references that", or when you notice a meaningful connection between documents while analyzing them. Always confirm with a brief summary of what was linked.',
-        parameters: {
-          type: 'object',
-          properties: {
-            source_id: { type: 'string', description: 'ID of the source resource (the one that references or leads to the other)' },
-            target_id: { type: 'string', description: 'ID of the target resource' },
-            relation: {
-              type: 'string',
-              description: 'Relationship label. Common values: "related", "references", "continuation", "contradicts", "supports", "derived_from", "part_of", "see_also". Default: "related"',
-            },
-            description: { type: 'string', description: 'Optional short note explaining why these are linked (≤120 chars)' },
-          },
-          required: ['source_id', 'target_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'get_related_resources',
-        description: 'Get all resources linked to or from a given resource. Use when the user asks "what is related to this?", "show me connections", "what links to this document?", or before creating new content to discover existing related material.',
-        parameters: {
-          type: 'object',
-          properties: {
-            resource_id: { type: 'string', description: 'ID of the resource to find neighbors for' },
           },
           required: ['resource_id'],
         },
@@ -1583,7 +1492,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_update',
-        description: 'Update an existing resource. IMPORTANT: resource_id must be the exact id field returned by get_library_overview, resource_search, or resource_semantic_search — never invent or construct IDs. For notes: call resource_get first, edit the returned GFM markdown, then pass the full updated markdown in content (replace, not patch). For folders: pass metadata.color as a hex string (e.g. "#7b76d0") to change folder color. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
+        description: 'Update an existing resource. IMPORTANT: resource_id must be the exact id field returned by get_library_overview, resource_search, or resource_search — never invent or construct IDs. For notes: call resource_get first, edit the returned GFM markdown, then pass the full updated markdown in content (replace, not patch). For folders: pass metadata.color as a hex string (e.g. "#7b76d0") to change folder color. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
         parameters: {
           type: 'object',
           properties: {
@@ -2542,26 +2451,6 @@ function getAllToolDefinitions() {
             message: { type: 'string', description: 'Commit message.' },
           },
           required: ['message'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'generate_knowledge_graph',
-        description:
-          'Build a semantic similarity graph around a focus resource (from library embeddings). Pass focus_resource_id or source_ids (first id used as focus).',
-        parameters: {
-          type: 'object',
-          properties: {
-            focus_resource_id: { type: 'string', description: 'Center resource id' },
-            source_ids: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Optional; first id used as focus if focus_resource_id omitted',
-            },
-            min_weight: { type: 'number', description: 'Min edge similarity 0-1 (default 0.35)' },
-          },
         },
       },
     },

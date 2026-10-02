@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 78;
+const SCHEMA_HEAD = 79;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1547,6 +1547,38 @@ function migration78(db, version) {
   console.log('[DB] Migration 78 complete');
 }
 
+function migration79(db, version) {
+  if (version >= 79) return;
+  // Historical relation/vector tables remain untouched and are never queried by the app.
+  const retiredTables = ['resource_chunks', 'semantic_relations', 'graph_nodes', 'graph_edges'];
+  for (const trigger of db.prepare("SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'trigger'").all()) {
+    if (retiredTables.some((table) => trigger.tbl_name === table || String(trigger.sql).includes(table))) {
+      db.exec(`DROP TRIGGER "${trigger.name.replaceAll('"', '""')}"`);
+    }
+  }
+  require('./feature-retirement.cjs').retireTools(db, [
+    'resource_semantic_search', 'resource_hybrid_search', 'resource_get_section',
+    'link_resources', 'get_related_resources', 'generate_knowledge_graph',
+    'analyze_graph_structure', 'semantic_index_resource', 'resource_index',
+  ]);
+  // Backfill only the derived cache for legacy notes; retain their original content.
+  const { getIndexableText } = require('../../services/resource-text.cjs');
+  for (const note of db.prepare("SELECT * FROM resources WHERE type = 'note' AND COALESCE(content_text, '') = ''").all()) {
+    const { text } = getIndexableText(note);
+    db.prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, note.id);
+  }
+  for (const name of ['resources_ai', 'resources_au', 'resources_ad']) db.exec(`DROP TRIGGER IF EXISTS ${name}`);
+  db.exec(`CREATE TRIGGER resources_ai AFTER INSERT ON resources BEGIN
+    INSERT INTO resources_fts(resource_id,title,content) VALUES(new.id,new.title,COALESCE(NULLIF(new.content_text,''),new.content,'')); END;
+    CREATE TRIGGER resources_au AFTER UPDATE ON resources BEGIN
+    DELETE FROM resources_fts WHERE resource_id=old.id;
+    INSERT INTO resources_fts(resource_id,title,content) VALUES(new.id,new.title,COALESCE(NULLIF(new.content_text,''),new.content,'')); END;
+    CREATE TRIGGER resources_ad AFTER DELETE ON resources BEGIN DELETE FROM resources_fts WHERE resource_id=old.id; END;`);
+  db.exec('DELETE FROM resources_fts');
+  db.exec("INSERT INTO resources_fts(resource_id, title, content) SELECT id, title, COALESCE(NULLIF(content_text, ''), content, '') FROM resources");
+  setSchemaVersion(db, 79);
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1612,6 +1644,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration76(db, version);
   migration77(db, version);
   migration78(db, version);
+  migration79(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

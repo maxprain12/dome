@@ -39,7 +39,7 @@ export async function getYouTubeThumbnail(url: string) {
 
 /**
  * Process a URL resource completely
- * This includes scraping, screenshot/thumbnail, embeddings, and summary
+ * This includes scraping, screenshot/thumbnail and summary
  */
 export async function processUrlResource(resourceId: string) {
   if (!window.electron?.web?.process) {
@@ -64,22 +64,6 @@ export async function checkOllamaAvailability(): Promise<boolean> {
     console.error('Error checking Ollama availability:', error);
     return false;
   }
-}
-
-/**
- * Generate embedding with Ollama
- */
-export async function generateEmbedding(text: string) {
-  if (!window.electron?.ollama?.generateEmbedding) {
-    throw new Error('Ollama API not available');
-  }
-
-  const result = await window.electron.ollama.generateEmbedding(text);
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to generate embedding');
-  }
-
-  return result.embedding;
 }
 
 /**

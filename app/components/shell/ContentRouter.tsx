@@ -40,7 +40,6 @@ const RunsStudioView = lazy(() => import('@/components/orchestration/RunsStudioV
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
-const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
 const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
 const PluginRuntimeView = lazy(() => import('@/components/plugins/PluginRuntimeView'));
 
@@ -503,17 +502,6 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
           </Suspense>
         </TabBoundary>
       ));
-
-    case 'semantic-graph':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-              <SemanticGraphView focusResourceId={tab.resourceId} />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
 
     case 'artifact':
       return renderWithResource(tab, (resourceId) => (

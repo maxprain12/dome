@@ -4,7 +4,6 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   BrainIcon,
   Comment01Icon,
-  Layers01Icon,
   Mic01Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons';
@@ -13,7 +12,6 @@ import type { AISettingsTab } from './useAISectionController';
 
 const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: IconSvgElement }> = [
   { value: 'chat', labelKey: 'settings.ai.tab_chat', icon: Comment01Icon },
-  { value: 'embeddings', labelKey: 'settings.ai.tab_embeddings', icon: Layers01Icon },
   { value: 'transcription', labelKey: 'settings.ai.tab_transcription', icon: Mic01Icon },
   { value: 'tools', labelKey: 'settings.ai.tab_tools', icon: Search01Icon },
   { value: 'context', labelKey: 'settings.ai.tab_context', icon: BrainIcon },

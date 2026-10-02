@@ -1,6 +1,6 @@
 /**
  * Centralized AI Model Definitions
- * 
+ *
  * Based on clawdbot's provider definitions, updated with latest models.
  * This file serves as the single source of truth for all AI providers and models.
  */
@@ -38,14 +38,6 @@ export interface ModelDefinition {
   alias?: string;
 }
 
-export interface EmbeddingModelDefinition {
-  id: string;
-  name: string;
-  dimensions?: number;
-  recommended?: boolean;
-  /** Cost per 1M tokens (input only for embeddings) */
-  cost?: { input: number };
-}
 
 export interface ProviderDefinition {
   id: AIProviderType;
@@ -53,8 +45,6 @@ export interface ProviderDefinition {
   description: string;
   icon: string;
   models: ModelDefinition[];
-  embeddingModels?: EmbeddingModelDefinition[];
-  supportsEmbeddings: boolean;
   supportsStreaming?: boolean;
   supportsTools?: boolean;
   apiKeyPlaceholder?: string;
@@ -63,10 +53,10 @@ export interface ProviderDefinition {
   baseUrl?: string;
 }
 
-export type AIProviderType = 
-  | 'openai' 
-  | 'anthropic' 
-  | 'google' 
+export type AIProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
   | 'dome'
   | 'ollama'
   | 'copilot'
@@ -292,27 +282,6 @@ export const OPENAI_MODELS: ModelDefinition[] = [
   },
 ];
 
-export const OPENAI_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
-  {
-    id: 'text-embedding-3-small',
-    name: 'Embedding 3 Small',
-    dimensions: 1536,
-    recommended: true,
-    cost: { input: 0.02 },
-  },
-  {
-    id: 'text-embedding-3-large',
-    name: 'Embedding 3 Large',
-    dimensions: 3072,
-    cost: { input: 0.13 },
-  },
-  {
-    id: 'text-embedding-ada-002',
-    name: 'Ada 002',
-    dimensions: 1536,
-    cost: { input: 0.1 },
-  },
-];
 
 // =============================================================================
 // Anthropic Models
@@ -406,14 +375,6 @@ export const ANTHROPIC_MODELS: ModelDefinition[] = [
   },
 ];
 
-export const ANTHROPIC_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
-  {
-    id: 'voyage-multimodal-3',
-    name: 'Voyage Multimodal 3',
-    recommended: true,
-    cost: { input: 0.12 },
-  },
-];
 
 // =============================================================================
 // Google Gemini Models
@@ -471,45 +432,9 @@ export const GOOGLE_MODELS: ModelDefinition[] = [
   },
 ];
 
-export const GOOGLE_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
-  {
-    id: 'text-embedding-004',
-    name: 'Text Embedding 004',
-    dimensions: 768,
-    recommended: true,
-    cost: { input: 0.00001 },
-  },
-  {
-    id: 'gemini-embedding-001',
-    name: 'Gemini Embedding 001',
-    dimensions: 3072,
-    cost: { input: 0.00001 },
-  },
-];
 
-export const OLLAMA_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
-  {
-    id: 'nomic-embed-text',
-    name: 'Nomic Embed Text',
-    dimensions: 768,
-    recommended: true,
-  },
-  {
-    id: 'mxbai-embed-large',
-    name: 'mxbai-embed-large',
-    dimensions: 1024,
-  },
-  {
-    id: 'all-minilm',
-    name: 'all-minilm',
-    dimensions: 384,
-  },
-];
 
-/** Providers exposed in Settings → AI → Embeddings (cloud APIs with embedding endpoints). */
-export type EmbeddingsProviderType = 'openai' | 'google' | 'ollama';
 
-export const EMBEDDINGS_PROVIDER_IDS: EmbeddingsProviderType[] = ['openai', 'google', 'ollama'];
 
 export const DOME_MODELS: ModelDefinition[] = [
   {
@@ -538,8 +463,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'GPT-5.2, GPT-5 y o3',
     icon: 'openai',
     models: OPENAI_MODELS,
-    embeddingModels: OPENAI_EMBEDDING_MODELS,
-    supportsEmbeddings: true,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-...',
@@ -552,7 +475,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Claude 4.6 y Claude 4.5',
     icon: 'anthropic',
     models: ANTHROPIC_MODELS,
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-ant-...',
@@ -565,8 +487,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Gemini 3 Flash Preview, 3 Pro Preview y 2.5 Flash',
     icon: 'google',
     models: GOOGLE_MODELS,
-    embeddingModels: GOOGLE_EMBEDDING_MODELS,
-    supportsEmbeddings: true,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'AIza...',
@@ -579,7 +499,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Provider administrado por suscripción',
     icon: 'dome',
     models: DOME_MODELS,
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'Conecta tu cuenta de Dome',
@@ -592,8 +511,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Local y privado',
     icon: 'ollama',
     models: [], // Loaded dynamically
-    embeddingModels: OLLAMA_EMBEDDING_MODELS,
-    supportsEmbeddings: true,
     supportsStreaming: true,
     supportsTools: true,
     baseUrl: 'http://localhost:11434',
@@ -604,7 +521,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Modelos vía GitHub',
     icon: 'github',
     models: [], // Loaded from catalogs/copilot.ts
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
   },
@@ -615,7 +531,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     icon: 'anthropic',
     // Same catalog + remote discovery as Anthropic API key provider.
     models: ANTHROPIC_MODELS,
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     docsUrl: 'https://claude.ai',
@@ -628,7 +543,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     icon: 'openai',
     // Same static catalog as OpenAI API; remote /v1/models when session allows.
     models: OPENAI_MODELS,
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     docsUrl: 'https://chatgpt.com',
@@ -664,7 +578,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-...',
@@ -734,7 +647,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-cp-...',
@@ -746,7 +658,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'API unificada para cientos de modelos (OpenAI, Anthropic, Google…)',
     icon: 'openrouter',
     models: OPENROUTER_MODELS,
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-or-v1-…',
@@ -803,7 +714,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-...',
@@ -862,7 +772,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-...',
@@ -943,7 +852,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'OPENCODE_API_KEY',
@@ -1024,7 +932,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
         compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'OPENCODE_API_KEY',
@@ -1037,7 +944,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Servidor local OpenAI-compatible',
     icon: 'vllm',
     models: [],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     docsUrl: 'https://docs.vllm.ai',
@@ -1049,7 +955,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Escritorio local OpenAI-compatible',
     icon: 'lmstudio',
     models: [],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     docsUrl: 'https://lmstudio.ai/docs',
@@ -1064,7 +969,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
       { id: 'grok-4', name: 'Grok 4', reasoning: true, input: ['text'], contextWindow: 256000, maxTokens: 16384 },
       { id: 'grok-3', name: 'Grok 3', reasoning: true, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'xai-...',
@@ -1080,7 +984,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
       { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 32768 },
       { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', reasoning: true, input: ['text'], contextWindow: 131072, maxTokens: 16384 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'gsk_...',
@@ -1096,7 +999,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
       { id: 'mistral-large-latest', name: 'Mistral Large', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
       { id: 'codestral-latest', name: 'Codestral', reasoning: false, input: ['text'], contextWindow: 256000, maxTokens: 8192 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: '...',
@@ -1111,7 +1013,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     models: [
       { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', name: 'Llama 3.3 70B', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 16384 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: '...',
@@ -1126,7 +1027,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     models: [
       { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', name: 'Llama 3.1 70B Turbo', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: '...',
@@ -1142,7 +1042,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
       { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', reasoning: true, input: ['text', 'image'], contextWindow: 1048576, maxTokens: 65536 },
       { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true, input: ['text', 'image'], contextWindow: 1048576, maxTokens: 65536 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'AIza...',
@@ -1157,7 +1056,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
       { id: 'gpt-5', name: 'GPT-5', reasoning: true, input: ['text', 'image'], contextWindow: 400000, maxTokens: 16384 },
       { id: 'gpt-4.1', name: 'GPT-4.1', reasoning: false, input: ['text', 'image'], contextWindow: 1047576, maxTokens: 32768 },
     ],
-    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: '...',
@@ -1178,14 +1076,6 @@ export function getRecommendedModel(providerId: AIProviderType): ModelDefinition
 }
 
 /**
- * Get the recommended embedding model for a provider
- */
-export function getRecommendedEmbeddingModel(providerId: AIProviderType): EmbeddingModelDefinition | undefined {
-  const provider = PROVIDERS[providerId];
-  return provider?.embeddingModels?.find(m => m.recommended) || provider?.embeddingModels?.[0];
-}
-
-/**
  * Get all providers as an array (useful for UI rendering)
  */
 export function getProvidersArray(): ProviderDefinition[] {
@@ -1197,20 +1087,6 @@ export function getProvidersArray(): ProviderDefinition[] {
  */
 export function getModelsForProvider(providerId: AIProviderType): ModelDefinition[] {
   return PROVIDERS[providerId]?.models || [];
-}
-
-/**
- * Get embedding models for a specific provider
- */
-export function getEmbeddingModelsForProvider(providerId: AIProviderType): EmbeddingModelDefinition[] {
-  return PROVIDERS[providerId]?.embeddingModels || [];
-}
-
-/**
- * Check if a provider supports embeddings
- */
-export function providerSupportsEmbeddings(providerId: AIProviderType): boolean {
-  return PROVIDERS[providerId]?.supportsEmbeddings ?? false;
 }
 
 /**
@@ -1233,7 +1109,7 @@ export function providerSupportsTools(providerId: AIProviderType): boolean {
 export function getDefaultModelId(providerId: AIProviderType): string {
   const recommended = getRecommendedModel(providerId);
   if (recommended) return recommended.id;
-  
+
   // Fallback defaults
   switch (providerId) {
     case 'openai': return 'gpt-5.6-sol';
@@ -1263,23 +1139,6 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'azure-openai-responses': return 'gpt-5';
     default:
       return '';
-  }
-}
-
-/**
- * Get default embedding model ID for a provider
- */
-export function getDefaultEmbeddingModelId(providerId: AIProviderType): string {
-  const recommended = getRecommendedEmbeddingModel(providerId);
-  if (recommended) return recommended.id;
-  
-  // Fallback defaults
-  switch (providerId) {
-    case 'openai': return 'text-embedding-3-small';
-    case 'anthropic': return 'voyage-multimodal-3';
-    case 'google': return 'gemini-embedding-001';
-    case 'ollama': return 'mxbai-embed-large';
-    default: return '';
   }
 }
 
@@ -1332,7 +1191,7 @@ export function modelSupportsTools(model: ModelDefinition): boolean {
  */
 export function getModelApiType(model: ModelDefinition, providerId: AIProviderType): ModelApi {
   if (model.api) return model.api;
-  
+
   // Default API types by provider
   switch (providerId) {
     case 'openai':

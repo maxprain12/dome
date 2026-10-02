@@ -46,7 +46,7 @@ Dome incluye 6 agentes especializados preconfigurados:
 - **Cuándo el supervisor lo usa**: preguntas sobre hechos recientes, investigación de temas, noticias
 
 ### Library Agent
-- **Herramientas**: `resource_search`, `resource_get`, `resource_get_section`, `resource_list`, `resource_semantic_search`
+- **Herramientas**: `resource_search`, `resource_get`, `resource_get`, `resource_list`, `resource_search`
 - **Especialidad**: Búsqueda y análisis de documentos en la biblioteca personal de Dome
 - **Cuándo el supervisor lo usa**: preguntas sobre documentos propios, conexiones entre recursos
 
@@ -66,7 +66,7 @@ Dome incluye 6 agentes especializados preconfigurados:
 - **Cuándo el supervisor lo usa**: cuando hay que crear slides o materiales visuales
 
 ### Curator Agent
-- **Herramientas**: `get_related_resources`, `resource_semantic_search`, `resource_list`, `flashcard_create`, `resource_create`
+- **Herramientas**: `resource_search`, `resource_list`, `flashcard_create`, `resource_create`
 - **Especialidad**: Organización del conocimiento, conexiones entre materiales, generación de flashcards
 - **Cuándo el supervisor lo usa**: revisión y organización de la biblioteca
 

@@ -238,7 +238,7 @@ function readNoteMarkdownForAgent(resource, deps) {
 
 function writeNoteMarkdownFromAgent(
   { id, markdown, title, metadata },
-  { database, fileStorage, semanticIndexScheduler },
+  { database, fileStorage, textIndexScheduler },
 ) {
   const queries = database.getQueries();
   const existing = queries.getResourceById.get(id);
@@ -257,10 +257,10 @@ function writeNoteMarkdownFromAgent(
 
   queries.updateResource.run(resolvedTitle, body, resolvedMetadata, now, id);
 
-  if (semanticIndexScheduler) {
-    semanticIndexScheduler.init(database);
-    if (semanticIndexScheduler.shouldIndex?.(existing)) {
-      semanticIndexScheduler.scheduleSemanticReindex(id);
+  if (textIndexScheduler) {
+    textIndexScheduler.init(database);
+    if (textIndexScheduler.shouldIndex?.(existing)) {
+      textIndexScheduler.scheduleTextIndex(id);
     }
   }
 

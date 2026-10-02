@@ -180,7 +180,6 @@ const ResourceSearchBodySchema = z.object({
   projectId: z.string().min(1).max(120).optional(),
   type: z.string().min(1).max(80).optional(),
   limit: z.number().int().min(1).max(30).optional(),
-  semanticMinScore: z.number().min(0).max(1).optional(),
 }).strict();
 
 const ResourceHydrateBodySchema = z.object({

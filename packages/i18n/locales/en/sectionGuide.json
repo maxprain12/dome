@@ -155,15 +155,6 @@
     "task2": "Record your audio",
     "task3": "Keep the useful parts"
   },
-  "graph": {
-    "title": "Explore connections",
-    "step1": "Add sources to your library first.",
-    "step2": "Open a node to explore its related resources.",
-    "step3": "Use connections to revisit the source behind an idea.",
-    "task1": "Build your library",
-    "task2": "Explore a connection",
-    "task3": "Return to the source"
-  },
   "settings": {
     "title": "Make Dome yours",
     "step1": "Manage your account and access here.",

@@ -51,13 +51,13 @@ One app. Pick an edition in onboarding (or Settings → Features). See [docs/pro
 
 | | |
 |---|---|
-| **Documents** | Projects, Notion-style editor, PDF/PPT/video viewers, URL and YouTube ingest, hybrid semantic search, **Ready for AI** |
+| **Documents** | Projects, Notion-style editor, PDF/PPT/video viewers, URL and YouTube ingest, SQLite full-text search and text extraction |
 | **People** | Contacts and leads with identities from email, social, and GitHub |
 | **Many** | Dome-native agent runtime grounded in the open resource *and* the open person; MCP tools. **Remote Many** lets the iOS Companion drive that same Desktop Many through an encrypted Provider relay — Desktop never opens a port; Provider never runs agents. See [docs/architecture/remote-many.md](docs/architecture/remote-many.md). |
 | **Channels** | Email (IMAP) and Social (LinkedIn / Instagram / X) attached to People — not separate products |
 | **Study edition** | Flashcards (FSRS), quizzes, Studio outputs from the library |
 | **Dev edition** | GitHub tracking plus agents / workflows when you turn them on |
-| **Local-first** | SQLite + LanceDB on disk; Ollama or your own cloud keys; Google Drive import with tokens stored locally |
+| **Local-first** | SQLite on disk; Ollama or your own cloud keys; Google Drive import with tokens stored locally |
 
 ---
 
@@ -84,10 +84,10 @@ Ecosystem index (ES): [MASTER.md](MASTER.md).
 | Desktop | [Electron 41](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) (Base UI). Setup: [`.claude/sops/shadcn-ui.md`](.claude/sops/shadcn-ui.md) |
-| AI Agent | `@dome/agent-core` (Dome-native harness) + [LangChain](https://js.langchain.com/) (LLM/embeddings) |
+| AI Agent | `@dome/agent-core` (Dome-native harness) |
 | MCP | [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) (cliente nativo) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| Semantic index | LangChain embeddings + LanceDB + hybrid search; see `docs/features/indexing.md` |
+| Resource search | SQLite FTS5, PDF text extraction and OCR; see `docs/features/indexing.md` |
 | State | [Zustand](https://github.com/pmndrs/zustand) |
 | Editor | [Tiptap](https://tiptap.dev/) + Dome Editor (MIT) |
 | Graphs | [D3.js](https://d3js.org/) |

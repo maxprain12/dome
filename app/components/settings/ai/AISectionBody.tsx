@@ -1,5 +1,4 @@
 import type { Ref } from 'react';
-import AIEmbeddingsTab from './AIEmbeddingsTab';
 import AIWebSearchTab from './AIWebSearchTab';
 import AgentContextSettingsTab from './AgentContextSettingsTab';
 import AIProviderList from './AIProviderList';
@@ -51,7 +50,7 @@ export interface AISectionBodyProps {
   onTest: () => void;
 }
 
-/** Tab body for Settings → AI (chat / embeddings / transcription / tools / context). */
+/** Tab body for Settings → AI (chat / transcription / tools / context). */
 export default function AISectionBody({
   activeTab,
   provider,
@@ -155,7 +154,6 @@ export default function AISectionBody({
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      {activeTab === 'embeddings' ? <AIEmbeddingsTab /> : null}
 
       {activeTab === 'transcription' ? (
         <>

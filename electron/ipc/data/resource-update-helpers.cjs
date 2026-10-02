@@ -142,15 +142,15 @@ function broadcastResourceUpdatedAndReindex({
   mergedResource,
   current,
   windowManager,
-  maybeScheduleKbReindex,
-  semanticIndexScheduler,
+  scheduleResourceTextIndex,
+  textIndexScheduler,
 }) {
   windowManager.broadcast('resource:updated', {
     id: resourceId,
     updates: mergedResource,
   });
-  maybeScheduleKbReindex(resourceId, mergedResource, current);
-  semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+  scheduleResourceTextIndex(resourceId, mergedResource, current);
+  textIndexScheduler.scheduleTextIndex(resourceId);
 }
 
 function persistMergedResourceUpdate(queries, resource, current, mergeOpts) {
@@ -173,8 +173,8 @@ function executeResourcesUpdate(resource, deps) {
     database,
     fileStorage,
     windowManager,
-    maybeScheduleKbReindex,
-    semanticIndexScheduler,
+    scheduleResourceTextIndex,
+    textIndexScheduler,
     vaultStore,
   } = deps;
   const queries = database.getQueries();
@@ -201,8 +201,8 @@ function executeResourcesUpdate(resource, deps) {
     mergedResource,
     current,
     windowManager,
-    maybeScheduleKbReindex,
-    semanticIndexScheduler,
+    scheduleResourceTextIndex,
+    textIndexScheduler,
   });
 
   return { success: true, data: mergedResource };
@@ -215,8 +215,8 @@ function attemptResourceUpdateAfterRepair(resource, deps, mergeOpts) {
   const {
     database,
     windowManager,
-    maybeScheduleKbReindex,
-    semanticIndexScheduler,
+    scheduleResourceTextIndex,
+    textIndexScheduler,
   } = deps;
   const queries = database.getQueries();
   const current = queries.getResourceById.get(resource.id);
@@ -234,8 +234,8 @@ function attemptResourceUpdateAfterRepair(resource, deps, mergeOpts) {
     mergedResource,
     current,
     windowManager,
-    maybeScheduleKbReindex,
-    semanticIndexScheduler,
+    scheduleResourceTextIndex,
+    textIndexScheduler,
   });
 
   return { success: true, data: mergedResource };

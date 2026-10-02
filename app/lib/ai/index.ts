@@ -1,6 +1,6 @@
 /**
  * AI Module Index
- * 
+ *
  * Main entry point for the AI system.
  * Re-exports all public APIs.
  */
@@ -19,14 +19,14 @@ export type {
   ModelDefinitionConfig,
   ModelProviderConfig,
   ModelsConfig,
-  
+
   // Authentication
   AuthProfile,
-  
+
   // Discovery
   BedrockDiscoveryConfig,
   OllamaDiscoveryConfig,
-  
+
   // Messages
   MessageRole,
   MessageContent,
@@ -35,15 +35,13 @@ export type {
   ToolCallContent,
   ToolResultContent,
   ChatMessage,
-  
+
   // Chat
   ChatOptions,
   ChatResponse,
   ChatStreamChunk,
-  EmbeddingOptions,
-  EmbeddingResponse,
   ToolDefinition,
-  
+
   // Provider Interface
   AIProviderInterface,
   ProviderType,
@@ -58,7 +56,6 @@ export { ZERO_COST } from './types';
 
 export type {
   ModelDefinition,
-  EmbeddingModelDefinition,
   ProviderDefinition,
   AIProviderType,
 } from './models';
@@ -66,26 +63,20 @@ export type {
 export {
   // Model arrays
   OPENAI_MODELS,
-  OPENAI_EMBEDDING_MODELS,
   ANTHROPIC_MODELS,
   GOOGLE_MODELS,
-  GOOGLE_EMBEDDING_MODELS,
-  
+
   // Provider definitions
   PROVIDERS,
   FREE_COST,
-  
+
   // Helper functions
   getRecommendedModel,
-  getRecommendedEmbeddingModel,
   getProvidersArray,
   getModelsForProvider,
-  getEmbeddingModelsForProvider,
-  providerSupportsEmbeddings,
   providerSupportsStreaming,
   providerSupportsTools,
   getDefaultModelId,
-  getDefaultEmbeddingModelId,
   formatContextWindow,
   findModelById,
   modelSupportsVision,
@@ -109,7 +100,7 @@ export {
   getCopilotReasoningModels,
   getCopilotVisionModels,
   getDefaultCopilotModelIds,
-  
+
   // Aggregate
   getAllCatalogModels,
   getAllFreeModels,
@@ -125,17 +116,13 @@ export {
   // Tool creation
   createWebSearchTool,
   createWebFetchTool,
-  createMemorySearchTool,
-  createMemoryGetTool,
-  createMemorySearchStub,
-  createMemoryGetStub,
   createDefaultTools,
   createAllMartinTools,
   createCustomAgentTools,
   createManyToolsForContext,
   createToolsForAgent,
   createToolRegistry,
-  
+
   // Schema helpers
   stringEnum,
   optionalStringEnum,
@@ -148,7 +135,7 @@ export {
   toOpenAISchema,
   toAnthropicSchema,
   toGeminiSchema,
-  
+
   // Common utilities
   readStringParam,
   readNumberParam,
@@ -157,7 +144,7 @@ export {
   textResult,
   errorResult,
   successResult,
-  
+
   // Adapter functions
   normalizeToolName,
   toOpenAIToolDefinitions,
@@ -180,19 +167,15 @@ export type {
   ToolRegistry,
   ToolPolicy,
   ToolExecutionContext,
-  
+
   // API-specific definitions
   OpenAIToolDefinition,
   AnthropicToolDefinition,
   GeminiToolDefinition,
-  
+
   // Config types
   WebSearchConfig,
   WebFetchConfig,
-  MemorySearchConfig,
-  MemorySearchResult,
-  MemoryGetConfig,
-  MemoryDocument,
   DefaultToolsConfig,
   ToolRegistryInstance,
 } from './tools';

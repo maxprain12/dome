@@ -19,8 +19,6 @@
     "get_library_overview",
     "resource_get_library_overview",
     "get_current_project",
-    "resource_hybrid_search",
-    "resource_semantic_search",
     "resource_search",
     "resource_create"
   ],

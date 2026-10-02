@@ -88,7 +88,7 @@ const people = {
 const scheduler = {
   init() {},
   shouldIndex: () => true,
-  scheduleSemanticReindex() {},
+  scheduleTextIndex() {},
 };
 
 let currentDb;
@@ -113,7 +113,7 @@ function service() {
     windowManager: { broadcast() {} },
     vaultStore: vault,
     peopleStore: people,
-    semanticIndexScheduler: scheduler,
+    textIndexScheduler: scheduler,
   });
 }
 
@@ -144,7 +144,7 @@ describe('browser extension capture service', () => {
         readNoteMarkdown: ({ id }) => ({ success: true, markdown: db.resources.get(id).content }),
       },
       peopleStore: people,
-      semanticIndexScheduler: scheduler,
+      textIndexScheduler: scheduler,
     });
     const created = capture.createNote({ projectId: 'default', title: 'New note', markdown: 'Draft' });
     assert.equal(created.updatedAt, db.resources.get(created.id).updated_at);

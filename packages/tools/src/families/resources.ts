@@ -20,9 +20,6 @@ export const RESOURCE_TOOL_NAMES = [
   'resource_search',
   'resource_get',
   'resource_list',
-  'resource_hybrid_search',
-  'resource_semantic_search',
-  'resource_get_section',
   'resource_create',
   'resource_update',
   'resource_delete',
@@ -78,20 +75,6 @@ export function resourceToolDefinitions(): ToolDefinition[] {
             max_content_length: num('Cap the returned content length (chars).'),
           },
           ['resource_id'],
-        ),
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'resource_semantic_search',
-        description: 'Semantic (embedding) search over resource chunks.',
-        parameters: obj(
-          {
-            query: str('Natural-language query for semantic retrieval.'),
-            limit: num('Maximum number of chunks (1-50). Default 10.', { minimum: 1, maximum: 50 }),
-          },
-          ['query'],
         ),
       },
     },

@@ -1,7 +1,7 @@
 /**
  * Central settings API for Dome
  * All settings are stored in the `settings` table as key-value pairs
- * 
+ *
  * NOTE: This file now uses the database client which communicates via IPC
  */
 
@@ -250,7 +250,6 @@ export async function getAIConfig(): Promise<AISettings> {
     : { data: null };
   const apiKeyResult = perProviderKeyResult.data ? perProviderKeyResult : await db.getSetting('ai_api_key');
   const modelResult = await db.getSetting('ai_model');
-  const embeddingModelResult = await db.getSetting('ai_embedding_model');
   const perProviderBaseResult = activeProviderRaw
     ? await db.getSetting(`ai_base_url_${activeProviderRaw}`)
     : { data: null };
@@ -258,15 +257,10 @@ export async function getAIConfig(): Promise<AISettings> {
   const ollamaBaseUrlResult = await db.getSetting('ollama_base_url');
   const ollamaModelResult = await db.getSetting('ollama_model');
   const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
-  const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
   const ollamaTemperatureResult = await db.getSetting('ollama_temperature');
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
   const ollamaNumPredictResult = await db.getSetting('ollama_num_predict');
   const ollamaShowThinkingResult = await db.getSetting('ollama_show_thinking');
-  const embeddingsProviderResult = await db.getSetting('embeddings_provider');
-  const embeddingsApiKeyResult = await db.getSetting('embeddings_api_key');
-  const embeddingsModelResult = await db.getSetting('embeddings_model');
-  const embeddingsBaseUrlResult = await db.getSetting('embeddings_base_url');
   const webSearchProviderResult = await db.getSetting('web_search_provider');
   const webSearchTavilyKeyResult = await db.getSetting('web_search_tavily_key');
   const webSearchBraveKeyResult = await db.getSetting('web_search_brave_key');
@@ -282,7 +276,6 @@ export async function getAIConfig(): Promise<AISettings> {
     provider: provider || 'openai',
     api_key: apiKeyResult.data || undefined,
     model: modelResult.data || undefined,
-    embedding_model: embeddingModelResult.data || undefined,
     base_url: pickProviderBaseUrl(
       String(provider || ''),
       perProviderBaseResult.data,
@@ -291,15 +284,10 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_base_url: ollamaBaseUrlResult.data || undefined,
     ollama_model: ollamaModelResult.data || undefined,
     ollama_api_key: ollamaApiKeyResult.data || undefined,
-    ollama_embedding_model: ollamaEmbeddingModelResult.data || undefined,
     ollama_temperature: ollamaTemperatureResult.data ? parseFloat(ollamaTemperatureResult.data) : undefined,
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
     ollama_show_thinking: ollamaShowThinkingResult.data !== 'false',
-    embeddings_provider: (embeddingsProviderResult.data as AISettings['embeddings_provider']) || undefined,
-    embeddings_api_key: embeddingsApiKeyResult.data || undefined,
-    embeddings_model: embeddingsModelResult.data || undefined,
-    embeddings_base_url: embeddingsBaseUrlResult.data || undefined,
     web_search_provider: (webSearchProviderResult.data as AISettings['web_search_provider']) || undefined,
     web_search_tavily_key: webSearchTavilyKeyResult.data || undefined,
     web_search_brave_key: webSearchBraveKeyResult.data || undefined,
@@ -329,7 +317,6 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   }
 
   await writeStringSetting('ai_model', config.model);
-  await writeStringSetting('ai_embedding_model', config.embedding_model);
 
   if (config.base_url !== undefined) {
     await writeProviderScopedSetting('base_url', config.provider, config.base_url);
@@ -338,16 +325,11 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   await writeStringSetting('ollama_base_url', config.ollama_base_url);
   await writeStringSetting('ollama_model', config.ollama_model);
   await writeStringSetting('ollama_api_key', config.ollama_api_key);
-  await writeStringSetting('ollama_embedding_model', config.ollama_embedding_model);
   await writeNumberSetting('ollama_temperature', config.ollama_temperature);
   await writeNumberSetting('ollama_top_p', config.ollama_top_p);
   await writeNumberSetting('ollama_num_predict', config.ollama_num_predict);
   await writeBoolSetting('ollama_show_thinking', config.ollama_show_thinking);
 
-  await writeStringSetting('embeddings_provider', config.embeddings_provider);
-  await writeStringSetting('embeddings_api_key', config.embeddings_api_key);
-  await writeStringSetting('embeddings_model', config.embeddings_model);
-  await writeStringSetting('embeddings_base_url', config.embeddings_base_url);
   await writeStringSetting('web_search_provider', config.web_search_provider);
   await writeStringSetting('web_search_tavily_key', config.web_search_tavily_key);
   await writeStringSetting('web_search_brave_key', config.web_search_brave_key);

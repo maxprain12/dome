@@ -1,28 +1,4 @@
-import { blob, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-
-export const resourceChunks = sqliteTable('resource_chunks', {
-  id: text('id').primaryKey(),
-  resourceId: text('resource_id').notNull(),
-  chunkIndex: integer('chunk_index').notNull(),
-  text: text('text').notNull(),
-  embedding: blob('embedding').notNull(),
-  modelVersion: text('model_version').notNull(),
-  charStart: integer('char_start'),
-  charEnd: integer('char_end'),
-  pageNumber: integer('page_number'),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-export const semanticRelations = sqliteTable('semantic_relations', {
-  id: text('id').primaryKey(),
-  sourceId: text('source_id').notNull(),
-  targetId: text('target_id').notNull(),
-  similarity: integer('similarity').notNull(),
-  relationType: text('relation_type').notNull(),
-  label: text('label'),
-  detectedAt: integer('detected_at').notNull(),
-  confirmedAt: integer('confirmed_at'),
-});
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const resourceTranscripts = sqliteTable('resource_transcripts', {
   id: text('id').primaryKey(),

@@ -4,7 +4,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Layers01Icon } from '@hugeicons/core-free-icons';
 import SubpageHeader from '@/components/shared/SubpageHeader';
 import ListState from '@/components/shared/ListState';
-import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -163,7 +162,6 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
     <SubpageHeader className="flex-wrap [&>div:first-child]:basis-48 [&>div:last-child]:max-w-full [&>div:last-child]:flex-wrap">
       <SubpageHeader.Title><span className="flex items-center gap-2"><HugeiconsIcon icon={Layers01Icon} className="size-4 text-primary" />{artifact.title}</span></SubpageHeader.Title>
       <SubpageHeader.Trailing>
-        <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
         <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => openMiniappDraft(t('artifacts.miniapp_customize_prompt', { title: artifact.title }), { id: resourceId, title: artifact.title })}>{t('artifacts.miniapp_customize')}</Button>
         {tab === 'preview' && !isDocument && <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => void savePreview()} title={t('artifacts.save_state_title')}>{t('artifacts.save_state')}</Button>}
         {artifact.linkedResourceId && <Button size="sm" variant="outline" disabled={saving} onClick={() => void operate(() => window.electron.artifacts.refreshLinked(resourceId))}>{t('artifacts.refresh_linked')}</Button>}

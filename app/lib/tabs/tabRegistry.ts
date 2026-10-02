@@ -28,7 +28,6 @@ export type TabType =
   | 'learn'
   | 'transcriptions'
   | 'transcription-detail'
-  | 'semantic-graph'
   | 'artifact'
   | 'plugin';
 
@@ -70,7 +69,6 @@ const TAB_CONFIGS: TabConfig[] = [
   { type: 'learn', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'transcriptions', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'transcription-detail', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: true },
-  { type: 'semantic-graph', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: false },
   { type: 'artifact', projectScoped: true, sidebarNav: false, resourceSource: true, needsResourceId: true },
   { type: 'plugin', projectScoped: false, sidebarNav: false, resourceSource: false, needsResourceId: false },
 ];

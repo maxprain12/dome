@@ -6,7 +6,7 @@
  */
 const { z } = require('zod');
 const vaultStore = require('../../storage/vault-store.cjs');
-const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const textIndexScheduler = require('../../storage/text-index-scheduler.cjs');
 
 const WriteMirrorSchema = z.object({
   id: z.string().min(1),
@@ -37,8 +37,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     }
     const result = vaultStore.writeNoteMarkdown(parsed.data, { database, fileStorage });
     if (result.success) {
-      semanticIndexScheduler.init(database);
-      semanticIndexScheduler.scheduleSemanticReindex(parsed.data.id);
+      textIndexScheduler.init(database);
+      textIndexScheduler.scheduleTextIndex(parsed.data.id);
       windowManager.broadcast('resource:updated', {
         id: parsed.data.id,
         updates: { content: parsed.data.markdown, vault_path: result.vaultPath },
