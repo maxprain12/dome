@@ -174,8 +174,6 @@ test.beforeEach(async () => {
           input: ['text', 'image'],
         },
       };
-      if (url.endsWith('/research/poll')) return ok({ requests: [] });
-      if (url.endsWith('/research/result')) return ok({ accepted: true });
       if (url.endsWith('/context')) {
         return ok({
           projectId: 'default',
@@ -1292,18 +1290,13 @@ test('recuerda aceptar siempre en el sitio y permite revocarlo', async () => {
 });
 
 
-test('habilita y revoca la lectura de investigación de la pestaña elegida', async () => {
+test('retira el control de investigación y no llama a sus rutas', async () => {
   await page.getByRole('tab', { name: 'Contexto', exact: true }).click();
-  const enable = page.getByRole('button', { name: 'Habilitar investigación en esta pestaña', exact: true });
-  await expect(enable).toBeVisible();
-  expect((await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll'))).toBe(false);
-  await enable.click();
-  const stop = page.getByRole('button', { name: 'Detener acceso de investigación', exact: true });
-  await expect(stop).toBeVisible();
-  await expect.poll(async () => (await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll') && request.body.enabled === true && request.body.url === fixtureUrl)).toBe(true);
-  await stop.click();
-  await expect(enable).toBeVisible();
-  await expect.poll(async () => (await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll') && request.body.enabled === false)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Habilitar investigación en esta pestaña', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Detener acceso de investigación', exact: true })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
+  await page.getByRole('tab', { name: 'Contexto', exact: true }).click();
+  expect((await recordedRequests()).filter((request) => String(request.url).includes('/research/'))).toEqual([]);
 });
 
 test('solo crea un plan tras elegir Plan y Ejecutar envía modo Agent', async () => {

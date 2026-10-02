@@ -131,3 +131,10 @@ Se instala el lockfile sin scripts para habilitar validación en este worktree.
   research_capabilities. Paridad de prompts 10/10 y paquete prompts 5/5.
   Pruebas de retirada/main/modos/dispatchers 40/40. Descubrimiento del contexto
   de Ollama lee metadatos del servidor sin importar un servicio de embeddings.
+
+- PR final: [1733](https://github.com/maxprain12/dome/pull/1733). CI superó
+  TypeScript, UI, contratos, seguridad, Sonar, build, Electron y arquitectura.
+  Falló un E2E que esperaba el antiguo botón de investigación; se sustituyó por
+  la comprobación de su ausencia y de que no se llaman las rutas retiradas.
+  Se eliminaron también sus respuestas simuladas del fixture del navegador.
+- La nueva prueba E2E de retirada pasa localmente en Chromium (perfil temporal).
