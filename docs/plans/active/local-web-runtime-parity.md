@@ -71,3 +71,5 @@ Merged phases: #1734 (browser/search), #1735 (actions/options). The third PR con
 Mac arm64 unsigned application packaging passed, including native executable checks and full ASAR dependency resolution. The packaged app starts with an isolated profile and its AI catalog IPC returns all mixed model types. SDK attribution is included in materialized workspace packages. Signed installer/notarization and Windows/Linux installer checks remain separate platform acceptance requirements.
 
 Background screenshots and recording frames use CDP renderer captures, avoiding native window capture for unattached sessions. The Electron and installed Chromium fixtures verify PNG viewport dimensions, with native GIF/MP4 recording also passing. CI smoke logs separate navigation, input, files, frame actions, tabs and captures for platform diagnosis.
+
+Native background views share the existing main window compositor while remaining entirely outside its visible bounds; no additional product windows are created. The browser fixture supplies a hidden shell host, and deterministic tests cover background/visible transitions and parent cleanup on close.

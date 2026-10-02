@@ -106,6 +106,7 @@ async function act(browser, item, name, args, context) {
   if (name === 'browser_switch_tab') item.activeTabId = args.tabId;
   if (name === 'browser_close_tab') {
     if (item.tabs.size === 1) throw new Error('Cannot close the last controlled tab');
+    browser.unhost(tab);
     contents.close(); item.tabs.delete(tab.id); item.activeTabId = item.tabs.keys().next().value;
   }
   if (name === 'browser_tabs') return { tabs: [...item.tabs.values()].map((entry) => ({ id: entry.id, url: entry.view.webContents.getURL(), title: entry.view.webContents.getTitle() })), activeTabId: item.activeTabId };

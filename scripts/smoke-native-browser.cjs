@@ -1,6 +1,6 @@
 'use strict';
 // Uses an isolated Electron profile and a loopback fixture, never the user's app DB.
-const { app } = require('electron');
+const { app, BaseWindow } = require('electron');
 const http = require('node:http');
 const assert = require('node:assert/strict');
 const os = require('node:os');
@@ -12,13 +12,15 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dome-browser-smoke-'));
 app.setPath('userData', profile);
 const frameServer = http.createServer((_req, response) => response.end('<html><body><input aria-label="Frame Query"><input type="file" aria-label="Frame Upload"><p>Frame fixture</p></body></html>'));
 const server = http.createServer((_req, response) => response.end(`<html><title>Native fixture</title><body><main><h1>Native fixture</h1><p>Observed source</p><input aria-label="Query"><input type="file" aria-label="Upload"><button>Continue</button><iframe src="http://127.0.0.1:${frameServer.address().port}"></iframe></main></body></html>`));
-const service = new NativeBrowserService({ validateUrl: async (url) => {
+let hostWindow;
+const service = new NativeBrowserService({ getHostWindow: () => hostWindow, validateUrl: async (url) => {
   assert.equal(new URL(url).hostname, '127.0.0.1');
   return url;
 } });
 async function run() {
   process.stdout.write('smoke: waiting for Electron\n');
   await app.whenReady();
+  hostWindow = new BaseWindow({ show: false, width: 1280, height: 720 });
   process.stdout.write('smoke: Electron ready\n');
   await new Promise((resolve) => frameServer.listen(0, '127.0.0.1', resolve));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -44,6 +46,7 @@ async function run() {
     process.stdout.write('smoke: stale snapshot rejected\n');
     const { command, sendKeys } = require('../electron/browser-native/cdp.cjs');
     const contents = service.tab(item).view.webContents;
+    if (item.options.backend !== 'chromium') assert.ok(service.tab(item).view.getBounds().x < 0, 'Background tabs must stay outside the shell');
     const { result } = await command(contents, 'Runtime.evaluate', { expression: 'document.querySelector("input")' });
     const { nodeId } = await command(contents, 'DOM.requestNode', { objectId: result.objectId });
     process.stdout.write('smoke: keyboard node ready\n');

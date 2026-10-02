@@ -11,6 +11,7 @@ const BoundsSchema = IdSchema.extend({ bounds: z.object({
 const RecoverySchema = z.object({ recoveryId: z.string().uuid() }).strict();
 
 function register({ ipcMain, windowManager }) {
+  browser.getHostWindow = () => windowManager.get('main');
   const handler = (schema, fn) => async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try { return await fn(schema.parse(raw), event); }

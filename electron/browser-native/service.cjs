@@ -10,9 +10,10 @@ const { bounded: wait } = require('./async.cjs');
 
 const WORLD = 1011;
 class NativeBrowserService {
-  constructor({ electron = () => require('electron'), validateUrl = assertPublicUrl } = {}) {
+  constructor({ electron = () => require('electron'), validateUrl = assertPublicUrl, getHostWindow = () => undefined } = {}) {
     this.electron = electron;
     this.validateUrl = validateUrl;
+    this.getHostWindow = getHostWindow;
     this.slots = new Slots(2);
     this.sessions = new Map();
     this.pending = new Map();
@@ -89,10 +90,13 @@ class NativeBrowserService {
 
   async newTab(item) {
     const view = await item.makeView();
-    await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
     const id = randomUUID();
+    const tab = { id, view, initializedUrl: null, hostWindow: null };
+    item.tabs.set(id, tab);
     view.setBounds({ x: 0, y: 0, ...item.options.viewport });
+    this.park(item, tab);
     if (item.options.userAgent) view.webContents.setUserAgent(item.options.userAgent);
+    await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
     view.webContents.setWindowOpenHandler(({ url }) => {
       // Keep popups inside the controlled session; never grant app IPC to them.
       void this.run(item.id, undefined, async (session) => {
@@ -101,8 +105,6 @@ class NativeBrowserService {
       }).catch(() => {});
       return { action: 'deny' };
     });
-    const tab = { id, view, initializedUrl: null };
-    item.tabs.set(id, tab);
     await item.recording?.attach?.(view.webContents);
     item.activeTabId = id;
     return tab;
@@ -246,16 +248,40 @@ class NativeBrowserService {
     if (!item) throw new Error('Browser session no longer exists');
     if (item.options.backend === 'chromium') throw new Error('The advanced Chromium backend uses its own local browser; choose headless=false to interact');
     this.detach(owner);
-    const view = this.tab(item).view;
+    const tab = this.tab(item);
+    this.unhost(tab);
+    const view = tab.view;
     window.contentView.addChildView(view);
+    tab.hostWindow = window;
     view.setBounds(bounds);
     item.visible = { window, view };
   }
 
   detach(owner) {
     const item = this.sessions.get(owner);
-    if (item?.visible && !item.visible.window.isDestroyed()) item.visible.window.contentView.removeChildView(item.visible.view);
+    if (item?.visible) {
+      const tab = [...item.tabs.values()].find(entry => entry.view === item.visible.view);
+      if (tab) { this.unhost(tab); this.park(item, tab); }
+    }
     if (item) item.visible = null;
+  }
+
+  park(item, tab) {
+    if (item.options.backend === 'chromium') return;
+    const window = this.getHostWindow();
+    if (!window || window.isDestroyed()) return;
+    this.unhost(tab);
+    // A window-backed compositor is required on Linux. Keep background tabs
+    // outside the shell's visible area, using its existing window only.
+    const { width, height } = item.options.viewport;
+    tab.view.setBounds({ x: -width - 1, y: -height - 1, width, height });
+    window.contentView.addChildView(tab.view);
+    tab.hostWindow = window;
+  }
+
+  unhost(tab) {
+    if (tab.hostWindow && !tab.hostWindow.isDestroyed()) tab.hostWindow.contentView.removeChildView(tab.view);
+    tab.hostWindow = null;
   }
 
   close(owner) {
@@ -264,7 +290,9 @@ class NativeBrowserService {
     this.detach(owner);
     if (item.recording) { item.recording.stopped = true; clearTimeout(item.recording.timer); }
     this.sessions.delete(owner);
-    const closed = [...item.tabs.values()].map(({ view }) => {
+    const closed = [...item.tabs.values()].map(tab => {
+      this.unhost(tab);
+      const { view } = tab;
       const contents = view.webContents;
       if (contents.isDestroyed()) return Promise.resolve();
       if (!contents.once) { contents.close(); return Promise.resolve(); }

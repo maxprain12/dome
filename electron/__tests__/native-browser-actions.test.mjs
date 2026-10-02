@@ -57,6 +57,29 @@ test('background screenshots use CDP without a native window capture', async () 
   assert.equal(image.toPNG().toString(), 'png fixture');
   assert.match(image.toDataURL(), /^data:image\/png;base64,/);
 });
+test('background tabs reuse the shell window and release their parent on close', async () => {
+  const { NativeBrowserService } = require('../browser-native/service.cjs');
+  const children = new Set(); let bounds; let released = 0; let closed = false;
+  const window = { isDestroyed: () => false, contentView: {
+    addChildView: view => children.add(view), removeChildView: view => children.delete(view),
+  } };
+  const browser = new NativeBrowserService({ getHostWindow: () => window });
+  const view = { setBounds: value => { bounds = value; }, webContents: {
+    isDestroyed: () => closed, close: () => { closed = true; },
+  } };
+  const tab = { id: 'tab', view };
+  const item = { id: 'run', options: { viewport: { width: 640, height: 480 } },
+    tabs: new Map([['tab', tab]]), activeTabId: 'tab', release: () => { released++; } };
+  browser.sessions.set(item.id, item);
+  browser.park(item, tab);
+  assert.ok(bounds.x + bounds.width < 0 && bounds.y + bounds.height < 0);
+  browser.attach(item.id, window, { x: 10, y: 20, width: 640, height: 480 });
+  assert.equal(children.size, 1); assert.equal(bounds.x, 10);
+  browser.detach(item.id);
+  assert.equal(children.size, 1); assert.ok(bounds.x < 0);
+  await browser.close(item.id);
+  assert.equal(children.size, 0); assert.equal(released, 1); assert.equal(closed, true);
+});
 test('history budget preserves whole turns and tool pairs', () => {
   const messages = [{role:'system'}, {role:'user'}, {role:'assistant'}, {role:'user'}, {role:'assistant',content:'call'}, {role:'toolResult'}];
   assert.deepEqual(trimHistory(messages, 3), [messages[0], ...messages.slice(3)]);
