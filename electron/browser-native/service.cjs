@@ -193,7 +193,7 @@ class NativeBrowserService {
       const { window, view } = item.visible;
       this.attach(item.id, window, view.getBounds());
     }
-    if (includeScreenshot && !item.hasSecrets) data.screenshot = (await bounded(tab.view.webContents.capturePage(), signal)).toDataURL();
+    if (includeScreenshot && !item.hasSecrets) data.screenshot = (await require('./capture.cjs').capture(tab.view.webContents, signal)).toDataURL();
     if (item.secrets?.size) {
       let serialized = JSON.stringify(data);
       for (const secret of item.secrets) serialized = serialized.split(JSON.stringify(secret).slice(1, -1)).join('[redacted]');

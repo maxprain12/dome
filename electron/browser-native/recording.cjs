@@ -22,7 +22,7 @@ async function startRecording(browser, item, directory) {
         recording.contents.add(contents);
       }
       if (item.options.record !== 'off' && !item.hasSecrets) {
-        const image = await bounded(contents.capturePage(), undefined, 5000);
+        const image = await bounded(require('./capture.cjs').capture(contents), undefined, 5000);
         const bytes = image.toPNG();
         recording.bytes += bytes.length;
         await fs.writeFile(path.join(directory, `${String(recording.frames).padStart(6, '0')}.png`), bytes);

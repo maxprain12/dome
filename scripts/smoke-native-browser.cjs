@@ -77,8 +77,12 @@ async function run() {
     await service.navigate(item, url, undefined, other.id);
     assert.equal(item.tabs.size, 2);
     item.activeTabId = snapshot.tabId;
+    process.stdout.write('smoke: second tab ready\n');
     const image = await service.snapshot(item, undefined, undefined, true);
     assert.match(image.screenshot, /^data:image\/png;base64,/);
+    const png = Buffer.from(image.screenshot.split(',')[1], 'base64');
+    assert.ok(png.readUInt32BE(16) >= item.options.viewport.width);
+    assert.ok(png.readUInt32BE(20) >= item.options.viewport.height);
     process.stdout.write('smoke: tabs and capture ready\n');
   }, { ...(process.env.DOME_SMOKE_CHROMIUM ? { backend: 'chromium', executablePath: process.env.DOME_SMOKE_CHROMIUM } : {}), crossOriginFrames: true, recordHar: true, traces: true, record: process.env.DOME_SMOKE_FORMAT || 'gif', outputDirectory: path.join(profile, 'recording') });
   const recordings = await service.finish('fixture');

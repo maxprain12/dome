@@ -44,6 +44,19 @@ test('keyboard dispatch uses CDP, never foreground input', async () => {
   assert.equal(keys[1].args.type, 'keyUp');
   assert.ok(calls.some(call => call.method === 'Emulation.setFocusEmulationEnabled'));
 });
+test('background screenshots use CDP without a native window capture', async () => {
+  const { capture } = require('../browser-native/capture.cjs');
+  const contents = {
+    capturePage: () => { throw new Error('Native view is not attached'); },
+    debugger: { isAttached: () => true, sendCommand: async name => {
+      assert.equal(name, 'Page.captureScreenshot');
+      return { data: Buffer.from('png fixture').toString('base64') };
+    } },
+  };
+  const image = await capture(contents);
+  assert.equal(image.toPNG().toString(), 'png fixture');
+  assert.match(image.toDataURL(), /^data:image\/png;base64,/);
+});
 test('history budget preserves whole turns and tool pairs', () => {
   const messages = [{role:'system'}, {role:'user'}, {role:'assistant'}, {role:'user'}, {role:'assistant',content:'call'}, {role:'toolResult'}];
   assert.deepEqual(trimHistory(messages, 3), [messages[0], ...messages.slice(3)]);
