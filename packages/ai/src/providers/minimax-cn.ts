@@ -11,5 +11,5 @@ export function minimaxCnProvider(): Provider<"anthropic-messages"> {
 		auth: { apiKey: envApiKeyAuth("MiniMax CN API key", ["MINIMAX_CN_API_KEY"]) },
 		models: Object.values(MINIMAX_CN_MODELS),
 		api: anthropicMessagesApi(),
-	}) as Provider<"anthropic-messages">;
+	});
 }

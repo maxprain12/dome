@@ -1,7 +1,8 @@
-import type { Api, Model } from "./types.js";
+import type { AnyModel } from "./types.js";
 
 export interface ModelsStoreEntry {
-	models: readonly Model<Api>[];
+	/** Persisted models of every type. */
+	models: readonly AnyModel[];
 	/** Unix timestamp from the remote catalog's Last-Modified header. */
 	lastModified?: number;
 	/** Unix timestamp of the last completed remote check. */

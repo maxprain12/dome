@@ -31,6 +31,9 @@ const TOOL_CAP_PRIORITY = [
   'browser_fill',
   'browser_tabs',
   'browser_done',
+  'image_generate',
+  'ai_classify',
+  ...require('../browser-native/actions.cjs').names,
 ];
 
 /**

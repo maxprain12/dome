@@ -11,5 +11,5 @@ export function googleProvider(): Provider<"google-generative-ai"> {
 		auth: { apiKey: envApiKeyAuth("Gemini API key", ["GEMINI_API_KEY"]) },
 		models: Object.values(GOOGLE_MODELS),
 		api: googleGenerativeAIApi(),
-	}) as Provider<"google-generative-ai">;
+	});
 }

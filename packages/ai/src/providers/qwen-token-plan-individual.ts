@@ -11,5 +11,5 @@ export function qwenTokenPlanIndividualProvider(): Provider<"openai-completions"
 		auth: { apiKey: envApiKeyAuth("Qwen Token Plan Individual API key", ["QWEN_TOKEN_PLAN_API_KEY"]) },
 		models: Object.values(QWEN_TOKEN_PLAN_INDIVIDUAL_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

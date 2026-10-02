@@ -1,3 +1,4 @@
+import AICapabilitySettings from './AICapabilitySettings';
 import AgentContextSettingsTab from './AgentContextSettingsTab';
 import AIProviderList from './AIProviderList';
 import AIProviderDetail from './AIProviderDetail';
@@ -145,6 +146,7 @@ export default function AISectionBody({
     );
   }
 
+  if (activeTab === 'capabilities') return <AICapabilitySettings />;
   return (
     <div className="flex max-w-2xl flex-col gap-6">
 

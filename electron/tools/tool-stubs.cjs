@@ -21,6 +21,8 @@ const CORE_FULL_SCHEMA_TOOLS = [
   'resource_get_active',
   'web_search',
   'web_fetch',
+  'image_generate',
+  'ai_classify',
   'task',
   'delegate_to_agent',
 ];

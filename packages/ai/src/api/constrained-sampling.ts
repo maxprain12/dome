@@ -9,6 +9,9 @@ interface JsonSchemaObject {
 
 class UnsupportedStrictJsonSchemaError extends Error {}
 
+/** Returns true when a provider's strict mode rejects this schema keyword with this value. */
+export type UnsupportedStrictSchemaKeywordCheck = (key: string, value: unknown) => boolean;
+
 const UNSUPPORTED_STRICT_SCHEMA_KEYS = [
 	"$ref",
 	"$defs",
@@ -50,36 +53,42 @@ function schemaAllowsNull(schema: unknown): boolean {
 	return Array.isArray(schema.anyOf) && schema.anyOf.some((variant) => schemaAllowsNull(variant));
 }
 
-function rejectUnsupportedSchemaKeys(schema: JsonSchemaObject): void {
+function makeJsonSchemaNodeStrict(schema: unknown, isUnsupportedKeyword?: UnsupportedStrictSchemaKeywordCheck): void {
+	if (!isJsonSchemaObject(schema)) {
+		throw new UnsupportedStrictJsonSchemaError("boolean schemas are unsupported");
+	}
 	for (const key of UNSUPPORTED_STRICT_SCHEMA_KEYS) {
 		if (schema[key] !== undefined) {
 			throw new UnsupportedStrictJsonSchemaError(`${key} schemas are unsupported`);
 		}
 	}
-}
-
-function processAnyOfVariants(schema: JsonSchemaObject): void {
-	if (schema.anyOf === undefined) return;
-	if (!Array.isArray(schema.anyOf) || schema.anyOf.length === 0) {
-		throw new UnsupportedStrictJsonSchemaError("anyOf must contain at least one schema");
-	}
-	for (const variant of schema.anyOf) {
-		if (isStructuredSchema(variant)) {
-			throw new UnsupportedStrictJsonSchemaError("object and array unions are unsupported");
+	if (isUnsupportedKeyword) {
+		for (const [key, value] of Object.entries(schema)) {
+			if (isUnsupportedKeyword(key, value)) {
+				throw new UnsupportedStrictJsonSchemaError(`${key}: ${JSON.stringify(value)} is unsupported`);
+			}
 		}
-		makeJsonSchemaNodeStrict(variant);
 	}
-}
 
-function processArrayItems(schema: JsonSchemaObject): void {
-	if (schema.items === undefined) return;
-	if (Array.isArray(schema.items)) {
-		throw new UnsupportedStrictJsonSchemaError("tuple schemas are unsupported");
+	if (schema.anyOf !== undefined) {
+		if (!Array.isArray(schema.anyOf) || schema.anyOf.length === 0) {
+			throw new UnsupportedStrictJsonSchemaError("anyOf must contain at least one schema");
+		}
+		for (const variant of schema.anyOf) {
+			if (isStructuredSchema(variant)) {
+				throw new UnsupportedStrictJsonSchemaError("object and array unions are unsupported");
+			}
+			makeJsonSchemaNodeStrict(variant, isUnsupportedKeyword);
+		}
 	}
-	makeJsonSchemaNodeStrict(schema.items);
-}
 
-function validateObjectSchemaShape(schema: JsonSchemaObject): void {
+	if (schema.items !== undefined) {
+		if (Array.isArray(schema.items)) {
+			throw new UnsupportedStrictJsonSchemaError("tuple schemas are unsupported");
+		}
+		makeJsonSchemaNodeStrict(schema.items, isUnsupportedKeyword);
+	}
+
 	const isObjectSchema = schema.type === "object";
 	if (schema.properties !== undefined && !isObjectSchema) {
 		throw new UnsupportedStrictJsonSchemaError("properties require type object");
@@ -97,9 +106,7 @@ function validateObjectSchemaShape(schema: JsonSchemaObject): void {
 	) {
 		throw new UnsupportedStrictJsonSchemaError("object required must be a string array");
 	}
-}
 
-function makeObjectPropertiesNullable(schema: JsonSchemaObject): void {
 	const properties = schema.properties ?? {};
 	const propertyNames = Object.keys(properties);
 	const required = new Set(Array.isArray(schema.required) ? schema.required : []);
@@ -107,7 +114,7 @@ function makeObjectPropertiesNullable(schema: JsonSchemaObject): void {
 		throw new UnsupportedStrictJsonSchemaError("required contains an unknown property");
 	}
 	for (const [key, property] of Object.entries(properties)) {
-		makeJsonSchemaNodeStrict(property);
+		makeJsonSchemaNodeStrict(property, isUnsupportedKeyword);
 		if (!required.has(key) && !schemaAllowsNull(property)) {
 			properties[key] = { anyOf: [property, { type: "null" }] };
 		}
@@ -116,25 +123,16 @@ function makeObjectPropertiesNullable(schema: JsonSchemaObject): void {
 	schema.additionalProperties = false;
 }
 
-function makeJsonSchemaNodeStrict(schema: unknown): void {
-	if (!isJsonSchemaObject(schema)) {
-		throw new UnsupportedStrictJsonSchemaError("boolean schemas are unsupported");
-	}
-	rejectUnsupportedSchemaKeys(schema);
-	processAnyOfVariants(schema);
-	processArrayItems(schema);
-	if (schema.type !== "object") return;
-	validateObjectSchemaShape(schema);
-	makeObjectPropertiesNullable(schema);
-}
-
 /** Convert a tool schema to the strict subset expected by provider constrained sampling. */
-export function makeStrictJsonSchema(schema: Tool["parameters"]): Record<string, unknown> {
+export function makeStrictJsonSchema(
+	schema: Tool["parameters"],
+	isUnsupportedKeyword?: UnsupportedStrictSchemaKeywordCheck,
+): Record<string, unknown> {
 	const cloned: unknown = structuredClone(schema);
 	if (!isJsonSchemaObject(cloned)) {
 		throw new UnsupportedStrictJsonSchemaError("root schema must have type object");
 	}
-	makeJsonSchemaNodeStrict(cloned);
+	makeJsonSchemaNodeStrict(cloned, isUnsupportedKeyword);
 	if (cloned.type !== "object") {
 		throw new UnsupportedStrictJsonSchemaError("root schema must have type object");
 	}
@@ -220,13 +218,21 @@ function inferGrammarInputProperty(tool: Tool): string {
 	return inputProperty;
 }
 
-export function resolveJsonSchemaStrictSampling(tool: Tool, supportsStrictMode: boolean): boolean | undefined {
+/**
+ * Decide whether a JSON-schema tool is sent in strict mode. `isUnsupportedKeyword` lets a provider
+ * reject extra keywords its strict mode does not accept, so "prefer" tools fall back to non-strict.
+ */
+export function resolveJsonSchemaStrictSampling(
+	tool: Tool,
+	supportsStrictMode: boolean,
+	isUnsupportedKeyword?: UnsupportedStrictSchemaKeywordCheck,
+): boolean | undefined {
 	const config = tool.constrainedSampling;
 	if (!config || config.type !== "json_schema") return undefined;
 
 	if (supportsStrictMode) {
 		try {
-			makeStrictJsonSchema(tool.parameters);
+			makeStrictJsonSchema(tool.parameters, isUnsupportedKeyword);
 			return true;
 		} catch (error) {
 			if (!(error instanceof UnsupportedStrictJsonSchemaError)) throw error;

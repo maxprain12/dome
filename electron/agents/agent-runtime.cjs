@@ -39,6 +39,7 @@ class HitlInterruptError extends Error {
 
 /** Tools that require in-app approval before execution (HITL). */
 const HITL_TOOL_NAMES = new Set([
+  'image_generate',
   'browser_click', 'browser_fill', 'browser_fill_secret', 'browser_select', 'browser_send_keys', 'browser_upload_file', 'browser_evaluate',
   'questionnaire',
   'resource_delete',
@@ -856,18 +857,21 @@ async function setupHarness(surface, opts) {
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
-  const input = require('../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries(), baseUrl);
+  const sharedModels = await require('../ai/model-collection.cjs').getModelCollection(database);
+  const catalogModel = sharedModels.getModel(provider, model);
+  const input = catalogModel?.input || require('../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries(), baseUrl);
   const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model, input });
 
   const { readPersistedContextWindow } = require('../ai/context-window.cjs');
   const persistedWindow = readPersistedContextWindow(database.getQueries(), provider);
-  let resolvedModel = ai.resolveDomeModel({
+  let resolvedModel = catalogModel || ai.resolveDomeModel({
     input,
     provider,
     model,
     baseUrl,
     ...(persistedWindow > 0 ? { contextWindow: persistedWindow } : {}),
   });
+  require('../ai/model-handoff.cjs').validateModelHandoff(resolvedModel, nonSystem);
   // resolveDomeModel normalizes Ollama to …/v1 — do not overwrite with the raw setting URL.
   if (
     baseUrl &&
@@ -890,7 +894,7 @@ async function setupHarness(surface, opts) {
   await bridge.seedSessionIfEmpty(session, contextMessages);
 
   const executeToolInMain = (name, args, contextOverride) =>
-    memoryPolicy.withMemoryPolicy(opts, () => dispatcher.executeToolInMain(name, args, {
+    memoryPolicy.withMemoryPolicy(opts, async () => dispatcher.executeToolInMain(name, args, {
       runtimeContext: opts.runtimeContext ?? null,
       ownerType: opts.ownerType ?? null,
       surface,
@@ -909,7 +913,8 @@ async function setupHarness(surface, opts) {
       supportsVision: resolvedModel.input.includes('image'),
       modelConfig: { provider, model, apiKey, baseUrl },
       extractionModel: opts.extractionModel,
-      browserOutputDirectory: opts.browserOutputDirectory || (workspaceSession ? require('node:path').join(workspaceSession.cwd, '.dome', 'browser-artifacts', threadId.replace(/[^a-zA-Z0-9_-]/g, '_')) : undefined),
+      browserOutputDirectory: workspaceSession ? await require('../browser-native/files.cjs').scopedOutputDirectory(
+        opts.browserOutputDirectory || require('node:path').join('.dome', 'browser-artifacts', threadId.replace(/[^a-zA-Z0-9_-]/g, '_')), workspaceSession.cwd) : undefined,
       stepTimeoutMs: opts.localRuntimeOptions?.stepTimeoutMs,
       ...(contextOverride || {}),
       agentMode: mode,
@@ -1045,33 +1050,13 @@ async function setupHarness(surface, opts) {
       timeoutMs: opts.localRuntimeOptions?.llmTimeoutMs,
       maxRetries: opts.localRuntimeOptions?.maxFailures,
     },
-    getApiKeyAndHeaders: async () => {
-      try {
-        const { resolveRequestAuth } = require('../ai/resolve-request-auth.cjs');
-        const resolved = await resolveRequestAuth(ai, {
-          provider,
-          resolvedModel,
-          apiKey,
-          database,
-        });
-        if (resolved?.apiKey || resolved?.headers) {
-          const headers = { ...(resolvedModel.headers || {}), ...(resolved.headers || {}) };
-          if (provider === 'copilot' || resolvedModel.provider === 'github-copilot') {
-            const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
-            return { apiKey: resolved.apiKey || apiKey, headers: { ...COPILOT_HEADERS, ...headers } };
-          }
-          return { apiKey: resolved.apiKey || apiKey, headers };
-        }
-      } catch (err) {
-        console.warn('[AgentRuntime] resolveProviderAuth failed, using captured key:', err?.message || err);
-      }
-      if (!apiKey) return undefined;
-      if (provider === 'copilot' || resolvedModel.provider === 'github-copilot') {
-        const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
-        return { apiKey, headers: { ...COPILOT_HEADERS, ...(resolvedModel.headers || {}) } };
-      }
-      return { apiKey, headers: resolvedModel.headers };
-    },
+    models: await (async () => {
+      const { getModelCollection, ensureChatProvider } = require('../ai/model-collection.cjs');
+      const models = await getModelCollection(database);
+      ensureChatProvider(models, ai, resolvedModel);
+      return models;
+    })(),
+    getApiKeyAndHeaders: async () => apiKey ? { apiKey, headers: resolvedModel.headers } : undefined,
     shouldStopAfterTurn: buildTurnLimiter(recursionLimit()),
     systemPrompt: async (ctx) => {
       const skillsBlock = core.formatSkillsForSystemPrompt(ctx.resources.skills ?? []);
@@ -1268,10 +1253,15 @@ async function finalizeResumeToolResult({ session, onChunk, toolCallId, toolName
  * the assistant's final text payload. On context overflow, force-compact once
  * and retry continueTurn (recovery for oversized tool history).
  */
-async function continueResumeTurn({ harness, onChunk }) {
+async function continueResumeTurn({ harness, onChunk, session }) {
   const runOnce = async () => {
     const assistant = await harness.continueTurn();
-    const finalText = assistantText(assistant);
+    let finalText = assistantText(assistant);
+    if (!finalText && assistant.content.some(block => block.type === 'toolCall' && block.name === 'browser_done')) {
+      const ids = new Set(assistant.content.filter(block => block.type === 'toolCall').map(block => block.id));
+      const completed = (await session.buildContext()).messages.findLast(message => message.role === 'toolResult' && message.toolName === 'browser_done' && ids.has(message.toolCallId) && !message.isError);
+      if (completed) finalText = completed.content.filter(block => block.type === 'text').map(block => block.text).join('\n');
+    }
     if (assistant?.stopReason === 'error') {
       const errText = finalText || assistant.errorMessage || 'Agent error';
       return { assistant, finalText, errText, overflow: looksLikeContextOverflow(errText, assistant) };
@@ -1369,7 +1359,7 @@ async function executeResumeDomeAgent(surface, opts) {
     try {
       await appendResumeToolCallMessage({ session, resolvedModel, toolCallId, toolName, effectiveArgs: toolArgs });
       await finalizeResumeToolResult({ session, onChunk, toolCallId, toolName, resultText, isError: false });
-      return await continueResumeTurn({ harness, onChunk });
+      return await continueResumeTurn({ harness, onChunk, session });
     } catch (err) {
       if (err instanceof HitlInterruptError) {
         return forwardResumeInterrupt(err, setup, onChunk);
@@ -1405,7 +1395,7 @@ async function executeResumeDomeAgent(surface, opts) {
       approved, decision, toolName, effectiveArgs, executeToolInMain,
     });
     await finalizeResumeToolResult({ session, onChunk, toolCallId, toolName, resultText, isError });
-    return await continueResumeTurn({ harness, onChunk });
+    return await continueResumeTurn({ harness, onChunk, session });
   } catch (err) {
     if (err instanceof HitlInterruptError) {
       return forwardResumeInterrupt(err, setup, onChunk);
@@ -1444,7 +1434,7 @@ async function prepareRunDomeInputs(opts) {
   const ai = await import('@dome/ai');
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
   const { attachmentsToImageContent } = require('../ai/image-attach.cjs');
-  const input = require('../ai/model-input.cjs').resolveModelInput(opts.provider, opts.model, undefined, opts.baseUrl);
+  const input = opts.modelCapabilities?.input || require('../ai/model-input.cjs').resolveModelInput(opts.provider, opts.model, undefined, opts.baseUrl);
   const rawNonSystem = (Array.isArray(opts.messages) ? opts.messages : []).filter(
     (m) => m && m.role !== 'system',
   );
@@ -1605,6 +1595,8 @@ async function executeDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
 
   require('../browser-native/run-options.cjs').applyOptions(opts, require('../core/database.cjs'));
+  const models = await require('../ai/model-collection.cjs').getModelCollection(require('../core/database.cjs'));
+  opts.modelCapabilities = models.getModel(opts.provider, opts.model);
   const { userPrompt, promptImages, lastRaw } = await prepareRunDomeInputs(opts);
 
   const guardrailReason = applyGuardrailsEarlyReturn(userPrompt, opts);
@@ -1623,7 +1615,12 @@ async function executeDomeAgent(surface, opts) {
       userPrompt,
       promptImages.length > 0 ? { images: promptImages } : undefined,
     );
-    const finalText = assistantText(assistant);
+    let finalText = assistantText(assistant);
+    if (!finalText && assistant.content.some(block => block.type === 'toolCall' && block.name === 'browser_done')) {
+      const ids = new Set(assistant.content.filter(block => block.type === 'toolCall').map(block => block.id));
+      const completed = (await session.buildContext()).messages.findLast(message => message.role === 'toolResult' && message.toolName === 'browser_done' && ids.has(message.toolCallId) && !message.isError);
+      if (completed) finalText = completed.content.filter(block => block.type === 'text').map(block => block.text).join('\n');
+    }
     throwIfAssistantError(assistant, finalText, opts);
     await tryEmitBudgetSafely(setup, opts, 'post-turn budget skipped');
     return finalText;

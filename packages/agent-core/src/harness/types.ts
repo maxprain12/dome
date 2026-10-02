@@ -830,6 +830,8 @@ export interface AgentHarnessOptions<
 	/** Persist a compaction checkpoint before requests approaching the context limit. */
 	autoCompaction?: boolean;
 	model: Model<any>;
+	/** Shared provider collection owned by the application profile. */
+	models?: import("@dome/ai").Models;
 	thinkingLevel?: ThinkingLevel;
 	activeToolNames?: string[];
 	steeringMode?: QueueMode;

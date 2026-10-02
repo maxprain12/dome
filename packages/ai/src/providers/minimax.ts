@@ -11,5 +11,5 @@ export function minimaxProvider(): Provider<"anthropic-messages"> {
 		auth: { apiKey: envApiKeyAuth("MiniMax API key", ["MINIMAX_API_KEY"]) },
 		models: Object.values(MINIMAX_MODELS),
 		api: anthropicMessagesApi(),
-	}) as Provider<"anthropic-messages">;
+	});
 }

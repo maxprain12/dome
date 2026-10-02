@@ -10,7 +10,8 @@ const { NativeBrowserService } = require('../electron/browser-native/service.cjs
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dome-browser-smoke-'));
 app.setPath('userData', profile);
-const server = http.createServer((_req, response) => response.end('<html><title>Native fixture</title><body><main><h1>Native fixture</h1><p>Observed source</p><input aria-label="Query"><input type="file" aria-label="Upload"><button>Continue</button></main></body></html>'));
+const frameServer = http.createServer((_req, response) => response.end('<html><body><input aria-label="Frame Query"><input type="file" aria-label="Frame Upload"><p>Frame fixture</p></body></html>'));
+const server = http.createServer((_req, response) => response.end(`<html><title>Native fixture</title><body><main><h1>Native fixture</h1><p>Observed source</p><input aria-label="Query"><input type="file" aria-label="Upload"><button>Continue</button><iframe src="http://127.0.0.1:${frameServer.address().port}"></iframe></main></body></html>`));
 const service = new NativeBrowserService({ validateUrl: async (url) => {
   assert.equal(new URL(url).hostname, '127.0.0.1');
   return url;
@@ -19,6 +20,7 @@ async function run() {
   process.stdout.write('smoke: waiting for Electron\n');
   await app.whenReady();
   process.stdout.write('smoke: Electron ready\n');
+  await new Promise((resolve) => frameServer.listen(0, '127.0.0.1', resolve));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   await service.run('fixture', undefined, async (item) => {
@@ -50,18 +52,35 @@ async function run() {
     const { result: uploadObject } = await command(contents, 'Runtime.evaluate', { expression: 'document.querySelector("input[type=file]")' });
     await command(contents, 'DOM.setFileInputFiles', { objectId: uploadObject.objectId, files: [upload] });
     assert.equal(await service.evaluate(item, 'document.querySelector("input[type=file]").files[0].name'), 'upload.txt');
+    const framed = await service.snapshot(item);
+    const frame = framed.frames.find(entry => entry.readableText?.includes('Frame fixture'));
+    assert.ok(frame, 'Cross-origin frame must be captured');
+    const { act } = require('../electron/browser-native/actions.cjs');
+    const frameInput = frame.elements.find(element => element.label === 'Frame Query');
+    const frameArgs = { frameId: frame.frameId, snapshotId: frame.snapshotId, elementId: frameInput.id, value: 'frame input' };
+    await act(service, item, 'browser_fill', frameArgs, {});
+    await act(service, item, 'browser_send_keys', { frameId: frame.frameId, keys: 'Primary+A' }, {});
+    await command(contents, 'Input.insertText', { text: 'frame keys' });
+    assert.equal(await service.evaluate(item, 'document.querySelector("input").value', undefined, undefined, frame.frameId), 'frame keys');
+    const freshFrame = (await service.snapshot(item)).frames.find(entry => entry.frameId === frame.frameId);
+    const frameUpload = freshFrame.elements.find(element => element.label === 'Frame Upload');
+    await act(service, item, 'browser_upload_file', { frameId: frame.frameId, snapshotId: freshFrame.snapshotId, elementId: frameUpload.id, path: upload }, { workspaceCwd: profile });
+    assert.equal(await service.evaluate(item, 'document.querySelector("input[type=file]").files[0].name', undefined, undefined, frame.frameId), 'upload.txt');
     const other = await service.newTab(item);
     await service.navigate(item, url, undefined, other.id);
     assert.equal(item.tabs.size, 2);
     item.activeTabId = snapshot.tabId;
     const image = await service.snapshot(item, undefined, undefined, true);
     assert.match(image.screenshot, /^data:image\/png;base64,/);
-  }, { recordHar: true, traces: true, record: 'gif', outputDirectory: path.join(profile, 'recording') });
+  }, { ...(process.env.DOME_SMOKE_CHROMIUM ? { backend: 'chromium', executablePath: process.env.DOME_SMOKE_CHROMIUM } : {}), crossOriginFrames: true, recordHar: true, traces: true, record: process.env.DOME_SMOKE_FORMAT || 'gif', outputDirectory: path.join(profile, 'recording') });
   const recordings = await service.finish('fixture');
-  assert.ok(recordings.some(file => file.endsWith('.har')));
-  assert.ok(recordings.some(file => file.endsWith('.gif')));
+  const harFile = recordings.find(file => file.endsWith('.har'));
+  assert.ok(harFile);
+  assert.ok(JSON.parse(fs.readFileSync(harFile, 'utf8')).log.entries.some(entry => entry.request.url.startsWith(url)));
+  assert.equal(fs.readFileSync(recordings.find(file => file.endsWith('.json')), 'utf8').includes('background keys'), false);
+  assert.ok(recordings.some(file => file.endsWith(`.${process.env.DOME_SMOKE_FORMAT || 'gif'}`)));
   service.close('fixture');
   assert.equal(service.slots.active, 0);
   process.stdout.write('Native Chromium fixture passed: capture, isolation, screenshot, cleanup\n');
 }
-run().then(() => { server.close(); app.exit(0); }, (error) => { console.error(error); service.close('fixture'); server.close(); app.exit(1); });
+run().then(() => { frameServer.close(); server.close(); app.exit(0); }, (error) => { console.error(error); service.close('fixture'); frameServer.close(); server.close(); app.exit(1); });

@@ -8,7 +8,9 @@ async function validateOutput(value, schema) {
   return { success: true, result: value };
 }
 async function extract(browser, item, args, context) {
-  const snapshot = await browser.snapshot(item, context.signal, args.tabId);
+  const page = await browser.snapshot(item, context.signal, args.tabId);
+  const snapshot = args.frameId ? page.frames?.find(frame => frame.frameId === args.frameId) : page;
+  if (!snapshot?.readableText) throw new Error('Requested page or frame has no observed text');
   const { chat } = require('../ai/llm-service.cjs');
   const config = context.extractionModel || context.modelConfig;
   if (!config?.provider || !config?.model) throw new Error('Extraction requires a configured LLM');

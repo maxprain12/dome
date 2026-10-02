@@ -103,6 +103,7 @@ class NativeBrowserService {
     });
     const tab = { id, view, initializedUrl: null };
     item.tabs.set(id, tab);
+    await item.recording?.attach?.(view.webContents);
     item.activeTabId = id;
     return tab;
   }
@@ -131,7 +132,24 @@ class NativeBrowserService {
     assertDomain(target, item.options);
     const tab = this.tab(item, tabId);
     tab.initializedUrl = null;
-    await bounded(tab.view.webContents.loadURL(target), signal, 30000, () => tab.view.webContents.stop());
+    const contents = tab.view.webContents;
+    try {
+      await bounded(contents.loadURL(target), signal, 30000, () => contents.stop());
+    } catch (error) {
+      if (signal?.aborted || !(error.code === 'ERR_ABORTED' || error.errno === -3)) throw error;
+      // A page may replace its initial navigation with a client redirect.
+      // Keep the same deadline and inspect the settled destination, never the aborted document.
+      await bounded((async () => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          await wait(new Promise(resolve => setTimeout(resolve, 50)), signal);
+          const current = contents.getURL();
+          if (current !== target && /^https?:/.test(current) && !contents.isLoadingMainFrame?.()) {
+            await this.validateUrl(current); assertDomain(current, item.options); return;
+          }
+        }
+        throw error;
+      })(), signal, 5000);
+    }
     await require('./cdp.cjs').command(tab.view.webContents, 'Emulation.setDeviceMetricsOverride', { ...item.options.viewport, deviceScaleFactor: item.options.deviceScaleFactor, mobile: item.options.mobile }, signal);
     if (item.options.waitAfterLoadMs) await wait(new Promise((resolve) => setTimeout(resolve, item.options.waitAfterLoadMs)), signal);
     return this.snapshot(item, signal, tab.id);
@@ -196,7 +214,7 @@ class NativeBrowserService {
         return { success: true, url: data.url, title: data.title, content: String(content || '').slice(0, request.maxLength),
           metadata: { url: data.url, capturedAt: data.capturedAt }, screenshot: data.screenshot || null, screenshotFormat: 'png', provider: 'chromium' };
       });
-    } finally { this.close(owner); }
+    } finally { await this.close(owner); }
   }
 
   rememberRecovery(item, url) {
@@ -214,6 +232,13 @@ class NativeBrowserService {
     if (!saved || saved.expires < Date.now()) throw new Error('Search recovery expired; run the search again');
     const owner = `recovery:${id}`;
     return this.run(owner, signal, (item) => this.navigate(item, saved.url, signal), { partition: saved.partition });
+  }
+
+  recoveryPartition(urls) {
+    for (const saved of this.recovery.values()) {
+      if (saved.expires > Date.now() && urls.includes(saved.url)) return saved.partition;
+    }
+    return undefined;
   }
 
   attach(owner, window, bounds) {
@@ -239,17 +264,28 @@ class NativeBrowserService {
     this.detach(owner);
     if (item.recording) { item.recording.stopped = true; clearTimeout(item.recording.timer); }
     this.sessions.delete(owner);
-    for (const tab of item.tabs.values()) if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
-    if (item.partition && !item.options.profile && ![...this.recovery.values()].some((saved) => saved.partition === item.partition)) void item.browserSession.clearStorageData().catch(() => {});
-    if (item.dispose) void item.dispose().catch(() => {});
+    const closed = [...item.tabs.values()].map(({ view }) => {
+      const contents = view.webContents;
+      if (contents.isDestroyed()) return Promise.resolve();
+      if (!contents.once) { contents.close(); return Promise.resolve(); }
+      return new Promise(resolve => {
+        const timer = setTimeout(resolve, 1000);
+        contents.once('destroyed', () => { clearTimeout(timer); resolve(); });
+        contents.close({ waitForBeforeUnload: false });
+      });
+    });
     item.release();
+    return Promise.all(closed).then(async () => {
+      if (item.partition && !item.options.profile && ![...this.recovery.values()].some(saved => saved.partition === item.partition)) await item.browserSession.clearStorageData().catch(() => {});
+      if (item.dispose) await item.dispose().catch(() => {});
+    });
   }
 
   async finish(owner) {
     const item = this.sessions.get(owner);
     if (!item) return [];
     try { return await require('./recording.cjs').finishRecording(item); }
-    finally { if (!item.options.keepAlive) this.close(owner); }
+    finally { if (!item.options.keepAlive) await this.close(owner); }
   }
 }
 

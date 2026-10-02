@@ -43,7 +43,15 @@ const ALL_CHAT_PROVIDERS = [
 ];
 
 function assertChatProvider(provider) {
-  if (!provider || !ALL_CHAT_PROVIDERS.includes(provider)) {
+  let registered = false;
+  if (provider && !ALL_CHAT_PROVIDERS.includes(provider)) {
+    const ai = require('@dome/ai');
+    registered = ai.getModels(provider)?.length > 0;
+    if (!registered) {
+      try { registered = JSON.parse(require('../core/database.cjs').getQueries().getSetting.get('ai_custom_providers')?.value || '[]').some(config => config.id === provider && config.models.some(model => model.type === 'chat')); } catch { /* An uninitialized DB cannot authorize a custom provider. */ }
+    }
+  }
+  if (!provider || (!ALL_CHAT_PROVIDERS.includes(provider) && !registered)) {
     throw new Error(
       `Invalid provider "${provider}". Must be one of: ${ALL_CHAT_PROVIDERS.join(', ')}`,
     );
@@ -78,6 +86,16 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
   const model = modelArg || settings.model || DEFAULT_MODELS[provider];
 
   assertChatProvider(provider);
+  const ai = await import('@dome/ai');
+  if (!ALL_CHAT_PROVIDERS.includes(provider)) {
+    const collection = await require('./model-collection.cjs').getModelCollection(database);
+    const selected = collection.getModel(provider, model);
+    if (!selected) throw new Error('Unknown configured chat model');
+    const auth = await collection.getAuth(selected);
+    const local = require('./provider-keys.cjs').isLoopbackBaseUrl(selected.baseUrl);
+    if (!auth && !local) throw new Error(`Credentials are not configured for ${provider}`);
+    return { provider, model, apiKey: auth?.auth?.apiKey || (local ? 'local-provider' : undefined), baseUrl: selected.baseUrl };
+  }
 
   if (!providerArg || providerArg === settings.provider) {
     if (provider === 'ollama') {

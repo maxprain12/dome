@@ -11,5 +11,5 @@ export function moonshotaiProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Moonshot AI API key", ["MOONSHOT_API_KEY"]) },
 		models: Object.values(MOONSHOTAI_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

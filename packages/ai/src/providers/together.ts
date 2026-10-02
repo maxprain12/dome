@@ -11,5 +11,5 @@ export function togetherProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Together API key", ["TOGETHER_API_KEY"]) },
 		models: Object.values(TOGETHER_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

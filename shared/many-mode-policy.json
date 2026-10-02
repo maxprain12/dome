@@ -90,7 +90,8 @@
     "browser_write_file",
     "browser_replace_file",
     "browser_import_state",
-    "browser_export_state"
+    "browser_export_state",
+    "image_generate"
   ],
   "prompts": {
     "agent": [

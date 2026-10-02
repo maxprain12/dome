@@ -11,5 +11,5 @@ export function xiaomiTokenPlanSgpProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Xiaomi Token Plan SGP API key", ["XIAOMI_TOKEN_PLAN_SGP_API_KEY"]) },
 		models: Object.values(XIAOMI_TOKEN_PLAN_SGP_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

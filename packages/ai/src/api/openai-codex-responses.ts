@@ -11,17 +11,16 @@ import { registerSessionResourceCleanup } from "../session-resources.js";
 import type {
 	Api,
 	AssistantMessage,
-	Context,
 	Model,
 	ProviderEnv,
 	ProviderHeaders,
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
+	TranscriptContext,
 	Usage,
 } from "../types.js";
 import { combineAbortSignals } from "../utils/abort-signals.js";
-import { splitDeferredTools } from "../utils/deferred-tools.js";
 import {
 	appendAssistantMessageDiagnostic,
 	createAssistantMessageDiagnostic,
@@ -32,6 +31,14 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { headersToRecord } from "../utils/headers.js";
 import { resolveHttpProxyUrlForTarget } from "../utils/node-http-proxy.js";
 import { getPiUserAgent } from "../utils/pi-user-agent.js";
+import { getSystemMessageText } from "../utils/text.js";
+import {
+	getDeclaredTools,
+	getInitialSystemMessage,
+	normalizeContext,
+	resolveTranscript,
+	resolveTranscriptTools,
+} from "../utils/transcript.js";
 import { uuidv7 } from "../utils/uuid.js";
 import { createGrammarToolInputProperties } from "./constrained-sampling.js";
 import { clampOpenAIPromptCacheKey } from "./openai-prompt-cache.js";
@@ -229,10 +236,11 @@ function compressRequestBodyZstd(bodyJson: string): Uint8Array | null {
 
 export const stream: StreamFunction<"openai-codex-responses", OpenAICodexResponsesOptions> = (
 	model: Model<"openai-codex-responses">,
-	context: Context,
+	context: TranscriptContext,
 	options?: OpenAICodexResponsesOptions,
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
+	const normalizedContext = resolveTranscript(context, model.compat?.supportsMidConvoSystemMessages);
 
 	(async () => {
 		const output: AssistantMessage = {
@@ -261,12 +269,12 @@ export const stream: StreamFunction<"openai-codex-responses", OpenAICodexRespons
 
 			const accountId = extractAccountId(apiKey);
 			const grammarToolInputProperties = createGrammarToolInputProperties(
-				context.tools,
+				getDeclaredTools(normalizedContext.messages),
 				model.compat?.supportsOpenAIGrammarTools ?? false,
 			);
 			const cacheSessionId = options?.cacheRetention === "none" ? undefined : options?.sessionId;
 			const codexSessionId = clampOpenAIPromptCacheKey(cacheSessionId);
-			let body = buildRequestBody(model, context, options, codexSessionId, grammarToolInputProperties);
+			let body = buildRequestBody(model, normalizedContext, options, codexSessionId, grammarToolInputProperties);
 			const nextBody = await options?.onPayload?.(body, model);
 			if (nextBody !== undefined) {
 				body = nextBody as RequestBody;
@@ -349,7 +357,7 @@ export const stream: StreamFunction<"openai-codex-responses", OpenAICodexRespons
 							output,
 							createAssistantMessageDiagnostic("provider_transport_failure", error, {
 								configuredTransport: transport,
-								fallbackTransport: websocketStarted ? undefined : "sse",
+								...(websocketStarted ? {} : { fallbackTransport: "sse" }),
 								eventsEmitted: websocketStarted,
 								phase: websocketStarted ? "after_message_stream_start" : "before_message_stream_start",
 								requestBytes: new TextEncoder().encode(bodyJson).byteLength,
@@ -392,7 +400,7 @@ export const stream: StreamFunction<"openai-codex-responses", OpenAICodexRespons
 						response = await (options?.fetch ?? globalThis.fetch)(resolveCodexUrl(model.baseUrl), {
 							method: "POST",
 							headers: sseHeaders,
-							body: sseBody as BodyInit,
+							body: typeof sseBody === 'string' ? sseBody : new Uint8Array(sseBody).buffer,
 							signal: combinedSignal.signal,
 						});
 					} catch (error) {
@@ -491,7 +499,7 @@ export const stream: StreamFunction<"openai-codex-responses", OpenAICodexRespons
 
 export const streamSimple: StreamFunction<"openai-codex-responses", SimpleStreamOptions> = (
 	model: Model<"openai-codex-responses">,
-	context: Context,
+	context: TranscriptContext,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
 	const apiKey = options?.apiKey;
@@ -518,39 +526,35 @@ export const streamSimple: StreamFunction<"openai-codex-responses", SimpleStream
 
 function buildRequestBody(
 	model: Model<"openai-codex-responses">,
-	context: Context,
+	context: TranscriptContext,
 	options: OpenAICodexResponsesOptions | undefined,
 	cacheSessionId: string | undefined,
 	grammarToolInputProperties: ReadonlyMap<string, string> = createGrammarToolInputProperties(
-		context.tools,
+		getDeclaredTools(context.messages),
 		model.compat?.supportsOpenAIGrammarTools ?? false,
 	),
 ): RequestBody {
 	const supportsStrictMode = model.compat?.supportsStrictMode ?? true;
 	const supportsOpenAIGrammarTools = model.compat?.supportsOpenAIGrammarTools ?? false;
-	const deferredToolsMode = model.compat?.supportsAdditionalTools
-		? "additional-tools"
-		: model.compat?.supportsToolSearch
-			? "tool-search"
-			: undefined;
-	const toolPlacement = splitDeferredTools(context, deferredToolsMode !== undefined);
+	const supportsAdditionalTools = model.compat?.supportsAdditionalTools ?? false;
+	const supportsToolSearch = model.compat?.supportsToolSearch ?? false;
+	const transcriptTools = resolveTranscriptTools(context.messages, supportsAdditionalTools || supportsToolSearch);
 	const messages = convertResponsesMessages(model, context, CODEX_TOOL_CALL_PROVIDERS, {
 		includeSystemPrompt: false,
 		grammarToolInputProperties,
-		deferredTools: toolPlacement.deferred,
-		deferredToolsMode,
-		toolOptions: {
-			strict: null,
-			supportsStrictMode,
-			supportsOpenAIGrammarTools,
-		},
+		supportsMidConvoSystemMessages: model.compat?.supportsMidConvoSystemMessages ?? false,
+		supportsAdditionalTools,
+		supportsToolSearch,
+		toolOptions: { strict: null, supportsStrictMode, supportsOpenAIGrammarTools },
 	});
 
+	const initialSystemMessage = getInitialSystemMessage(context.messages);
+	const instructions = initialSystemMessage ? getSystemMessageText(initialSystemMessage) : "";
 	const body: RequestBody = {
 		model: model.id,
 		store: false,
 		stream: true,
-		instructions: context.systemPrompt || "You are a helpful assistant.",
+		instructions: instructions || "You are a helpful assistant.",
 		input: messages,
 		text: { verbosity: options?.textVerbosity || "low" },
 		include: ["reasoning.encrypted_content"],
@@ -567,8 +571,8 @@ function buildRequestBody(
 		body.service_tier = options.serviceTier;
 	}
 
-	if (toolPlacement.immediate.length > 0) {
-		body.tools = convertResponsesTools(toolPlacement.immediate, {
+	if (transcriptTools.requestTools.length > 0) {
+		body.tools = convertResponsesTools(transcriptTools.requestTools, {
 			strict: null,
 			supportsStrictMode,
 			supportsOpenAIGrammarTools,
@@ -578,7 +582,9 @@ function buildRequestBody(
 	if (options?.reasoningEffort !== undefined) {
 		const effort =
 			options.reasoningEffort === "none"
-				? (model.thinkingLevelMap?.off ?? "none")
+				? model.thinkingLevelMap?.off === undefined
+					? "none"
+					: model.thinkingLevelMap.off
 				: (model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort);
 		if (effort !== null) {
 			body.reasoning = {
@@ -586,6 +592,8 @@ function buildRequestBody(
 				summary: options.reasoningSummary ?? "auto",
 			};
 		}
+	} else if (model.reasoning && model.thinkingLevelMap?.off !== null) {
+		body.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
 	}
 
 	return body;
@@ -657,12 +665,18 @@ async function processStream(
 	grammarToolInputProperties: ReadonlyMap<string, string>,
 	options?: OpenAICodexResponsesOptions,
 ): Promise<void> {
-	await processResponsesStream(mapCodexEvents(parseSSE(response, options?.signal), output), output, stream, model, {
-		serviceTier: options?.serviceTier,
-		grammarToolInputProperties,
-		resolveServiceTier: resolveCodexServiceTier,
-		applyServiceTierPricing: (usage, serviceTier) => applyServiceTierPricing(usage, serviceTier, model),
-	});
+	await processResponsesStream(
+		mapCodexEvents(parseSSE(response, options?.signal), output, model, options?.onProviderStreamEvent),
+		output,
+		stream,
+		model,
+		{
+			serviceTier: options?.serviceTier,
+			grammarToolInputProperties,
+			resolveServiceTier: resolveCodexServiceTier,
+			applyServiceTierPricing: (usage, serviceTier) => applyServiceTierPricing(usage, serviceTier, model),
+		},
+	);
 }
 
 class CodexApiError extends Error {
@@ -689,8 +703,20 @@ class CodexProtocolError extends Error {
 	}
 }
 
+class ProviderStreamEventCallbackError extends Error {
+	constructor(cause: unknown) {
+		super(formatThrownValue(cause));
+		this.name = "ProviderStreamEventCallbackError";
+		this.cause = cause;
+	}
+}
+
 function isCodexNonTransportError(error: unknown): boolean {
-	return error instanceof CodexApiError || error instanceof CodexProtocolError;
+	return (
+		error instanceof CodexApiError ||
+		error instanceof CodexProtocolError ||
+		error instanceof ProviderStreamEventCallbackError
+	);
 }
 
 function isWebSocketConnectionLimitReachedError(error: unknown): boolean {
@@ -717,8 +743,16 @@ function extractCodexEventError(event: Record<string, unknown>): { code?: string
 async function* mapCodexEvents(
 	events: AsyncIterable<Record<string, unknown>>,
 	output: AssistantMessage,
+	model: Model<"openai-codex-responses">,
+	onProviderStreamEvent: StreamOptions["onProviderStreamEvent"] | undefined,
 ): AsyncGenerator<ResponseStreamEvent> {
 	for await (const event of events) {
+		try {
+			await onProviderStreamEvent?.(event, model);
+		} catch (error) {
+			// Keep callback failures out of Codex's WebSocket retry and SSE fallback path.
+			throw new ProviderStreamEventCallbackError(error);
+		}
 		const type = typeof event.type === "string" ? event.type : undefined;
 		if (!type) continue;
 
@@ -782,8 +816,9 @@ async function* parseSSE(response: Response, signal?: AbortSignal): AsyncGenerat
 			if (signal?.aborted) {
 				throw new Error("Request was aborted");
 			}
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
+			buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+			// Treat EOF as terminating the residual SSE frame.
+			if (done && buffer.trim()) buffer += "\n\n";
 
 			let idx = buffer.indexOf("\n\n");
 			while (idx !== -1) {
@@ -809,6 +844,8 @@ async function* parseSSE(response: Response, signal?: AbortSignal): AsyncGenerat
 				}
 				idx = buffer.indexOf("\n\n");
 			}
+
+			if (done) break;
 		}
 	} finally {
 		signal?.removeEventListener("abort", onAbort);
@@ -1113,108 +1150,6 @@ async function connectWebSocket(
 	});
 }
 
-function clearCachedEntryIdleTimer(entry: CachedWebSocketConnection): void {
-	if (entry.idleTimer) {
-		clearTimeout(entry.idleTimer);
-		entry.idleTimer = undefined;
-	}
-}
-
-function evictCachedWebSocketEntry(
-	sessionId: string,
-	accountId: string,
-	expectedEntry: CachedWebSocketConnection,
-): void {
-	const accountEntries = websocketSessionCache.get(sessionId);
-	if (accountEntries?.get(accountId) === expectedEntry) accountEntries.delete(accountId);
-	if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
-}
-
-async function acquireFreshWebSocket(
-	url: string,
-	headers: Headers,
-	signal?: AbortSignal,
-	connectTimeoutMs?: number,
-	env?: ProviderEnv,
-): Promise<{
-	socket: WebSocketLike;
-	reused: false;
-	release: () => void;
-}> {
-	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
-	return {
-		socket,
-		reused: false,
-		release: () => closeWebSocketSilently(socket),
-	};
-}
-
-function acquireReusableCachedWebSocket(
-	sessionId: string,
-	accountId: string,
-	cached: CachedWebSocketConnection,
-): {
-	socket: WebSocketLike;
-	entry: CachedWebSocketConnection;
-	reused: true;
-	release: (options?: { keep?: boolean }) => void;
-} {
-	cached.busy = true;
-	return {
-		socket: cached.socket,
-		entry: cached,
-		reused: true,
-		release: ({ keep } = {}) => {
-			if (!keep || !isWebSocketReusable(cached.socket)) {
-				closeWebSocketSilently(cached.socket);
-				evictCachedWebSocketEntry(sessionId, accountId, cached);
-				return;
-			}
-			cached.busy = false;
-			scheduleSessionWebSocketExpiry(sessionId, accountId, cached);
-		},
-	};
-}
-
-async function registerNewCachedWebSocket(
-	url: string,
-	headers: Headers,
-	sessionId: string,
-	accountId: string,
-	signal?: AbortSignal,
-	connectTimeoutMs?: number,
-	env?: ProviderEnv,
-): Promise<{
-	socket: WebSocketLike;
-	entry: CachedWebSocketConnection;
-	reused: false;
-	release: (options?: { keep?: boolean }) => void;
-}> {
-	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
-	const entry: CachedWebSocketConnection = { socket, busy: true, createdAt: Date.now() };
-	let accountEntries = websocketSessionCache.get(sessionId);
-	if (!accountEntries) {
-		accountEntries = new Map();
-		websocketSessionCache.set(sessionId, accountEntries);
-	}
-	accountEntries.set(accountId, entry);
-	return {
-		socket,
-		entry,
-		reused: false,
-		release: ({ keep } = {}) => {
-			if (!keep || !isWebSocketReusable(entry.socket)) {
-				closeWebSocketSilently(entry.socket);
-				if (entry.idleTimer) clearTimeout(entry.idleTimer);
-				evictCachedWebSocketEntry(sessionId, accountId, entry);
-				return;
-			}
-			entry.busy = false;
-			scheduleSessionWebSocketExpiry(sessionId, accountId, entry);
-		},
-	};
-}
-
 async function acquireWebSocket(
 	url: string,
 	headers: Headers,
@@ -1230,29 +1165,86 @@ async function acquireWebSocket(
 	release: (options?: { keep?: boolean }) => void;
 }> {
 	if (!sessionId) {
-		return acquireFreshWebSocket(url, headers, signal, connectTimeoutMs, env);
+		const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
+		return {
+			socket,
+			reused: false,
+			release: () => closeWebSocketSilently(socket),
+		};
 	}
 
-	const cached = websocketSessionCache.get(sessionId)?.get(accountId);
-	if (!cached) {
-		return registerNewCachedWebSocket(url, headers, sessionId, accountId, signal, connectTimeoutMs, env);
+	let accountEntries = websocketSessionCache.get(sessionId);
+	const cached = accountEntries?.get(accountId);
+	if (cached) {
+		if (cached.idleTimer) {
+			clearTimeout(cached.idleTimer);
+			cached.idleTimer = undefined;
+		}
+		if (!cached.busy && isWebSocketSessionExpired(cached)) {
+			closeWebSocketSilently(cached.socket, 1000, "connection_age_limit");
+			accountEntries?.delete(accountId);
+			if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
+		} else if (!cached.busy && isWebSocketReusable(cached.socket)) {
+			cached.busy = true;
+			return {
+				socket: cached.socket,
+				entry: cached,
+				reused: true,
+				release: ({ keep } = {}) => {
+					if (!keep || !isWebSocketReusable(cached.socket)) {
+						closeWebSocketSilently(cached.socket);
+						const currentEntries = websocketSessionCache.get(sessionId);
+						if (currentEntries?.get(accountId) === cached) currentEntries.delete(accountId);
+						if (currentEntries?.size === 0) websocketSessionCache.delete(sessionId);
+						return;
+					}
+					cached.busy = false;
+					scheduleSessionWebSocketExpiry(sessionId, accountId, cached);
+				},
+			};
+		}
+		if (cached.busy) {
+			const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
+			return {
+				socket,
+				reused: false,
+				release: () => {
+					closeWebSocketSilently(socket);
+				},
+			};
+		}
+		if (!isWebSocketReusable(cached.socket)) {
+			closeWebSocketSilently(cached.socket);
+			accountEntries?.delete(accountId);
+			if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
+		}
 	}
 
-	clearCachedEntryIdleTimer(cached);
-
-	if (!cached.busy && isWebSocketSessionExpired(cached)) {
-		closeWebSocketSilently(cached.socket, 1000, "connection_age_limit");
-		evictCachedWebSocketEntry(sessionId, accountId, cached);
-	} else if (!cached.busy && isWebSocketReusable(cached.socket)) {
-		return acquireReusableCachedWebSocket(sessionId, accountId, cached);
-	} else if (cached.busy) {
-		return acquireFreshWebSocket(url, headers, signal, connectTimeoutMs, env);
-	} else if (!isWebSocketReusable(cached.socket)) {
-		closeWebSocketSilently(cached.socket);
-		evictCachedWebSocketEntry(sessionId, accountId, cached);
+	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
+	const entry: CachedWebSocketConnection = { socket, busy: true, createdAt: Date.now() };
+	accountEntries = websocketSessionCache.get(sessionId);
+	if (!accountEntries) {
+		accountEntries = new Map();
+		websocketSessionCache.set(sessionId, accountEntries);
 	}
-
-	return registerNewCachedWebSocket(url, headers, sessionId, accountId, signal, connectTimeoutMs, env);
+	accountEntries.set(accountId, entry);
+	return {
+		socket,
+		entry,
+		reused: false,
+		release: ({ keep } = {}) => {
+			if (!keep || !isWebSocketReusable(entry.socket)) {
+				closeWebSocketSilently(entry.socket);
+				if (entry.idleTimer) clearTimeout(entry.idleTimer);
+				const currentEntries = websocketSessionCache.get(sessionId);
+				if (currentEntries?.get(accountId) === entry) currentEntries.delete(accountId);
+				if (currentEntries?.size === 0) websocketSessionCache.delete(sessionId);
+				return;
+			}
+			entry.busy = false;
+			scheduleSessionWebSocketExpiry(sessionId, accountId, entry);
+		},
+	};
 }
 
 function extractWebSocketError(event: unknown): Error {
@@ -1550,7 +1542,12 @@ async function processWebSocketStream(
 		socket.send(JSON.stringify({ type: "response.create", ...requestBody }));
 		await processResponsesStream(
 			startWebSocketOutputOnFirstEvent(
-				mapCodexEvents(parseWebSocket(socket, options?.signal, idleTimeoutMs), output),
+				mapCodexEvents(
+					parseWebSocket(socket, options?.signal, idleTimeoutMs),
+					output,
+					model,
+					options?.onProviderStreamEvent,
+				),
 				onStart,
 			),
 			output,
@@ -1566,10 +1563,15 @@ async function processWebSocketStream(
 		if (options?.signal?.aborted) {
 			keepConnection = false;
 		} else if (useCachedContext && entry && output.responseId) {
-			const responseItems = convertResponsesMessages(model, { messages: [output] }, CODEX_TOOL_CALL_PROVIDERS, {
-				includeSystemPrompt: false,
-				grammarToolInputProperties,
-			}).filter((item) => item.type !== "function_call_output" && item.type !== "custom_tool_call_output");
+			const responseItems = convertResponsesMessages(
+				model,
+				normalizeContext({ messages: [output] }),
+				CODEX_TOOL_CALL_PROVIDERS,
+				{
+					includeSystemPrompt: false,
+					grammarToolInputProperties,
+				},
+			).filter((item) => item.type !== "function_call_output" && item.type !== "custom_tool_call_output");
 			entry.continuation = {
 				lastRequestBody: fullBody,
 				lastResponseId: output.responseId,

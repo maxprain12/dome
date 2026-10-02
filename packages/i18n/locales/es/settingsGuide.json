@@ -24,7 +24,7 @@
       "start": "Elige un modo o activa cada sección. Los modos no son planes de pago."
     },
     "ai": {
-      "description": "Conecta la IA que usará Many y configura la búsqueda, la voz y su contexto.",
+      "description": "Conecta la IA de Many y configura sus modelos, imágenes, clasificación y contexto.",
       "start": "Empieza por Conversación. Las demás pestañas son opcionales y se configuran por separado."
     },
     "cloud": {

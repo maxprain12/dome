@@ -61,3 +61,14 @@ test('element actions require observed snapshots; state uses opaque references',
   assert.throws(() => schemas.browser_import_state.parse({stateRef:'cookie contents'}));
   assert.throws(() => schemas.browser_upload_file.parse({snapshotId:'old',elementId:'e1',path:'file'}));
 });
+test('artifact directories reject workspace symlinks before downloads or recording create files', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dome-artifact-scope-'));
+  const workspace = path.join(root,'workspace'); await fs.mkdir(workspace);
+  await fs.symlink(root,path.join(workspace,'.dome'));
+  const {scopedOutputDirectory}=require('../browser-native/files.cjs');
+  try {
+    await assert.rejects(scopedOutputDirectory('.dome/browser-artifacts/run',workspace),/outside/);
+    assert.equal(await scopedOutputDirectory('safe/missing/run',workspace),path.join(await fs.realpath(workspace),'safe/missing/run'));
+    await assert.rejects(scopedOutputDirectory('../escape',workspace),/outside/);
+  } finally { await fs.rm(root,{recursive:true,force:true}); }
+});

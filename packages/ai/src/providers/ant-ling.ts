@@ -11,5 +11,5 @@ export function antLingProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Ant Ling API key", ["ANT_LING_API_KEY"]) },
 		models: Object.values(ANT_LING_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

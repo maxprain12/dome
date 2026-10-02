@@ -11,5 +11,5 @@ export function huggingfaceProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Hugging Face token", ["HF_TOKEN"]) },
 		models: Object.values(HUGGINGFACE_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

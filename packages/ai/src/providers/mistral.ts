@@ -11,5 +11,5 @@ export function mistralProvider(): Provider<"mistral-conversations"> {
 		auth: { apiKey: envApiKeyAuth("Mistral API key", ["MISTRAL_API_KEY"]) },
 		models: Object.values(MISTRAL_MODELS),
 		api: mistralConversationsApi(),
-	}) as Provider<"mistral-conversations">;
+	});
 }

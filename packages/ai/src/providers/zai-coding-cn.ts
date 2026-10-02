@@ -11,5 +11,5 @@ export function zaiCodingCnProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Z.AI Coding CN API key", ["ZAI_CODING_CN_API_KEY"]) },
 		models: Object.values(ZAI_CODING_CN_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

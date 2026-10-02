@@ -11,5 +11,5 @@ export function nvidiaProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("NVIDIA API key", ["NVIDIA_API_KEY"]) },
 		models: Object.values(NVIDIA_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

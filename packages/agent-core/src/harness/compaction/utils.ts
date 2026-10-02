@@ -181,6 +181,8 @@ function serializeToolResultMessage(msg: Extract<Message, { role: "toolResult" }
 
 function serializeMessage(msg: Message): string[] {
 	switch (msg.role) {
+		case "system":
+			return [`[System]: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`];
 		case "user":
 			return serializeUserMessage(msg);
 		case "assistant":

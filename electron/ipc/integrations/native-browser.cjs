@@ -28,7 +28,7 @@ function register({ ipcMain, windowManager }) {
     return { success: true };
   }));
   ipcMain.handle('native-browser:detach', handler(IdSchema, ({ sessionId }) => { browser.detach(sessionId); return { success: true }; }));
-  ipcMain.handle('native-browser:close', handler(IdSchema, ({ sessionId }) => { browser.close(sessionId); return { success: true }; }));
+  ipcMain.handle('native-browser:close', handler(IdSchema, async ({ sessionId }) => { await browser.close(sessionId); return { success: true }; }));
   ipcMain.handle('native-browser:get-options', handler(z.object({}).strict(), () => {
     const options = require('../../browser-native/run-options.cjs').readOptions(require('../../core/database.cjs'));
     const { env, proxy, ...safeBrowser } = options.browser;

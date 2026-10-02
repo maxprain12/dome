@@ -7,7 +7,7 @@ async function command(contents, name, params = {}, signal) {
   if (name === 'DOM.requestNode' || name === 'DOM.setFileInputFiles') await bounded(contents.debugger.sendCommand('DOM.getDocument', { depth: 0 }), signal);
   return bounded(contents.debugger.sendCommand(name, params), signal);
 }
-async function sendKeys(contents, keys, signal) {
+async function sendKeys(contents, keys, signal, contextId) {
   const parts = keys.replace(/^Primary\+/, process.platform === 'darwin' ? 'Meta+' : 'Control+').split('+');
   const key = parts.pop();
   const modifiers = parts.reduce((bits, name) => bits | ({ Alt: 1, Control: 2, Meta: 4, Shift: 8 }[name] || 0), 0);
@@ -18,6 +18,6 @@ async function sendKeys(contents, keys, signal) {
     ...((modifiers & (2 | 4)) && key.toUpperCase() === 'A' ? { commands: ['selectAll'] } : {}),
     ...(key === 'Enter' ? { text: '\r' } : key.length === 1 && !modifiers ? { text: key } : {}) }, signal);
   await command(contents, 'Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers, windowsVirtualKeyCode: code }, signal);
-  if ((modifiers & (2 | 4)) && key.toUpperCase() === 'A') await command(contents, 'Runtime.evaluate', { expression: 'document.activeElement?.select?.()' }, signal);
+  if ((modifiers & (2 | 4)) && key.toUpperCase() === 'A') await command(contents, 'Runtime.evaluate', { expression: 'document.activeElement?.select?.()', ...(contextId ? { contextId } : {}) }, signal);
 }
 module.exports = { command, sendKeys };

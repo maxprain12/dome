@@ -11,5 +11,5 @@ export function xiaomiProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Xiaomi API key", ["XIAOMI_API_KEY"]) },
 		models: Object.values(XIAOMI_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

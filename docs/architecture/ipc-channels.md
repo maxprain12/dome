@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-02T11:22:18.498Z
+> Última generación: 2026-10-02T11:53:27.228Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -10,10 +10,19 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:agent:abort` | `electron/ipc/ai/ai.cjs:354` |
 | `ai:agent:resume` | `electron/ipc/ai/ai.cjs:368` |
 | `ai:agent:stream` | `electron/ipc/ai/ai.cjs:216` |
+| `ai:capability-catalog` | `electron/ipc/ai/model-collection.cjs:16` |
+| `ai:capability-configure` | `electron/ipc/ai/model-collection.cjs:27` |
 | `ai:chat` | `electron/ipc/ai/ai.cjs:101` |
+| `ai:chat-model-select` | `electron/ipc/ai/model-collection.cjs:46` |
 | `ai:model:input` | `electron/ipc/ai/ai.cjs:88` |
 | `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:629` |
 | `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:568` |
+| `ai:provider-configure` | `electron/ipc/ai/model-collection.cjs:33` |
+| `ai:provider-key` | `electron/ipc/ai/model-collection.cjs:57` |
+| `ai:provider-login` | `electron/ipc/ai/model-auth.cjs:13` |
+| `ai:provider-login-answer` | `electron/ipc/ai/model-auth.cjs:42` |
+| `ai:provider-login-cancel` | `electron/ipc/ai/model-auth.cjs:48` |
+| `ai:provider-login-status` | `electron/ipc/ai/model-auth.cjs:39` |
 | `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:585` |
 | `ai:stream` | `electron/ipc/ai/ai.cjs:153` |
 | `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:293` |

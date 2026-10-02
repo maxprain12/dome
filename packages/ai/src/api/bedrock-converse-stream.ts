@@ -31,8 +31,9 @@ import type {
 	Api,
 	AssistantMessage,
 	CacheRetention,
-	Context,
 	ImageContent,
+	JsonObject,
+	JsonValue,
 	Model,
 	ProviderEnv,
 	ProviderResponse,
@@ -56,6 +57,14 @@ import { parseStreamingJson } from "../utils/json-parse.js";
 import { resolveHttpProxyUrlForTarget } from "../utils/node-http-proxy.js";
 import { getProviderEnvValue } from "../utils/provider-env.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+import { getSystemMessageText } from "../utils/text.js";
+import {
+	collapseSystemMessages,
+	getCurrentTools,
+	getInitialSystemMessage,
+	type TranscriptContext,
+	withoutInitialSystemMessage,
+} from "../utils/transcript.js";
 import { getJsonSchemaToolParameters, resolveJsonSchemaStrictSampling } from "./constrained-sampling.js";
 import {
 	adjustMaxTokensForThinking,
@@ -115,10 +124,12 @@ const REDACTED_THINKING_PLACEHOLDER = "[Reasoning redacted]";
 
 export const stream: StreamFunction<"bedrock-converse-stream", BedrockOptions> = (
 	model: Model<"bedrock-converse-stream">,
-	context: Context,
+	context: TranscriptContext,
 	options: BedrockOptions = {},
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
+	// Bedrock has no mid-conversation system messages; fold them into the leading prompt.
+	const normalizedContext = collapseSystemMessages(context);
 
 	(async () => {
 		const output: AssistantMessage = {
@@ -248,15 +259,21 @@ export const stream: StreamFunction<"bedrock-converse-stream", BedrockOptions> =
 			}
 			const cacheRetention = resolveCacheRetention(options.cacheRetention, options.env);
 			const inferenceMaxTokens = options.maxTokens ?? (isAnthropicClaudeModel(model) ? model.maxTokens : undefined);
+			const initialSystemMessage = getInitialSystemMessage(normalizedContext.messages);
+			const initialSystemPrompt = initialSystemMessage ? getSystemMessageText(initialSystemMessage) : undefined;
 			let commandInput = {
 				modelId: model.id,
-				messages: convertMessages(context, model, cacheRetention, options.env),
-				system: buildSystemPrompt(context.systemPrompt, model, cacheRetention, options.env),
+				messages: convertMessages(normalizedContext, model, cacheRetention, options.env),
+				system: buildSystemPrompt(initialSystemPrompt, model, cacheRetention, options.env),
 				inferenceConfig: {
 					...(inferenceMaxTokens !== undefined && { maxTokens: inferenceMaxTokens }),
 					...(options.temperature !== undefined && { temperature: options.temperature }),
 				},
-				toolConfig: convertToolConfig(context.tools, options.toolChoice, supportsStrictMode),
+				toolConfig: convertToolConfig(
+					getCurrentTools(normalizedContext.messages),
+					options.toolChoice,
+					supportsStrictMode,
+				),
 				additionalModelRequestFields: buildAdditionalModelRequestFields(model, options),
 				...(options.requestMetadata !== undefined && { requestMetadata: options.requestMetadata }),
 			};
@@ -277,6 +294,7 @@ export const stream: StreamFunction<"bedrock-converse-stream", BedrockOptions> =
 			}
 
 			for await (const item of response.stream!) {
+				await options.onProviderStreamEvent?.(item, model);
 				if (item.messageStart) {
 					if (item.messageStart.role !== ConversationRole.ASSISTANT) {
 						throw new Error("Unexpected assistant message start but got user message start instead");
@@ -422,7 +440,7 @@ function appendBedrockFailureDiagnostic(
 	fallbackRequestId: string | undefined,
 ): void {
 	const metadata = (error as SdkErrorMetadata)?.$metadata;
-	const details: Record<string, unknown> = {};
+	const details: JsonObject = {};
 
 	if (typeof metadata?.httpStatusCode === "number") details.status = metadata.httpStatusCode;
 
@@ -470,7 +488,7 @@ function addCustomHeadersMiddleware(client: BedrockRuntimeClient, headers: Recor
 		}
 		return next(args);
 	};
-	client.middlewareStack.add(middleware as never, { step: "build", name: "pi-ai-custom-headers", priority: "low" });
+	client.middlewareStack.add(middleware, { step: "build", name: "pi-ai-custom-headers", priority: "low" });
 }
 
 function isSmithyHttpResponse(response: unknown): response is HttpResponse {
@@ -505,12 +523,12 @@ function addResponseHeadersMiddleware(
 		}
 		return result;
 	};
-	client.middlewareStack.add(middleware as never, { step: "deserialize", name: "pi-ai-response-headers" });
+	client.middlewareStack.add(middleware, { step: "deserialize", name: "pi-ai-response-headers" });
 }
 
 export const streamSimple: StreamFunction<"bedrock-converse-stream", SimpleStreamOptions> = (
 	model: Model<"bedrock-converse-stream">,
-	context: Context,
+	context: TranscriptContext,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
 	const base = {
@@ -582,97 +600,6 @@ function handleContentBlockStart(
 	}
 }
 
-function handleTextDelta(
-	text: string,
-	contentBlockIndex: number,
-	index: number,
-	block: Block | undefined,
-	blocks: Block[],
-	output: AssistantMessage,
-	stream: AssistantMessageEventStream,
-): void {
-	let textIndex = index;
-	let textBlock = block;
-
-	// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
-	if (!textBlock) {
-		const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
-		output.content.push(newBlock);
-		textIndex = blocks.length - 1;
-		textBlock = blocks[textIndex];
-		stream.push({ type: "text_start", contentIndex: textIndex, partial: output });
-	}
-	if (textBlock.type === "text") {
-		textBlock.text += text;
-		stream.push({ type: "text_delta", contentIndex: textIndex, delta: text, partial: output });
-	}
-}
-
-function appendRedactedContent(
-	redactedContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>["redactedContent"],
-	thinkingBlock: Extract<Block, { type: "thinking" }>,
-	thinkingIndex: number,
-	output: AssistantMessage,
-	stream: AssistantMessageEventStream,
-): void {
-	if (!redactedContent?.length) return;
-	// Encrypted reasoning from non-Anthropic models on Bedrock (e.g. OpenAI GPT-5.6).
-	// The payload is opaque, so keep it verbatim in `thinkingSignature` the way the
-	// Anthropic path stores redacted thinking, and replay it on the next turn.
-	if (!thinkingBlock.redacted) {
-		thinkingBlock.redacted = true;
-		thinkingBlock.thinkingSignature = "";
-		thinkingBlock.thinking += REDACTED_THINKING_PLACEHOLDER;
-		stream.push({
-			type: "thinking_delta",
-			contentIndex: thinkingIndex,
-			delta: REDACTED_THINKING_PLACEHOLDER,
-			partial: output,
-		});
-	}
-	thinkingBlock.redactedChunks ??= [];
-	thinkingBlock.redactedChunks.push(redactedContent);
-}
-
-function handleReasoningDelta(
-	reasoningContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>,
-	contentBlockIndex: number,
-	index: number,
-	block: Block | undefined,
-	blocks: Block[],
-	output: AssistantMessage,
-	stream: AssistantMessageEventStream,
-): void {
-	let thinkingBlock = block;
-	let thinkingIndex = index;
-
-	if (!thinkingBlock) {
-		const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
-		output.content.push(newBlock);
-		thinkingIndex = blocks.length - 1;
-		thinkingBlock = blocks[thinkingIndex];
-		stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
-	}
-
-	if (thinkingBlock?.type !== "thinking") return;
-
-	if (reasoningContent.text) {
-		thinkingBlock.thinking += reasoningContent.text;
-		stream.push({
-			type: "thinking_delta",
-			contentIndex: thinkingIndex,
-			delta: reasoningContent.text,
-			partial: output,
-		});
-	}
-	// `thinkingSignature` holds either an Anthropic signature or an opaque redacted
-	// payload, never both: mixing them would corrupt whichever arrived first.
-	if (reasoningContent.signature && !thinkingBlock.redacted) {
-		thinkingBlock.thinkingSignature = (thinkingBlock.thinkingSignature || "") + reasoningContent.signature;
-	}
-	appendRedactedContent(reasoningContent.redactedContent, thinkingBlock, thinkingIndex, output, stream);
-}
-
 function handleContentBlockDelta(
 	event: ContentBlockDeltaEvent,
 	blocks: Block[],
@@ -681,17 +608,73 @@ function handleContentBlockDelta(
 ): void {
 	const contentBlockIndex = event.contentBlockIndex!;
 	const delta = event.delta;
-	const index = blocks.findIndex((b) => b.index === contentBlockIndex);
-	const block = blocks[index];
+	let index = blocks.findIndex((b) => b.index === contentBlockIndex);
+	let block = blocks[index];
 
 	if (delta?.text !== undefined) {
-		handleTextDelta(delta.text, contentBlockIndex, index, block, blocks, output, stream);
+		// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
+		if (!block) {
+			const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
+			output.content.push(newBlock);
+			index = blocks.length - 1;
+			block = blocks[index];
+			stream.push({ type: "text_start", contentIndex: index, partial: output });
+		}
+		if (block.type === "text") {
+			block.text += delta.text;
+			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
+		}
 	} else if (delta?.toolUse && block?.type === "toolCall") {
 		block.partialJson = (block.partialJson || "") + (delta.toolUse.input || "");
 		block.arguments = parseStreamingJson(block.partialJson);
 		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input || "", partial: output });
 	} else if (delta?.reasoningContent) {
-		handleReasoningDelta(delta.reasoningContent, contentBlockIndex, index, block, blocks, output, stream);
+		let thinkingBlock = block;
+		let thinkingIndex = index;
+
+		if (!thinkingBlock) {
+			const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
+			output.content.push(newBlock);
+			thinkingIndex = blocks.length - 1;
+			thinkingBlock = blocks[thinkingIndex];
+			stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
+		}
+
+		if (thinkingBlock?.type === "thinking") {
+			if (delta.reasoningContent.text) {
+				thinkingBlock.thinking += delta.reasoningContent.text;
+				stream.push({
+					type: "thinking_delta",
+					contentIndex: thinkingIndex,
+					delta: delta.reasoningContent.text,
+					partial: output,
+				});
+			}
+			// `thinkingSignature` holds either an Anthropic signature or an opaque redacted
+			// payload, never both: mixing them would corrupt whichever arrived first.
+			if (delta.reasoningContent.signature && !thinkingBlock.redacted) {
+				thinkingBlock.thinkingSignature =
+					(thinkingBlock.thinkingSignature || "") + delta.reasoningContent.signature;
+			}
+			if (delta.reasoningContent.redactedContent?.length) {
+				// Encrypted reasoning from non-Anthropic models on Bedrock (e.g. OpenAI GPT-5.6).
+				// The payload is opaque, so keep it verbatim in `thinkingSignature` the way the
+				// Anthropic path stores redacted thinking, and replay it on the next turn.
+				if (!thinkingBlock.redacted) {
+					thinkingBlock.redacted = true;
+					thinkingBlock.thinkingSignature = "";
+					thinkingBlock.thinking += REDACTED_THINKING_PLACEHOLDER;
+					stream.push({
+						type: "thinking_delta",
+						contentIndex: thinkingIndex,
+						delta: REDACTED_THINKING_PLACEHOLDER,
+						partial: output,
+					});
+				}
+				thinkingBlock.redactedChunks ??= [];
+				thinkingBlock.redactedChunks.push(delta.reasoningContent.redactedContent);
+			}
+		}
 	}
 }
 
@@ -727,6 +710,10 @@ function handleMetadata(
 		output.usage.output = event.usage.outputTokens || 0;
 		output.usage.cacheRead = event.usage.cacheReadInputTokens || 0;
 		output.usage.cacheWrite = event.usage.cacheWriteInputTokens || 0;
+		output.usage.cacheWrite1h = event.usage.cacheDetails?.reduce(
+			(total, detail) => total + (detail.ttl === CacheTTL.ONE_HOUR ? (detail.inputTokens ?? 0) : 0),
+			0,
+		);
 		output.usage.totalTokens = event.usage.totalTokens || output.usage.input + output.usage.output;
 		calculateCost(model, output.usage);
 	}
@@ -932,7 +919,7 @@ function createRequiredTextBlock(text: string): ContentBlock.TextMember {
 	return createNonBlankTextBlock(text) ?? { text: EMPTY_TEXT_PLACEHOLDER };
 }
 
-function sanitizeBedrockDocument(value: DocumentType): DocumentType {
+function sanitizeBedrockDocument(value: JsonValue): DocumentType {
 	if (Array.isArray(value)) {
 		return value.map(sanitizeBedrockDocument);
 	}
@@ -961,13 +948,17 @@ function convertToolResultContent(content: (TextContent | ImageContent)[]): Tool
 }
 
 function convertMessages(
-	context: Context,
+	context: TranscriptContext,
 	model: Model<"bedrock-converse-stream">,
 	cacheRetention: CacheRetention,
 	env?: ProviderEnv,
 ): Message[] {
 	const result: Message[] = [];
-	const transformedMessages = transformMessages(context.messages, model, normalizeToolCallId);
+	const transformedMessages = transformMessages(
+		withoutInitialSystemMessage(context.messages),
+		model,
+		normalizeToolCallId,
+	);
 
 	for (let i = 0; i < transformedMessages.length; i++) {
 		const m = transformedMessages[i];
@@ -994,10 +985,7 @@ function convertMessages(
 					}
 					if (content.length === 0) content.push({ text: EMPTY_TEXT_PLACEHOLDER });
 				}
-				result.push({
-					role: ConversationRole.USER,
-					content,
-				});
+				result.push({ role: ConversationRole.USER, content });
 				break;
 			}
 			case "assistant": {
@@ -1107,10 +1095,7 @@ function convertMessages(
 				// Skip the messages we've already processed
 				i = j - 1;
 
-				result.push({
-					role: ConversationRole.USER,
-					content: toolResults,
-				});
+				result.push({ role: ConversationRole.USER, content: toolResults });
 				break;
 			}
 			default:

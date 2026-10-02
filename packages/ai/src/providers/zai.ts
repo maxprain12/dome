@@ -11,5 +11,5 @@ export function zaiProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Z.AI API key", ["ZAI_API_KEY"]) },
 		models: Object.values(ZAI_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

@@ -11,5 +11,5 @@ export function deepseekProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("DeepSeek API key", ["DEEPSEEK_API_KEY"]) },
 		models: Object.values(DEEPSEEK_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }
