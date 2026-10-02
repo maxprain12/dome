@@ -229,9 +229,9 @@ async function invokeFlashcardCreate(ctx) {
   return result;
 }
 async function invokeWebFetch(ctx) {
-  const { fn, args } = ctx;
+  const { fn, args, toolContext } = ctx;
   let result;
-  result = await fn(args);
+  result = await fn(args, toolContext);
   return result;
 }
 async function invokeExcelGet(ctx) {
@@ -767,6 +767,7 @@ const HANDLER_INVOKERS = {
   resourceDelete: invokeResourceDelete,
   resourceMoveToFolder: invokeResourceMoveToFolder,
   flashcardCreate: invokeFlashcardCreate,
+  nativeWebSearch: ({ fn, args, toolContext }) => fn(args, toolContext),
   webFetch: invokeWebFetch,
   excelGet: invokeExcelGet,
   excelGetFilePath: invokeExcelGetFilePath,

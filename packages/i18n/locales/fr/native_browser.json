@@ -1,0 +1,7 @@
+{
+  "title": "Navigateur web",
+  "resolve_captcha": "Ouvrir la recherche dans Dome",
+  "recovery_help": "Résolvez le blocage du moteur de recherche, puis demandez à l’agent de continuer avec cette session.",
+  "closed": "Cette session du navigateur est terminée.",
+  "empty": "Aucun résultat trouvé."
+}

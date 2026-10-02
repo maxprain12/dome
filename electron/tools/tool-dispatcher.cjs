@@ -37,6 +37,7 @@ const TOOL_TIMEOUT_OVERRIDES = {
   // own optional per-call timeout and is cancellable, so this is only a backstop
   // against a wedged process, not the normal control.
   shell_exec: 1_800_000,
+  web_search: 50_000,
   web_fetch: 90_000,
 };
 

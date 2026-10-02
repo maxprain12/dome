@@ -29,6 +29,7 @@ export interface DomeTab {
   /** JSON string of chat artifact for type === 'artifact' */
   artifactPayload?: string;
   pluginId?: string;
+  browserSessionId?: string;
   pinned?: boolean;
   color?: string;
   /**

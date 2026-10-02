@@ -27,7 +27,8 @@ export type TabType =
   | 'folder'
   | 'learn'
   | 'artifact'
-  | 'plugin';
+  | 'plugin'
+  | 'browser';
 
 export type TabConfig = {
   type: TabType;
@@ -38,6 +39,7 @@ export type TabConfig = {
 };
 
 const TAB_CONFIGS: TabConfig[] = [
+  { type: 'browser', projectScoped: false, sidebarNav: false, resourceSource: false, needsResourceId: false },
   { type: 'home', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'projects', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'note', projectScoped: true, sidebarNav: false, resourceSource: true, needsResourceId: true },

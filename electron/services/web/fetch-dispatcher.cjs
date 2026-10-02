@@ -214,7 +214,7 @@ async function scrapeUrl(input) {
   }
 
   if (request.includeScreenshot) {
-    // Screenshots require a headless browser; HTTP providers cannot render JS pages.
+    return require('../../browser-native/service.cjs').browser.scrape(request, request.signal);
   }
 
   const settings = getWebSettings();
@@ -224,17 +224,15 @@ async function scrapeUrl(input) {
   for (const providerId of chain) {
     try {
       const result = await runProvider(providerId, request, settings);
-      if (request.includeScreenshot) {
-        result.warnings = [
-          ...(Array.isArray(result.warnings) ? result.warnings : []),
-          'include_screenshot is not supported without a headless browser; screenshot omitted.',
-        ];
-      }
+      if (!result.success || !result.content?.trim() || /^\s*(enable javascript|please enable javascript)/i.test(result.content)) throw new Error('HTTP extraction is insufficient');
       return result;
     } catch (error) {
       errors.push(`${providerId}: ${error?.message || String(error)}`);
     }
   }
+
+  try { return await require('../../browser-native/service.cjs').browser.scrape(request, request.signal); }
+  catch (error) { errors.push(`chromium: ${error.message}`); }
 
   return {
     success: false,

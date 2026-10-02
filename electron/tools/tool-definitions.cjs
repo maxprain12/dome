@@ -41,6 +41,7 @@ const TOOL_HANDLER_MAP = {
   resource_delete: 'resourceDelete',
   resource_move_to_folder: 'resourceMoveToFolder',
   flashcard_create: 'flashcardCreate',
+  web_search: 'nativeWebSearch',
   web_fetch: 'webFetch',
 
   excel_get: 'excelGet',
@@ -232,7 +233,7 @@ function getToolDefsBySubagent() {
   }
   const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
   return {
-    web: pick('web_fetch'),
+    web: pick('web_search', 'web_fetch'),
     library: pick(
       'resource_search',
       'resource_get',
@@ -325,6 +326,56 @@ function getAllToolDefinitions() {
   return [
     QUESTIONNAIRE_TOOL_DEFINITION,
     {
+  "type": "function",
+  "function": {
+    "name": "web_search",
+    "description": "Search the public web locally without API keys or an extension. Returns observed organic sources (title, URL, snippet), engine and capturedAt. Use web_fetch to read sources before citing factual claims. Captchas and failed extraction are explicit errors, never empty results.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 5
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "duckduckgo",
+            "bing",
+            "google"
+          ],
+          "default": "auto"
+        },
+        "country": {
+          "type": "string"
+        },
+        "search_lang": {
+          "type": "string"
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "day",
+            "week",
+            "month",
+            "year"
+          ]
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    }
+  }
+},
+    {
       type: 'function',
       function: {
         name: 'web_fetch',
@@ -334,6 +385,7 @@ function getAllToolDefinitions() {
           properties: {
             url: { type: 'string', description: 'URL to fetch' },
             max_length: { type: 'number', description: 'Max content length. Default: 50000' },
+            include_screenshot: { type: 'boolean', description: 'Render locally and capture the page' },
           },
           required: ['url'],
         },

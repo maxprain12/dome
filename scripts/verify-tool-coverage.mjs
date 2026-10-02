@@ -157,7 +157,7 @@ function extractToolHandlerKeys(mapBody) {
 /** Tool `function.name` lines use exactly 8 spaces before `name:` in tool-dispatcher.cjs */
 function extractDefinitionToolNames(arrayBody) {
   const names = [];
-  const re = /\n {8}name: '([^']+)'/g;
+  const re = /\n\s*(?:name|["']name["'])\s*:\s*["']([^"']+)["']/g;
   let m;
   while ((m = re.exec(arrayBody)) !== null) {
     names.push(m[1]);

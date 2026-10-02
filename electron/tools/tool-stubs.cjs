@@ -19,6 +19,7 @@ const CORE_FULL_SCHEMA_TOOLS = [
   'resource_search',
   'resource_get',
   'resource_get_active',
+  'web_search',
   'web_fetch',
   'task',
   'delegate_to_agent',

@@ -228,7 +228,7 @@ sequenceDiagram
 
 ### Web search & fetch (HTTP providers)
 
-Web search is provided by configured MCP servers or invoked skills. Dome keeps `web_fetch` to read supplied public URLs; no built-in search or provider-native search adaptation remains.
+Web search uses the built-in local Chromium service (`web_search`), without search API keys or an extension. DuckDuckGo is the default, with Bing fallback and explicit Google selection. `web_fetch` reads public URLs and renders locally when HTTP extraction is insufficient. MCP and skills remain available. Search failures, captchas and empty results are distinct; failed searches are never presented as sources.
 
 ## Functionality
 
