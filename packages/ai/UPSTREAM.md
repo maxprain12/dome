@@ -10,6 +10,7 @@ Dome adaptations:
 - Generated provider data is included as grouped JSON. It was produced with the pinned generator against public provider catalogs on 2026-10-02; upstream Git does not include this generated data. The manifest records provenance. Catalog refresh is owned by each SDK provider and persisted by the main-process profile collection.
 - SDK dependency versions follow the pinned package. Smithy types are aligned with the installed Bedrock SDK. The Codex binary request body is copied to an owned ArrayBuffer for DOM fetch typing.
 - Historical deferred-tool metadata remains accepted by the compatibility reader; new contracts use the unified transcript/system-message and compact-frame helpers.
+- OAuth HTML writers share a minimal response contract, avoiding full `ServerResponse` identity conflicts when transitive dependencies load multiple Node type versions.
 
 The SDK is Node-only in Dome. The renderer reads sanitized model metadata over validated IPC and never imports provider implementations or receives credentials. Hosted browser services are excluded; AI providers retain their own account requirements.
 

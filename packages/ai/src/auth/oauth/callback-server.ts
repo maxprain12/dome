@@ -5,8 +5,8 @@
  * loaded OAuth flow modules, never from browser-facing entry points.
  */
 
-import { createServer, type ServerResponse } from "node:http";
-import { oauthErrorHtml, oauthSuccessHtml } from "../../utils/oauth-page.js";
+import { createServer } from "node:http";
+import { type OAuthPageResponse, oauthErrorHtml, oauthSuccessHtml } from "../../utils/oauth-page.js";
 import type { ProviderAuthInteraction } from "../types.js";
 
 export interface OAuthCallbackServerOptions<T> {
@@ -42,7 +42,7 @@ export interface OAuthCallbackServer<T> {
 	close(): void;
 }
 
-function sendPage(response: ServerResponse, status: number, html: string): void {
+function sendPage(response: OAuthPageResponse, status: number, html: string): void {
 	response.writeHead(status, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
 	response.end(html);
 }

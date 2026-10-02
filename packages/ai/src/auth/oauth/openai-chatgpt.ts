@@ -6,8 +6,8 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { createServer, type Server, type ServerResponse } from "node:http";
-import { oauthErrorHtml, oauthSuccessHtml } from "../../utils/oauth-page.js";
+import { createServer, type Server } from "node:http";
+import { type OAuthPageResponse, oauthErrorHtml, oauthSuccessHtml } from "../../utils/oauth-page.js";
 import { getProviderEnvValue } from "../../utils/provider-env.js";
 import type { LoginOptions, OAuthAuth, OAuthCredential, ProviderAuthInteraction } from "../types.js";
 import { generatePKCE } from "./pkce.js";
@@ -77,7 +77,7 @@ function authorizationResultFromManualInput(input: string, expectedState: string
 	return authorizationResultFromCallback(url, expectedState);
 }
 
-function sendHtml(response: ServerResponse, status: number, body: string): void {
+function sendHtml(response: OAuthPageResponse, status: number, body: string): void {
 	response.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
 	response.end(body);
 }

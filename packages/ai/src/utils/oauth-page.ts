@@ -107,3 +107,9 @@ export function oauthErrorHtml(message: string, details?: string): string {
 		details,
 	});
 }
+
+/** Only the HTTP operations used to send an OAuth callback page. */
+export interface OAuthPageResponse {
+	writeHead(status: number, headers: Record<string, string>): void;
+	end(html: string): void;
+}
