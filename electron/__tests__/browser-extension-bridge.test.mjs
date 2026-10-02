@@ -1230,7 +1230,7 @@ describe('Many browser runtime parity', () => {
         };
       },
       getAiTools: () => ({
-        resourceHybridSearch: async (query, options) => {
+        resourceSearch: async (query, options) => {
           searches.push({ query, options });
           return { success: true, results: [{ id: 'r1', title: 'Result' }] };
         },
@@ -1256,7 +1256,6 @@ describe('Many browser runtime parity', () => {
       query: 'knowledge',
       projectId: 'default',
       limit: 5,
-      semanticMinScore: 0.4,
     });
     assert.equal(search.results[0].title, 'Result');
     assert.equal(searches[0].options.project_id, 'default');

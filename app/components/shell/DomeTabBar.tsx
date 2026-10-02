@@ -250,7 +250,7 @@ function TabActions({ tab }: { tab: DomeTab }) {
                     size="icon-sm"
                     className="rounded-full border-2"
                     style={{ backgroundColor: color }}
-                    onClick={() => void persistFolderTabColor(tab, color)}
+                    onClick={() => { persistFolderTabColor(tab, color); }}
                     aria-label={color}
                   />
                 ))}

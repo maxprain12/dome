@@ -85,3 +85,6 @@ Se instala el lockfile sin scripts para habilitar validación en este worktree.
   UI 553/553. Los nueve controles pasaron; lint 114 advertencias, cero errores.
   Catálogo: 151 herramientas/151 handlers; IPC: 639 canales. Build de paquetes
   correcto. PR 1731 (memoria) fusionada con CI correcto.
+- CI detectó un fixture de la extensión que todavía simulaba resourceHybridSearch;
+  se actualizó a resourceSearch. Las 26 pruebas del bridge pasan. Se corrigieron
+  los patrones Sonar visibles al comparar con la base actual de main.

@@ -5,9 +5,9 @@
  * Note: Electron runs on Node.js, not Bun, so we use better-sqlite3 instead of bun:sqlite
  */
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
 const { createSettingsRepo, createTagsRepo } = require('./db/drizzle-repos.cjs');

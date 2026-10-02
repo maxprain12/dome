@@ -5,8 +5,8 @@
  * Resource search uses SQLite FTS5; text extraction is scheduled in the main process.
  */
 
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const { app } = require('electron');
 const database = require('./database.cjs');
 
