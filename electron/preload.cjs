@@ -274,6 +274,8 @@ const ALLOWED_CHANNELS = {
     'migration:getStatus',
     // Web scraping
     'web:scrape',
+    'native-browser:get-options',
+    'native-browser:set-options',
     'native-browser:search',
     'native-browser:recover',
     'native-browser:attach',

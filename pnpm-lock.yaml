@@ -290,6 +290,9 @@ importers:
       picomatch:
         specifier: ^2.3.2
         version: 2.3.2
+      playwright-core:
+        specifier: 1.61.1
+        version: 1.61.1
       posthog-js:
         specifier: ^1.372.1
         version: 1.396.3

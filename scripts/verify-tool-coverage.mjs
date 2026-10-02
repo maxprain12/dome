@@ -218,6 +218,15 @@ function main() {
     names.push(...schemas.map((entry) => entry.function.name));
   }
 
+  if (src.includes('...pkg.browserToolDefinitions()')) {
+    const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '../packages/tools/src/families/browser-catalog.json'), 'utf8'));
+    names.push(...catalog.map((entry) => entry.function.name));
+    // Native actions are dispatched through the session-bound actions registry.
+    const dispatcher = fs.readFileSync(path.join(__dirname, '../electron/tools/tool-dispatcher.cjs'), 'utf8');
+    if (!dispatcher.includes('nativeBrowser.names.has')) throw new Error('Native browser dispatch is missing');
+    for (const entry of catalog) handlerKeys.add(entry.function.name);
+  }
+
   const missing = [];
   for (const name of names) {
     const norm = normalizeToolName(name);

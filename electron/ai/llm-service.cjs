@@ -13,6 +13,8 @@ async function loadAi() {
 
 function buildStreamOptions(options = {}, apiKey) {
   const out = {};
+  if (options.signal) out.signal = options.signal;
+  if (options.timeoutMs) out.timeoutMs = options.timeoutMs;
   if (apiKey) out.apiKey = apiKey;
   if (options.maxTokens) out.maxTokens = options.maxTokens;
   if (options.maxOutputTokens) out.maxTokens = options.maxOutputTokens;

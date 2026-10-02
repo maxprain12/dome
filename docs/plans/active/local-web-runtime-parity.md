@@ -35,3 +35,13 @@ Each phase updates this matrix with the actual test commands and limitations; do
 Implemented local engine extraction, coalescing/cache, cancellable two-slot pool, shared extension page capture, native browser recovery tab, search catalog/dispatcher integration and Chromium URL-reader fallback.
 
 Passed: 17 targeted Node tests (search, browser-tool multimodal contract and historical retirement), typecheck, lint (existing warnings), renderer tests, guardrails, Sonar diff, IPC inventory/Zod, remote protocol, production Vite build and dependency-cruiser. Native Electron smoke passed against an isolated fixture: DOM, screenshots, no Node/app preload and cleanup. Installer validation on Windows/Linux remains pending; those platforms cannot be exercised on this macOS host.
+
+## Phase 2 evidence
+
+The session-bound native browser registry now exposes navigation, snapshots, captures, element actions, scoped tabs, background CDP input/upload, JavaScript, structured extraction, scoped text files, encrypted state references and schema-validated completion on the existing agent loop. Run options cover initial actions, tool filters, domain policy, extraction model, vision, complete-turn history budgets, provider retries, step/request timeouts and a final response after the failure budget. Settings expose isolated/named profiles, allowed domains, retained sessions and workspace downloads.
+
+Electron remains sandboxed. Optional `playwright-core` connects only to an explicitly selected installed Chromium or loopback CDP; custom executable/channel/environment/arguments belong to that backend. Named advanced profiles are encrypted locally. Captures can include bounded frame snapshots and element highlights. Downloads are confined to a run workspace. Optional GIF/MP4 capture and scrubbed HAR/network traces use packaged FFmpeg and workspace output, with size/time/event limits. Password references are resolved in main; subsequent evaluation/capture is restricted and observed text is redacted.
+
+Passed: native action policy/file/CDP/history/completion tests; 546 renderer tests; TypeScript, lint, build, guardrails, Sonar, IPC/Zod/protocol inventory, tool-cap and packaged dependencies. Native Electron fixture verifies stale snapshot rejection, CDP input without window focus, file upload, multiple tabs, screenshots and cleanup. On this macOS host the smoke command uses `--disable-gpu` to avoid a platform startup crash; production sandbox settings are unchanged.
+
+Cross-platform installers and live external Chromium/profile/OAuth combinations remain acceptance checks requiring their respective installations/accounts. Trace output is a scrubbed network-event trace, rather than the Python Browser-Use trace format.

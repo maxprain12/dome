@@ -24,7 +24,7 @@ export type ElementAction = {
   direction?: 'up' | 'down' | 'top' | 'bottom';
 };
 
-export function createPageAgent(doc: Document = document) {
+export function createPageAgent(doc: Document = document, includeSensitive = false) {
   let snapshotId = '';
   let snapshotUrl = '';
   const elements = new Map<string, { node: HTMLElement; signature: string; frames: HTMLIFrameElement[] }>();
@@ -52,7 +52,7 @@ export function createPageAgent(doc: Document = document) {
     elements.clear();
     const candidates = pageRoots(doc).roots.flatMap(({ root, frames }) =>
       Array.from(root.querySelectorAll<HTMLElement>('*'))
-        .filter((node) => visible(node) && !sensitive(node) &&
+        .filter((node) => visible(node) && (!sensitive(node) || (node as HTMLInputElement).type === 'file' || includeSensitive) &&
           (node.matches('a[href], button, input, textarea, select, summary, [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="radio"], [role="combobox"], [role="menuitem"], [role="option"], [tabindex], [onclick]') || scrollable(node)))
         .map((node) => ({ node, frames })),
     );
@@ -121,5 +121,36 @@ export function createPageAgent(doc: Document = document) {
     if (!item || action.snapshotId !== snapshotId || snapshotUrl !== doc.location.href || !visible(item.node)) return false;
     return showActionPointer(item.node, item.frames);
   };
-  return { read, act, point };
+  const uploadTarget = (currentSnapshot: string, elementId: string, token: string) => {
+    const item = elements.get(elementId);
+    if (currentSnapshot !== snapshotId || snapshotUrl !== doc.location.href || !item || !visible(item.node) ||
+      signature(item.node) !== item.signature || disabled(item.node) || (item.node as HTMLInputElement).type !== 'file') {
+      return { success: false, error: 'File input is stale or unavailable; read a fresh snapshot.' };
+    }
+    item.node.setAttribute('data-dome-upload', token);
+    return { success: true };
+  };
+  const secretTarget = (currentSnapshot: string, elementId: string, token: string) => {
+    const item = elements.get(elementId);
+    if (!includeSensitive || currentSnapshot !== snapshotId || snapshotUrl !== doc.location.href || !item ||
+      !visible(item.node) || signature(item.node) !== item.signature || disabled(item.node) || (item.node as HTMLInputElement).type !== 'password') {
+      return { success: false, error: 'Password input is stale or unavailable.' };
+    }
+    item.node.setAttribute('data-dome-secret', token);
+    return { success: true };
+  };
+  function highlight() {
+    doc.querySelectorAll('[data-dome-highlight]').forEach(node => node.remove());
+    for (const [id, { node }] of elements) {
+      if (!inViewport(node)) continue;
+      const rect = node.getBoundingClientRect();
+      const marker = doc.createElement('span');
+      marker.dataset.domeHighlight = id;
+      marker.textContent = id;
+      Object.assign(marker.style, { position: 'fixed', left: `${rect.left}px`, top: `${rect.top}px`,
+        pointerEvents: 'none', zIndex: '2147483647', background: 'CanvasText', color: 'Canvas', font: '12px monospace', padding: '2px' });
+      doc.documentElement.append(marker);
+    }
+  }
+  return { read, act, point, uploadTarget, secretTarget, highlight };
 }

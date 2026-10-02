@@ -29,5 +29,17 @@ function register({ ipcMain, windowManager }) {
   }));
   ipcMain.handle('native-browser:detach', handler(IdSchema, ({ sessionId }) => { browser.detach(sessionId); return { success: true }; }));
   ipcMain.handle('native-browser:close', handler(IdSchema, ({ sessionId }) => { browser.close(sessionId); return { success: true }; }));
+  ipcMain.handle('native-browser:get-options', handler(z.object({}).strict(), () => {
+    const options = require('../../browser-native/run-options.cjs').readOptions(require('../../core/database.cjs'));
+    const { env, proxy, ...safeBrowser } = options.browser;
+    return { success: true, data: { ...options, browser: safeBrowser } };
+  }));
+  ipcMain.handle('native-browser:set-options', handler(require('../../browser-native/run-options.cjs').schema, (options) => {
+    const saved = require('../../browser-native/run-options.cjs').readOptions(require('../../core/database.cjs'));
+    options.browser.env ??= saved.browser.env;
+    options.browser.proxy ??= saved.browser.proxy;
+    require('../../core/settings-secrets.cjs').writeSettingSecret(require('../../core/database.cjs').getQueries(), 'browser_runtime_options_token', JSON.stringify(options));
+    return { success: true };
+  }));
 }
 module.exports = { register };

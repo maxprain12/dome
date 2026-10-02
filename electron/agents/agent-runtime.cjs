@@ -39,6 +39,7 @@ class HitlInterruptError extends Error {
 
 /** Tools that require in-app approval before execution (HITL). */
 const HITL_TOOL_NAMES = new Set([
+  'browser_click', 'browser_fill', 'browser_fill_secret', 'browser_select', 'browser_send_keys', 'browser_upload_file', 'browser_evaluate',
   'questionnaire',
   'resource_delete',
   'artifact_delete',
@@ -901,6 +902,15 @@ async function setupHarness(surface, opts) {
       workspaceCwd: workspaceSession?.cwd ?? null,
       // Long-running tools (shell) need the run's abort signal to be killable.
       signal: opts.signal ?? null,
+      browserOptions: opts.browserOptions,
+      browserSessionId: opts.browserSessionId,
+      allowedFilePaths: opts.availableFilePaths || [],
+      outputSchema: opts.outputSchema,
+      supportsVision: resolvedModel.input.includes('image'),
+      modelConfig: { provider, model, apiKey, baseUrl },
+      extractionModel: opts.extractionModel,
+      browserOutputDirectory: opts.browserOutputDirectory || (workspaceSession ? require('node:path').join(workspaceSession.cwd, '.dome', 'browser-artifacts', threadId.replace(/[^a-zA-Z0-9_-]/g, '_')) : undefined),
+      stepTimeoutMs: opts.localRuntimeOptions?.stepTimeoutMs,
       ...(contextOverride || {}),
       agentMode: mode,
     }));
@@ -914,7 +924,11 @@ async function setupHarness(surface, opts) {
   // Native capabilities supplied by trusted main-process callers (never serialized IPC definitions).
   if (Array.isArray(opts.browserTools)) {
     for (const tool of opts.browserTools) {
-      if (typeof tool?.execute === 'function' && !tools.some(existing => existing.name === tool.name)) tools.push(tool);
+      if (typeof tool?.execute === 'function') {
+        const index = tools.findIndex(existing => existing.name === tool.name);
+        if (index >= 0) tools.splice(index, 1, tool);
+        else tools.push(tool);
+      }
     }
   }
   const subagentToolNames = ['task', 'delegate_to_agent'];
@@ -963,8 +977,9 @@ async function setupHarness(surface, opts) {
     }, opts.teamMemberAgents));
   }
 
+  const filteredTools = require('../browser-native/run-options.cjs').filterTools(tools, opts.localRuntimeOptions || { excludeTools: [] });
   const registeredTools = manyMode.filterRuntimeToolsForMode(
-    tools,
+    filteredTools,
     mode, mcpToolNames,
   );
 
@@ -1027,6 +1042,8 @@ async function setupHarness(surface, opts) {
     // one instead of being rejected by the provider.
     thinkingLevel: resolveThinkingLevel(ai, resolvedModel, thinkingLevel),
     streamOptions: {
+      timeoutMs: opts.localRuntimeOptions?.llmTimeoutMs,
+      maxRetries: opts.localRuntimeOptions?.maxFailures,
     },
     getApiKeyAndHeaders: async () => {
       try {
@@ -1064,6 +1081,7 @@ async function setupHarness(surface, opts) {
     },
   });
 
+  const unsubBrowserOptions = require('../browser-native/runtime-hooks.cjs').install(harness, opts.localRuntimeOptions);
   const unsubTool = harness.on(
     'tool_call',
     buildHarnessToolCallHook(session, { ...opts, threadId, modeExternalToolNames: mcpToolNames }, harness, fullByName),
@@ -1114,6 +1132,7 @@ async function setupHarness(surface, opts) {
   if (signal) {
     if (signal.aborted) {
       unsubTool();
+    unsubBrowserOptions();
       unsubEvents();
       const err = new Error('Aborted');
       err.name = 'AbortError';
@@ -1139,6 +1158,7 @@ async function setupHarness(surface, opts) {
     cleanup: () => {
       if (abortListener && signal) signal.removeEventListener('abort', abortListener);
       unsubTool();
+    unsubBrowserOptions();
       unsubEvents();
     },
     executeToolInMain,
@@ -1584,6 +1604,7 @@ async function steerLiveHarness(threadId, text) {
 async function executeDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
 
+  require('../browser-native/run-options.cjs').applyOptions(opts, require('../core/database.cjs'));
   const { userPrompt, promptImages, lastRaw } = await prepareRunDomeInputs(opts);
 
   const guardrailReason = applyGuardrailsEarlyReturn(userPrompt, opts);
@@ -1594,6 +1615,7 @@ async function executeDomeAgent(surface, opts) {
   registerLiveHarness(threadId, harness);
 
   try {
+    await require('../browser-native/initial-actions.cjs').initialActions(setup, opts, buildBeforeToolCall({ ...opts, threadId }, CREATION_TOOL_CAPS));
     await persistDomePins(session, lastRaw);
     await persistDomeSkills(session, lastRaw);
     await tryEmitBudgetSafely(setup, opts, 'budget telemetry skipped');
@@ -1609,6 +1631,8 @@ async function executeDomeAgent(surface, opts) {
     return handleRunError(err, threadId, opts);
   } finally {
     unregisterLiveHarness(threadId);
+    try { await require('../browser-native/service.cjs').browser.finish(opts.browserSessionId || `agent:${threadId}`); }
+    catch (error) { console.warn('[NativeBrowser] finalization failed:', error.message); }
     cleanup();
   }
 }

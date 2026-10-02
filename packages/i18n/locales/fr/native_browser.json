@@ -3,5 +3,13 @@
   "resolve_captcha": "Ouvrir la recherche dans Dome",
   "recovery_help": "Résolvez le blocage du moteur de recherche, puis demandez à l’agent de continuer avec cette session.",
   "closed": "Cette session du navigateur est terminée.",
-  "empty": "Aucun résultat trouvé."
+  "empty": "Aucun résultat trouvé.",
+  "saved": "Enregistré",
+  "local_description": "Recherchez et naviguez localement avec Chromium. L’extension est facultative.",
+  "profile": "Profil du navigateur",
+  "profile_help": "Laissez vide pour une session isolée. Les profils nommés conservent l’état des sites.",
+  "domains": "Domaines autorisés",
+  "domains_help": "Domaines séparés par des virgules. Vide autorise les sites publics.",
+  "retain": "Conserver la session après exécution",
+  "downloads": "Autoriser les téléchargements dans le workspace autorisé"
 }
