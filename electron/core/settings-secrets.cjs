@@ -4,14 +4,10 @@
 const { encryptSecret, decryptSecret, isEncryptedSecret, maskSecret } = require('./secret-storage.cjs');
 
 const SECRET_KEYS = new Set([
-  'web_search_exa_api_key',
-  'web_search_brave_key',
-  'web_search_tavily_key',
+  'web_fetch_tavily_key',
   'ai_api_key',
   'openai_api_key',
   'ollama_api_key',
-  'transcription_openai_api_key',
-  'transcription_groq_api_key',
   'copilot_github_token',
   'claude_oauth_credentials',
   'openai_codex_oauth_credentials',

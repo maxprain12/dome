@@ -39,7 +39,6 @@ function start(deps = {}) {
 }
 
 function stop() {
-  require('./research-control.cjs').stop();
   if (!runtime?.server) return Promise.resolve({ success: true });
   const handle = runtime.server.stop();
   runtime = null;

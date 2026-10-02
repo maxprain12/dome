@@ -1,4 +1,3 @@
-import { createResearchTools } from './research-tools';
 /**
  * AI Tools Index
  *
@@ -116,7 +115,6 @@ export {
 } from './memory-tool-definitions';
 
 // Tools - Web
-export { createWebSearchTool, type WebSearchConfig } from './web-search';
 export { createWebFetchTool, type WebFetchConfig } from './web-fetch';
 export { createBrowserActiveTabTool } from './browser-active-tab';
 export { createImageCropTool, type ImageCropConfig } from './image-crop';
@@ -174,16 +172,10 @@ export {
 } from './studio-outputs';
 
 // Tools - Audio Overview
-export {
-  createGenerateAudioScriptTool,
-  createAudioOverviewTools,
-} from './audio-overview';
+
 
 // Tools - Deep Research
-export {
-  createDeepResearchTool,
-  createDeepResearchTools,
-} from './deep-research';
+
 
 
 // Tools - Notebook
@@ -326,7 +318,6 @@ export {
 // =============================================================================
 
 import type { AnyAgentTool } from './types';
-import { createWebSearchTool, type WebSearchConfig } from './web-search';
 import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
 import { createBrowserActiveTabTool } from './browser-active-tab';
 import { createImageCropTool, type ImageCropConfig } from './image-crop';
@@ -336,8 +327,6 @@ import { createResourceActionTools } from './resource-actions';
 import { createFlashcardTools } from './flashcards';
 import { createContextTools } from './context';
 import { createStudioTools } from './studio-outputs';
-import { createAudioOverviewTools } from './audio-overview';
-import { createDeepResearchTools } from './deep-research';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
 import { createDocxTools } from './docx-tools';
@@ -364,7 +353,6 @@ import { createRememberFactTool } from './memory';
  * Configuration for creating default tools
  */
 export interface DefaultToolsConfig {
-  webSearch?: WebSearchConfig;
   webFetch?: WebFetchConfig;
   imageCrop?: ImageCropConfig;
   imageThumbnail?: ImageThumbnailConfig;
@@ -385,7 +373,6 @@ export function createDefaultTools(config?: DefaultToolsConfig): AnyAgentTool[] 
   const tools: AnyAgentTool[] = [];
 
   if (config?.includeWeb !== false) {
-    tools.push(createWebSearchTool(config?.webSearch));
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
@@ -401,7 +388,6 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Web tools
   if (config?.includeWeb !== false) {
-    tools.push(createWebSearchTool(config?.webSearch));
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
@@ -427,10 +413,8 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   tools.push(...createStudioTools());
 
   // Audio overview tools (podcast script generation)
-  tools.push(...createAudioOverviewTools());
 
   // Deep research tools
-  tools.push(...createDeepResearchTools());
 
   // Graph tools (knowledge graph, related resources, links)
 
@@ -469,7 +453,6 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Social hub (LinkedIn / Instagram / X)
   tools.push(...createSocialTools());
-  tools.push(...createResearchTools());
 
   // Pipelines (Kanban)
   tools.push(...createPipelineTools());
@@ -520,7 +503,6 @@ export function createManyToolsForContext(
 
   const tools: AnyAgentTool[] = [];
   if (config?.includeWeb !== false) {
-    tools.push(createWebSearchTool(config?.webSearch));
     tools.push(createWebFetchTool(config?.webFetch));
     if (typeof window !== 'undefined' && window.electron?.isMac) {
       tools.push(createBrowserActiveTabTool());
@@ -567,8 +549,6 @@ export function createManyToolsForContext(
 
   // Studio, audio, deep research, graph: available in all contexts
   tools.push(...createStudioTools());
-  tools.push(...createAudioOverviewTools());
-  tools.push(...createDeepResearchTools());
 
   // Entity creation tools (agents, workflows, automations): useful when user asks to create
   tools.push(...createEntityTools());
@@ -584,7 +564,6 @@ export function createManyToolsForContext(
 
   // Social hub (LinkedIn / Instagram / X)
   tools.push(...createSocialTools());
-  tools.push(...createResearchTools());
 
   // Pipelines (Kanban)
   tools.push(...createPipelineTools());

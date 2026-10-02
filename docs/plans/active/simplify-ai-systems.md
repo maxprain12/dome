@@ -1,6 +1,6 @@
 ---
 title: Simplificar IA y retirar sistemas de conocimiento redundantes
-status: in_progress
+status: implemented
 date: 2026-10-01
 ---
 
@@ -88,3 +88,46 @@ Se instala el lockfile sin scripts para habilitar validación en este worktree.
 - CI detectó un fixture de la extensión que todavía simulaba resourceHybridSearch;
   se actualizó a resourceSearch. Las 26 pruebas del bridge pasan. Se corrigieron
   los patrones Sonar visibles al comparar con la base actual de main.
+
+
+### Bloque 4 — Investigación, KB, voz y revisión final
+
+- Se retiraron Agent-Reach, fuentes/presupuestos de investigación, buscadores
+  propios, adaptación de búsqueda nativa, herramientas y rutas de extensión.
+  web_fetch, captura del navegador y los servicios compartidos de Social siguen.
+- KB ya no aprovisiona agentes ni automatizaciones. Migración 80 desactiva KB
+  y automatizaciones de usuario dependientes, con motivo visible, conservando
+  recursos, ejecuciones, multimedia y transcripciones anteriores.
+- Se retiraron TTS, captura, dictado, STT, recuperación, permisos y generación
+  de podcasts. Los reproductores y el texto histórico permanecen. Las pestañas
+  de transcripción restauradas abren el recurso o su biblioteca (prueba propia).
+- Catálogos, bundled skills, prompts, IPC, tipos, traducciones, empaquetado,
+  configuración de CI y manuales reflejan las retiradas. Los enlaces antiguos
+  de Ajustes redirigen a IA, sin crear servicios de sustitución.
+- Revisión adicional: selecciones MCP distinguen nombres originales con
+  colisiones; Ollama conserva los modelos descubiertos aunque falle uno de sus
+  metadatos; borrar una skill anidada refresca el catálogo y respeta su raíz.
+- Verificación local: UI 546/546; seguridad 177/177; FTS/migración/OCR/archivos/
+  memoria de acciones/bridge 72/72; MCP/imágenes/runtime 27/27; política de
+  memoria y catálogo de skills 2/2; contactos/mail 40/40 de UI más pruebas main;
+  agent-core 82/82 y ai 19/19. Extensión: 42/42, typecheck, builds Chrome/Edge/
+  Firefox/Safari y prueba del manifiesto correctos. SDK, bridge Many, logs,
+  inventarios remoto/IPC y empaquetado también comprobados.
+- Los nueve controles de AGENTS.md pasaron: typecheck, lint (112 advertencias
+  existentes, cero errores), test:ui, guardrails, Sonar diff, IPC, protocolo
+  remoto, build y depcruise. Catálogo final: 144 herramientas/handlers y 603 IPC.
+- Las PRs [1730](https://github.com/maxprain12/dome/pull/1730),
+  [1731](https://github.com/maxprain12/dome/pull/1731) y
+  [1732](https://github.com/maxprain12/dome/pull/1732) están fusionadas con CI
+  correcto. La cuarta PR ejecutará también Electron y extensión en CI antes
+  del auto-merge.
+- Límite de evidencia: adaptadores/protocolos probados con fixtures, sin consumir
+  APIs de pago. OAuth externo y sesiones reales con cada proveedor no se han
+  ejecutado. Los datos de un perfil de producción no se han modificado.
+
+- Auditoría final de main: retirada la última ruta ai:webSearch y sus exports;
+  el módulo de herramientas se prueba al cargar para detectar exports indefinidos.
+  El ensamblador compartido/compilado ya no añade instrucciones de voz ni sugiere
+  research_capabilities. Paridad de prompts 10/10 y paquete prompts 5/5.
+  Pruebas de retirada/main/modos/dispatchers 40/40. Descubrimiento del contexto
+  de Ollama lee metadatos del servidor sin importar un servicio de embeddings.

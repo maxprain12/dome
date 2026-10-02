@@ -56,14 +56,5 @@
   "delete_impact_agentFolders": "Dossiers d’agents",
   "delete_impact_workflowFolders": "Dossiers de workflows",
   "select_project_aria": "Sélectionner {{name}}",
-  "kb_llm": "KB LLM",
-  "kb_llm_footer_label": "Base de connaissances",
-  "kb_llm_inherit": "Paramètre global",
-  "kb_llm_on": "Forcer activé",
-  "kb_llm_off": "Forcer désactivé",
-  "kb_llm_value_inherit": "Global",
-  "kb_llm_value_on": "Activée",
-  "kb_llm_value_off": "Désactivée",
-  "kb_llm_helper": "Remplace le réglage global de la base de connaissances pour ce projet uniquement.",
   "active": "Actif"
 }

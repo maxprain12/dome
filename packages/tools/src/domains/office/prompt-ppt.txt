@@ -34,7 +34,7 @@ Extract key concepts, definitions, facts, and structure directly from what the u
 4. Map to slides: KPIs → slide 2; category breakdown → slide 3; deep dives → slides 4–N; insights → slide N+1.
 
 **D. From the whole library**
-Use `resource_hybrid_search` to retrieve the most relevant passages for the topic.
+Use `resource_search` to retrieve the most relevant passages for the topic.
 
 **Rule**: every bullet point on every slide must contain real extracted content, not filler.
 

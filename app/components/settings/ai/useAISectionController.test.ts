@@ -26,21 +26,6 @@ it('does not test a different saved provider when saving the selected one fails'
   expect(result.current.saved).toBe(false);
   expect(result.current.testResult?.success).toBe(false);
 });
-it('saves transcription without touching conversation credentials or provider', async () => {
-  const { result } = await setup();
-  const save = vi.fn().mockResolvedValue(true);
-  act(() => { Object.assign(result.current.transcriptionRef, { current: { save } }); result.current.setActiveTab('transcription'); });
-  await act(() => result.current.handleSave());
-  expect(save).toHaveBeenCalledOnce();
-  expect(saveAIConfig).not.toHaveBeenCalled();
-  expect(result.current.saved).toBe(true);
-});
-it('does not report an unsuccessful transcription save as complete', async () => {
-  const { result } = await setup();
-  act(() => { Object.assign(result.current.transcriptionRef, { current: { save: vi.fn().mockResolvedValue(false) } }); result.current.setActiveTab('transcription'); });
-  await act(() => result.current.handleSave());
-  expect(result.current.saved).toBe(false);
-});
 it('discards an older provider credential response', async () => {
   const { result } = await setup();
   let resolveOld!: (value: string) => void;

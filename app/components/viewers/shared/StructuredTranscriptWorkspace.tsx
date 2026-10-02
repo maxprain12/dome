@@ -8,12 +8,8 @@ import {
   getTranscriptPlainTextForCopy,
   getTranscriptionSegmentsForDisplay,
   parseResourceMetadata,
-  isTranscriptionCompleted,
-  isTranscriptionFailed,
-  isTranscriptionProcessing,
 } from '@/lib/utils/resource-metadata';
 import { useTabStore } from '@/lib/store/useTabStore';
-import TranscriptStatusBanner from './transcript/TranscriptStatusBanner';
 import TranscriptToolbar from './transcript/TranscriptToolbar';
 import TranscriptSearchBar from './transcript/TranscriptSearchBar';
 import TranscriptSegmentList from './transcript/TranscriptSegmentList';
@@ -63,11 +59,6 @@ export default function StructuredTranscriptWorkspace({
   const speakersMap = useMemo(() => structured?.speakers ?? {}, [structured?.speakers]);
   const noteId = meta.transcription_note_id;
   const hasPlain = Boolean(meta.transcription?.trim());
-  const completed = isTranscriptionCompleted(meta);
-  const metaProcessing = isTranscriptionProcessing(meta);
-  const metaFailed = isTranscriptionFailed(meta);
-  const [transcribing, setTranscribing] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
   const [localSpeakerLabels, setLocalSpeakerLabels] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [followPlayback, setFollowPlayback] = useState(true);
@@ -148,11 +139,6 @@ export default function StructuredTranscriptWorkspace({
     useTabStore.getState().openNoteTab(noteId, t('media.transcription_note_tab'));
   }, [noteId, t]);
 
-  const openTranscriptionSettings = useCallback(() => {
-    useTabStore.getState().openSettingsTab();
-    window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'transcription' }));
-  }, []);
-
   const handleCopyTranscript = useCallback(async () => {
     const text = getTranscriptPlainTextForCopy(meta);
     if (!text) {
@@ -166,63 +152,6 @@ export default function StructuredTranscriptWorkspace({
       notifications.show({ message: t('media.transcript_copy_failed'), color: 'red' });
     }
   }, [meta, t]);
-
-  const handleTranscribe = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electron?.transcription?.resourceToNote) return;
-    setTranscribing(true);
-    try {
-      const result = await window.electron.transcription.resourceToNote({
-        resourceId: resource.id,
-      });
-      if (result.success && result.note) {
-        notifications.show({
-          title: t('media.transcription_done_title'),
-          message: t('media.transcription_done_message', { title: result.note.title }),
-          color: 'green',
-        });
-      } else {
-        notifications.show({
-          title: t('media.transcription_failed_title'),
-          message: result.error || t('media.transcription_unknown_error'),
-          color: 'red',
-        });
-      }
-    } catch (e) {
-      notifications.show({
-        title: t('media.transcription_failed_title'),
-        message: e instanceof Error ? e.message : t('media.transcription_unknown_error'),
-        color: 'red',
-      });
-    } finally {
-      setTranscribing(false);
-    }
-  }, [resource.id, t]);
-
-  // Regenerating the linked note is no longer a one-shot IPC: the user can
-  // re-run the conversion via `resourceToNote`, which is idempotent (returns the
-  // existing note if one is already linked). To force a fresh note, the user
-  // unlinks via the audio resource metadata and re-converts. Keeping a thin
-  // wrapper here so the toolbar API stays the same.
-  const handleRegenerateNote = useCallback(async () => {
-    if (!window.electron?.transcription?.resourceToNote) return;
-    setRegenerating(true);
-    try {
-      const res = await window.electron.transcription.resourceToNote({ resourceId: resource.id });
-      if (res.success) {
-        notifications.show({ title: t('media.regenerate_note_done'), message: '', color: 'green' });
-      } else {
-        notifications.show({ title: t('media.regenerate_note_failed'), message: res.error || '', color: 'red' });
-      }
-    } catch (e) {
-      notifications.show({
-        title: t('media.regenerate_note_failed'),
-        message: e instanceof Error ? e.message : '',
-        color: 'red',
-      });
-    } finally {
-      setRegenerating(false);
-    }
-  }, [resource.id, t]);
 
   const flushSpeakerRename = useCallback(
     async (speakerId: string, rawLabel: string) => {
@@ -258,17 +187,12 @@ export default function StructuredTranscriptWorkspace({
     [resource.id, speakersMap, t],
   );
 
-  const showEmpty = !segments.length && !hasPlain && !completed;
+  const showEmpty = !segments.length && !hasPlain;
   const canCopy = Boolean(getTranscriptPlainTextForCopy(meta));
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <TranscriptStatusBanner
-        t={t}
-        transcribing={transcribing}
-        metaProcessing={metaProcessing}
-        metaFailed={metaFailed}
-      />
+
       <TranscriptToolbar
         t={t}
         resourceTitle={resource.title}
@@ -278,15 +202,9 @@ export default function StructuredTranscriptWorkspace({
         miniPlayerCollapsed={miniPlayerCollapsed}
         onToggleMiniPlayer={onToggleMiniPlayer}
         noteId={noteId}
-        onRegenerateNote={() => void handleRegenerateNote()}
-        regenerating={regenerating}
-        hasStructured={Boolean(structured)}
         onOpenNote={openLinkedNote}
-        onTranscribe={() => void handleTranscribe()}
-        transcribing={transcribing}
         onCopyTranscript={() => void handleCopyTranscript()}
         canCopy={canCopy}
-        onOpenTranscriptionSettings={openTranscriptionSettings}
         followPlayback={followPlayback}
         onFollowPlaybackChange={setFollowPlayback}
         isPlaying={isPlaying}
@@ -347,8 +265,6 @@ export default function StructuredTranscriptWorkspace({
           <TranscriptEmptyState
             t={t}
             hint={t('media.transcript_empty_hint')}
-            onTranscribe={() => void handleTranscribe()}
-            transcribing={transcribing || metaProcessing}
           />
         ) : (
           <TranscriptSegmentList

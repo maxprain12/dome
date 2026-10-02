@@ -56,14 +56,5 @@
   "delete_impact_agentFolders": "Carpetas de agentes",
   "delete_impact_workflowFolders": "Carpetas de flujos",
   "select_project_aria": "Seleccionar {{name}}",
-  "kb_llm": "KB LLM",
-  "kb_llm_footer_label": "Base de conocimiento",
-  "kb_llm_inherit": "Usar global",
-  "kb_llm_on": "Forzar activado",
-  "kb_llm_off": "Forzar desactivado",
-  "kb_llm_value_inherit": "Global",
-  "kb_llm_value_on": "Activada",
-  "kb_llm_value_off": "Desactivada",
-  "kb_llm_helper": "Sustituye solo para este proyecto el ajuste global de Base de conocimiento.",
   "active": "Activo"
 }

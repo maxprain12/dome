@@ -41,7 +41,7 @@ Research  Library    Writer
 Dome incluye 6 agentes especializados preconfigurados:
 
 ### Research Agent
-- **Herramientas**: `web_search`, `web_fetch`, `deep_research`
+- **Herramientas**: `web_fetch`, `web_fetch`, `web_fetch`
 - **Especialidad**: Búsqueda en internet, verificación con múltiples fuentes, síntesis de información actualizada
 - **Cuándo el supervisor lo usa**: preguntas sobre hechos recientes, investigación de temas, noticias
 

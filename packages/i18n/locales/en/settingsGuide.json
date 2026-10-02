@@ -27,10 +27,6 @@
       "description": "Connect the AI Many will use and configure search, voice and context.",
       "start": "Start with Conversation. The other tabs are optional and configured separately."
     },
-    "kb_llm": {
-      "description": "Choose how Many organizes knowledge and when it updates it.",
-      "start": "Review the sources and update policy first."
-    },
     "cloud": {
       "description": "Connect Google Drive to access your files from Dome.",
       "start": "Add a Google account. This is separate from syncing Dome between devices."
@@ -79,10 +75,6 @@
       "description": "Update Dome, configure saving and export or import your data.",
       "start": "Export a copy before importing data."
     },
-    "research": {
-      "description": "Configure Many’s sources, check their access and control acquisition costs. Agent-Reach capabilities adapted to Dome.",
-      "start": "Choose a source, review its route and test an operation. Paid providers need a key and explicit permission."
-    },
     "memory": {
       "description": "Review personal memories, domain context and recent logs.",
       "start": "Disabling memory excludes personal memories from new context and prevents automatic writes on every surface. SOUL, project instructions and conversation history remain available. Manual editing is always available."
@@ -90,9 +82,6 @@
   },
   "ai": {
     "chat": "The provider is the service that answers Many. Selecting it here does not activate it until you save.",
-    "embeddings": "This model prepares document representations for search by meaning. It is configured separately from conversation.",
-    "transcription": "Choose how to turn audio into text and whether to add a summary. Permissions are requested when needed.",
-    "tools": "Set up the web search sources that Many can consult.",
     "context": "Choose the information Many receives and how it handles long conversations.",
     "cloud": "You need an API key from {{provider}}. Usage is billed by that provider, separately from your Dome account.",
     "subscription": "Connect this provider’s account and choose an available model. This connection is separate from your Dome account.",

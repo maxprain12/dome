@@ -645,14 +645,16 @@ function repairOfficialSkillFrontmatterNames() {
   }
 }
 
-function removeSkill(skillId) {
-  const safeId = slugifySkillId(skillId);
-  if (!safeId) throw new Error('Invalid skill id');
-  const skillDir = path.join(userSkillsDir(), safeId);
-  if (!fs.existsSync(skillDir)) {
-    throw new Error('Skill not found');
-  }
-  fs.rmSync(skillDir, { recursive: true, force: true });
+async function removeSkill(skillId, projectPath) {
+  const { loadSkillCatalog, skillRoots } = require('./index.cjs');
+  const { skills } = await loadSkillCatalog(projectPath);
+  const skill = skills.find((entry) => entry.id === skillId);
+  if (!skill) throw new Error('Skill not found');
+  const root = skillRoots(projectPath).find((entry) => entry.source === skill.source);
+  const canonicalRoot = fs.realpathSync(root.path);
+  const directory = path.dirname(fs.realpathSync(skill.canonicalPath));
+  if (directory === canonicalRoot || !directory.startsWith(`${canonicalRoot}${path.sep}`)) throw new Error('Skill escapes its registered root');
+  fs.rmSync(directory, { recursive: true });
 }
 
 /**

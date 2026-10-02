@@ -75,7 +75,6 @@ import {
   SETTINGS_TAB_ID,
   STUDIO_TAB_ID,
   TAGS_TAB_ID,
-  TRANSCRIPTIONS_TAB_ID,
   WORKFLOWS_TAB_ID,
   isTabStripVisible,
   type DomeTab,
@@ -99,7 +98,6 @@ const HUB_TAB_IDS = new Set([
   AUTOMATIONS_TAB_ID,
   RUNS_TAB_ID,
   PROJECTS_TAB_ID,
-  TRANSCRIPTIONS_TAB_ID,
 ]);
 
 const COMPACT_WIDTH_PER_TAB = 76;
@@ -131,8 +129,6 @@ function getTabIcon(tab: DomeTab): IconSvgElement {
     case 'runs': return Activity01Icon;
     case 'folder': return FolderOpenIcon;
     case 'learn': return BookOpen01Icon;
-    case 'transcriptions':
-    case 'transcription-detail': return Mic01Icon;
     case 'artifact': return LayoutTable01Icon;
     case 'plugin': return PuzzleIcon;
     default: return File01Icon;

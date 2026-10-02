@@ -1,7 +1,6 @@
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   ArrowRight01Icon,
-  Brain01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
   FileEditIcon,
@@ -23,18 +22,10 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-function kbValueLabel(value: 'inherit' | 'enabled' | 'disabled', t: (key: string) => string) {
-  if (value === 'enabled') return t('projects.kb_llm_value_on');
-  if (value === 'disabled') return t('projects.kb_llm_value_off');
-  return t('projects.kb_llm_value_inherit');
-}
 
 export function ProjectCard({
   project,
@@ -43,10 +34,8 @@ export function ProjectCard({
   isSelected,
   isDome,
   selectionMode,
-  kbOverride,
   onSelect,
   onToggleSelect,
-  onKbOverrideChange,
   onEdit,
   onDelete,
 }: {
@@ -56,12 +45,8 @@ export function ProjectCard({
   isSelected: boolean;
   isDome: boolean;
   selectionMode: boolean;
-  kbOverride: 'inherit' | 'enabled' | 'disabled';
-  kbMenuOpen: boolean;
   onSelect: () => void;
   onToggleSelect: () => void;
-  onKbMenuToggle: () => void;
-  onKbOverrideChange: (value: 'inherit' | 'enabled' | 'disabled') => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -97,18 +82,6 @@ export function ProjectCard({
                 <HugeiconsIcon icon={MoreHorizontalIcon} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="flex items-center gap-2">
-                    <HugeiconsIcon icon={Brain01Icon} className="size-4" />
-                    {t('projects.kb_llm_helper')}
-                  </DropdownMenuLabel>
-                  {(['inherit', 'enabled', 'disabled'] as const).map((value) => (
-                    <DropdownMenuItem key={value} onClick={() => onKbOverrideChange(value)}>
-                      {kbValueLabel(value, t)}
-                      {kbOverride === value ? <HugeiconsIcon icon={CheckmarkCircle02Icon} className="ml-auto" /> : null}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
                 {!isDome ? (
                   <>
                     <DropdownMenuSeparator />

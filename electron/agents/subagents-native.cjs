@@ -10,11 +10,9 @@ const { readSubagentPrompt } = require('../prompts/prompts-loader.cjs');
 const { getToolDefsBySubagent } = require('../tools/tool-definitions.cjs');
 const { capToolResultString } = require('../tools/tool-result-cap.cjs');
 
-const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data', 'coding'];
+const SUBAGENT_NAMES = ['library', 'writer', 'data', 'coding'];
 
 const SUBAGENT_DESCRIPTIONS = {
-  research:
-    'Delegate to the research subagent for web search, fetching URLs, and deep research. Use when the user needs external information, fact-finding, or in-depth analysis of a topic.',
   library:
     "Delegate to the library subagent to search, read, and organize the user's resources. Use when the user asks about their notes, PDFs, projects, or wants to organize their library.",
   writer:
@@ -38,7 +36,7 @@ function getSubagentSystemPrompt(name) {
 function parseManySubagentEnv() {
   const raw = process.env.DOME_MANY_SUBAGENTS;
   if (raw === '') return [];
-  const list = (raw || 'research,library,writer,data')
+  const list = (raw || 'library,writer,data')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => SUBAGENT_NAMES.includes(s));
@@ -129,7 +127,7 @@ function buildTaskTool(parentOpts) {
     name: 'task',
     label: 'Subagent',
     description:
-      'Delegate a specialized subtask to a subagent (research, library, writer, or data). ' +
+      'Delegate a specialized subtask to a subagent (library, writer, or data). ' +
       'Use for parallel or domain-specific work; return findings to synthesize the final answer.',
     parameters: {
       type: 'object',

@@ -17,7 +17,6 @@ const TOOL_LABELS = Object.freeze({
   calendar_get_upcoming: 'Agenda',
   flashcard_create: 'Flashcards',
   get_tool_definition: 'Definición de herramienta',
-  web_search: 'Búsqueda web',
   web_fetch: 'Página web',
 });
 

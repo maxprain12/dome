@@ -1,14 +1,9 @@
-import type { Ref } from 'react';
-import AIWebSearchTab from './AIWebSearchTab';
 import AgentContextSettingsTab from './AgentContextSettingsTab';
 import AIProviderList from './AIProviderList';
 import AIProviderDetail from './AIProviderDetail';
 import ProviderModelsConfigModal from './ProviderModelsConfigModal';
 import AIChatProviderPanels from './AIChatProviderPanels';
 import AIChatSaveBar from './AIChatSaveBar';
-import TranscriptionSettingsSections, {
-  type TranscriptionSettingsSectionsHandle,
-} from '../transcription/TranscriptionSettingsSections';
 import { useTranslation } from 'react-i18next';
 import { PROVIDERS, type AIProviderType, type ModelDefinition } from '@/lib/ai/models';
 import type { AISettingsTab } from './useAISectionController';
@@ -41,7 +36,6 @@ export interface AISectionBodyProps {
   providerModelsLoading: boolean;
   onTestResult: (result: TestResult | null) => void;
   configurationTitle: string;
-  transcriptionRef: Ref<TranscriptionSettingsSectionsHandle>;
   saved: boolean;
   saving: boolean;
   testing: boolean;
@@ -50,7 +44,7 @@ export interface AISectionBodyProps {
   onTest: () => void;
 }
 
-/** Tab body for Settings → AI (chat / transcription / tools / context). */
+/** Tab body for Settings → AI (conversation / instructions). */
 export default function AISectionBody({
   activeTab,
   provider,
@@ -78,7 +72,6 @@ export default function AISectionBody({
   providerModelsLoading,
   onTestResult,
   configurationTitle,
-  transcriptionRef,
   saved,
   saving,
   testing,
@@ -154,28 +147,6 @@ export default function AISectionBody({
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-
-      {activeTab === 'transcription' ? (
-        <>
-          <TranscriptionSettingsSections
-            ref={transcriptionRef}
-            embedded
-            summaryModels={currentProviderModels}
-            summaryModelsLoading={providerModelsLoading}
-          />
-          <AIChatSaveBar
-            showTest={false}
-            saved={saved}
-            saving={saving}
-            testing={testing}
-            testResult={testResult}
-            onSave={onSave}
-            onTest={onTest}
-          />
-        </>
-      ) : null}
-
-      {activeTab === 'tools' ? <AIWebSearchTab /> : null}
 
       {activeTab === 'context' ? <AgentContextSettingsTab /> : null}
     </div>

@@ -145,7 +145,6 @@ Downstream nodes see only the **final assistant text** of upstream agent nodes (
 
 `@dome/ai` and `@dome/tools` normalize tool `parameters` / `input_schema` to a non-empty
 `{ type: "object", properties: {} }` shape. MiniMax does **not** support Anthropic native
-server web tools (`web_search_20250305`); Many/workflows keep HTTP `web_search` / `web_fetch`
 client tools for that provider.
 
 ## Native capabilities (gaps closed)
@@ -158,3 +157,5 @@ client tools for that provider.
 3. **Agent Team** — `delegate_to_agent` nested harness turns; chunks tagged with `agentName`.
 4. **Session maintenance IPC** — `threads:compact`, `threads:navigate-tree` call harness
    `compact()` / `navigateTree()`.
+
+Dome does not inject native search tools. Web search comes from configured MCP servers or invoked skills. Image input uses resolved @dome/ai model capabilities and canonical image blocks.

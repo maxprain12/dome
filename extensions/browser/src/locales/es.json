@@ -247,9 +247,5 @@
   "browserAlwaysAccept": "Aceptar siempre en este sitio",
   "browserAlwaysActive": "Acciones permitidas automáticamente en {{origin}}",
   "browserAskAgain": "Volver a pedir permiso",
-  "browserPermissionSaveFailed": "No se pudo guardar el permiso. Vuelve a intentarlo.",
-  "researchTabHint": "Permite a Many Desktop leer esta pestaña hasta que lo detengas. Se mantienen los permisos del sitio.",
-  "researchTabEnable": "Habilitar investigación en esta pestaña",
-  "researchTabStop": "Detener acceso de investigación",
-  "researchDisconnected": "La investigación de Desktop se ha desconectado."
+  "browserPermissionSaveFailed": "No se pudo guardar el permiso. Vuelve a intentarlo."
 }

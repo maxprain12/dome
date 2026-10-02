@@ -44,7 +44,7 @@ Cuando ejecutas un workflow, el Run Engine procesa los nodos en orden, los resul
     "agentId": "research",       // ID de agente sistema o personalizado
     "systemPrompt": "...",       // instrucciones adicionales
     "model": "gpt-4o",
-    "toolIds": ["web_search", "web_fetch"],
+    "toolIds": ["web_fetch", "web_fetch"],
     "maxIterations": 10
   }
 }

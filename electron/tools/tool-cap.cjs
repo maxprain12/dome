@@ -13,11 +13,6 @@ const OPENAI_COMPAT_MAX_TOOLS = 128;
 const TOOL_CAP_PRIORITY = [
   'dome_load_doc',
   'get_tool_definition',
-  'research_capabilities',
-  'research_search',
-  'research_read',
-  'research_profile',
-  'research_collect',
   'remember_fact',
   'artifact_update_state',
   'artifact_create',
@@ -28,7 +23,6 @@ const TOOL_CAP_PRIORITY = [
   'file_read',
   'file_write',
   'file_edit',
-  'web_search',
   'web_fetch',
 ];
 

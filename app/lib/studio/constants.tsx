@@ -78,13 +78,6 @@ export const STUDIO_TILES: StudioTileConfig[] = [
     description: 'Datos estructurados',
     criteria: 'Interpreta el contenido y genera columnas y filas con datos extraídos.',
   },
-  {
-    type: 'audio',
-    icon: <HugeiconsIcon icon={HeadphonesIcon} size={ICON_SIZE} />,
-    title: 'Audio Overview',
-    description: 'Resumen en audio',
-    comingSoon: true,
-  },
 ];
 
 export const STUDIO_TYPE_ICONS: Record<string, React.ReactNode> = {

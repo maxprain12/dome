@@ -21,26 +21,6 @@ function isPackagedPreload() {
 
 // NOTE: Console logs removed for production - debug logging for preload initialization
 
-/**
- * Dictation toggle from main may arrive before React registers a listener (overlay cold start).
- * Buffer one toggle per preload context until onToggleRecording runs.
- */
-const transcriptionToggleCallbacks = new Set();
-let pendingTranscriptionToggle = false;
-ipcRenderer.on('transcription:toggle-recording', () => {
-  if (transcriptionToggleCallbacks.size === 0) {
-    pendingTranscriptionToggle = true;
-    return;
-  }
-  for (const cb of transcriptionToggleCallbacks) {
-    try {
-      cb();
-    } catch (_) {
-      /* ignore renderer callback errors */
-    }
-  }
-});
-
 // Some main-process IPC handlers were migrated to return `{ success, data, error }`
 // envelopes, but the renderer-facing API contract (and all existing callers) expect
 // the raw value. Unwrap the envelope here so the public surface stays stable.
@@ -199,13 +179,6 @@ const ALLOWED_CHANNELS = {
     'pipelines:sources:delete',
     'pipelines:sources:sync',
     'pipelines:sources:testConnection',
-    'kbllm:getGlobal',
-    'kbllm:setGlobal',
-    'kbllm:getProjectOverride',
-    'kbllm:setProjectOverride',
-    'kbllm:syncProject',
-    'kbllm:syncAll',
-    'kbllm:getStatus',
     // Database - Semantic relations
     'cloud:llm:pdf-region-stream',
     // Database - Knowledge Graph
@@ -321,7 +294,6 @@ const ALLOWED_CHANNELS = {
     'ollama:manager:status',
     'ollama:manager:download',
     'ollama:manager:versions',
-    // Semantic index: LanceDB embebido (userData/dome-lance) + IPC `db:semantic:*`
     // Auth Manager
     'auth:profiles:list',
     'auth:profiles:create',
@@ -364,8 +336,6 @@ const ALLOWED_CHANNELS = {
     'ai:model:thinkingLevels',
     'ai:model:input',
     'minimax:files:upload',
-    'ai:testWebSearch',
-    'ai:webSearch',
     // Agent Team orchestration
     'ai:team:stream',
     'ai:team:abort',
@@ -445,29 +415,9 @@ const ALLOWED_CHANNELS = {
     'db:flashcards:createSession',
     'db:flashcards:getSessions',
     // Audio (TTS)
-    'audio:generate-speech',
     'audio:play-file',
-    'audio:generate-podcast',
-    'audio:get-status',
-    'audio:list',
-    // OS permissions (microphone, screen recording)
-    'permissions:get',
-    'permissions:request',
-    'permissions:open-settings',
-    'permissions:relaunch',
     // Transcription (unified session engine)
-    'transcription:get-settings',
-    'transcription:set-settings',
-    'transcription:list-capture-sources',
-    'transcription:set-display-media-source',
-    'transcription:session-start',
-    'transcription:session-append',
-    'transcription:session-audio',
-    'transcription:session-control',
-    'transcription:get-active',
-    'transcription:resource-to-note',
     // Streaming TTS control (renderer → main)
-    'audio:stop-streaming-tts',
     // Database - Studio Outputs
     'db:studio:create',
     'db:studio:getAll',
@@ -760,14 +710,6 @@ const ALLOWED_CHANNELS = {
     'people:delete',
     'people:enrich',
     // Browser extension local bridge
-    'research:status',
-    'research:configure',
-    'research:test',
-    'research:import',
-    'research:report',
-    'research:execute',
-    'research:policy',
-    'research:cancel',
     'browser-extension:status',
     'browser-extension:pair-start',
     'browser-extension:pair-cancel',
@@ -812,14 +754,8 @@ const ALLOWED_CHANNELS = {
     // AI Cloud streaming
     'ai:stream:chunk',
     // Audio events
-    'audio:generation-progress',
     // Voice recording / dictation toggle (from tray or global shortcut)
-    'transcription:toggle-recording',
-    'transcription:state',
     // Streaming TTS events (main → renderer)
-    'tts:sentence-playing',
-    'tts:finished',
-    'tts:error',
     // Auto-updater events
     'updater:status',
     // Studio events
@@ -1591,16 +1527,6 @@ const electronHandler = {
     notifyContext: (payload) => ipcRenderer.invoke('automations:notifyContext', payload),
   },
 
-  kbllm: {
-    getGlobal: () => ipcRenderer.invoke('kbllm:getGlobal'),
-    setGlobal: (payload) => ipcRenderer.invoke('kbllm:setGlobal', payload),
-    getProjectOverride: (projectId) => ipcRenderer.invoke('kbllm:getProjectOverride', projectId),
-    setProjectOverride: (payload) => ipcRenderer.invoke('kbllm:setProjectOverride', payload),
-    syncProject: (projectId) => ipcRenderer.invoke('kbllm:syncProject', projectId),
-    syncAll: () => ipcRenderer.invoke('kbllm:syncAll'),
-    getStatus: (projectId) => ipcRenderer.invoke('kbllm:getStatus', projectId),
-  },
-
   // ============================================
   // CLOUD STORAGE API (Google Drive)
   // ============================================
@@ -1854,12 +1780,6 @@ const electronHandler = {
     getThinkingLevels: (params) =>
       ipcRenderer.invoke('ai:model:thinkingLevels', params),
 
-    testWebSearch: () =>
-      ipcRenderer.invoke('ai:testWebSearch'),
-
-    webSearch: (args) =>
-      ipcRenderer.invoke('ai:webSearch', args),
-
     // AI Tools for Many agent
     tools: {
       // Search resources using full-text search
@@ -1982,97 +1902,8 @@ const electronHandler = {
   // AUDIO API (TTS)
   // ============================================
   audio: {
-    // Generate speech from single text
-    generateSpeech: (text, voice, options) =>
-      ipcRenderer.invoke('audio:generate-speech', { text, voice, options }),
 
     playFile: (filePath) => ipcRenderer.invoke('audio:play-file', { filePath }),
-
-    // Generate full podcast from dialogue lines
-    generatePodcast: (lines, options) =>
-      ipcRenderer.invoke('audio:generate-podcast', { lines, options }),
-
-    // Get generation status
-    getStatus: (generationId) =>
-      ipcRenderer.invoke('audio:get-status', { generationId }),
-
-    // List generated audio files
-    list: () => ipcRenderer.invoke('audio:list'),
-
-    // Stop streaming TTS for a run
-    stopStreamingTts: (runId) =>
-      ipcRenderer.invoke('audio:stop-streaming-tts', { runId }),
-
-    // Listen to generation progress
-    onGenerationProgress: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('audio:generation-progress', subscription);
-      return () => ipcRenderer.removeListener('audio:generation-progress', subscription);
-    },
-
-    // Streaming TTS events
-    onTtsSentencePlaying: (callback) => {
-      const subscription = (_e, data) => callback(data);
-      ipcRenderer.on('tts:sentence-playing', subscription);
-      return () => ipcRenderer.removeListener('tts:sentence-playing', subscription);
-    },
-    onTtsFinished: (callback) => {
-      const subscription = (_e, data) => callback(data);
-      ipcRenderer.on('tts:finished', subscription);
-      return () => ipcRenderer.removeListener('tts:finished', subscription);
-    },
-    onTtsError: (callback) => {
-      const subscription = (_e, data) => callback(data);
-      ipcRenderer.on('tts:error', subscription);
-      return () => ipcRenderer.removeListener('tts:error', subscription);
-    },
-  },
-
-  // ============================================
-  // OS PERMISSIONS API
-  // ============================================
-  permissions: {
-    get: () => ipcRenderer.invoke('permissions:get'),
-    request: (kind) => ipcRenderer.invoke('permissions:request', { kind }),
-    openSettings: (kind) => ipcRenderer.invoke('permissions:open-settings', { kind }),
-    relaunch: () => ipcRenderer.invoke('permissions:relaunch'),
-  },
-
-  // ============================================
-  // TRANSCRIPTION API (unified session engine)
-  // ============================================
-  transcription: {
-    // Settings
-    getSettings: () => ipcRenderer.invoke('transcription:get-settings'),
-    setSettings: (args) => ipcRenderer.invoke('transcription:set-settings', args),
-    // Capture sources (system audio)
-    listCaptureSources: () => ipcRenderer.invoke('transcription:list-capture-sources'),
-    setDisplayMediaSource: (sourceId) =>
-      ipcRenderer.invoke('transcription:set-display-media-source', { sourceId }),
-    // Session lifecycle
-    sessionStart: (args) => ipcRenderer.invoke('transcription:session-start', args),
-    sessionAppend: (args) => ipcRenderer.invoke('transcription:session-append', args),
-    sessionAudio: (args) => ipcRenderer.invoke('transcription:session-audio', args),
-    sessionControl: (args) => ipcRenderer.invoke('transcription:session-control', args),
-    getActive: () => ipcRenderer.invoke('transcription:get-active'),
-    // Manual conversion
-    resourceToNote: (args) => ipcRenderer.invoke('transcription:resource-to-note', args),
-    // Broadcast subscriptions
-    onState: (callback) => {
-      const handler = (_event, payload) => {
-        try { callback(payload); } catch { /* ignore */ }
-      };
-      ipcRenderer.on('transcription:state', handler);
-      return () => ipcRenderer.removeListener('transcription:state', handler);
-    },
-    onToggleRecording: (callback) => {
-      transcriptionToggleCallbacks.add(callback);
-      if (pendingTranscriptionToggle) {
-        pendingTranscriptionToggle = false;
-        try { callback(); } catch (_) { /* ignore */ }
-      }
-      return () => { transcriptionToggleCallbacks.delete(callback); };
-    },
   },
 
   // ============================================

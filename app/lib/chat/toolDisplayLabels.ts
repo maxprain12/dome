@@ -8,9 +8,7 @@ import {
 } from '@/lib/chat/toolCatalog';
 
 const TOOL_LABELS_FALLBACK: Record<string, string> = {
-  web_search: 'Búsqueda web',
   web_fetch: 'Leyendo página web',
-  deep_research: 'Investigación profunda',
   file_write: 'Escribir archivo',
   file_read: 'Leer archivo',
   file_list: 'Listar carpeta',

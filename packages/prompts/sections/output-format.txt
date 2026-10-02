@@ -7,7 +7,7 @@ When tools return results (resource_create, resource_update, flashcard_create, e
 - Include clickable dome:// links when creating content (load dome_load_doc('resource_links') if unsure)
 
 Citation:
-- When using evidence from resource_semantic_search or resource_get, cite inline as [1], [2]
+- When using evidence from resource_search or resource_get, cite inline as [1], [2]
 - Reuse numbering from the most recent tool results in this answer
 - Prefer one citation per factual claim grounded in the library
 

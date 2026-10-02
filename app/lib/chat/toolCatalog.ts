@@ -1,6 +1,6 @@
 /**
  * Canonical tool naming + subagent labels for chat UI (display + streaming).
- * Aligns Dome native tool ids (`file_write`, `web_search`, …) with i18n keys.
+ * Aligns Dome native tool ids (`file_write`, `web_fetch`, …) with i18n keys.
  */
 
 export const SUBAGENT_TYPES = ['research', 'library', 'writer', 'data'] as const;

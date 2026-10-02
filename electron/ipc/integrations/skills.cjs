@@ -121,7 +121,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       if (!skillId || typeof skillId !== 'string') {
         return { success: false, error: 'Invalid skill id' };
       }
-      skillInstall.removeSkill(skillId);
+      await skillInstall.removeSkill(skillId);
       return { success: true };
     } catch (err) {
       console.error('[Skills] remove:', err);

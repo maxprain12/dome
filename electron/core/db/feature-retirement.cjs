@@ -17,7 +17,7 @@ function retireTools(db, names, { legacySource } = {}) {
     const columns = tableColumns(db, table);
     if (!columns.has('id')) continue;
     for (const row of db.prepare(`SELECT * FROM "${table}"`).all()) {
-      if (depends(JSON.stringify(row))) affected.add(`${table === 'many_agents' ? 'agent' : 'workflow'}:${row.id}`);
+      if (depends(JSON.stringify(row)) || (names.includes('web_search') && /"systemAgentRole"\s*:\s*"research"/.test(String(row.nodes_json || '')))) affected.add(`${table === 'many_agents' ? 'agent' : 'workflow'}:${row.id}`);
     }
   }
   const automationColumns = tableColumns(db, 'automation_definitions');

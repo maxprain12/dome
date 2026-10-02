@@ -22,8 +22,8 @@ test('bench parses Self-Harness control-plane flags', () => {
 });
 
 test('bench can select an explicit sealed case list', () => {
-  const cases = loadCaseFiles({ caseIds: ['web_search.basic'], modeFilter: 'direct' });
-  assert.deepEqual(cases.map((item) => item.id), ['web_search.basic']);
+  const cases = loadCaseFiles({ caseIds: ['web_fetch.basic'], modeFilter: 'direct' });
+  assert.deepEqual(cases.map((item) => item.id), ['web_fetch.basic']);
 });
 
 test('behavior verifier rejects repeated tools and premature finalization', () => {

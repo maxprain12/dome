@@ -261,9 +261,6 @@ export async function getAIConfig(): Promise<AISettings> {
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
   const ollamaNumPredictResult = await db.getSetting('ollama_num_predict');
   const ollamaShowThinkingResult = await db.getSetting('ollama_show_thinking');
-  const webSearchProviderResult = await db.getSetting('web_search_provider');
-  const webSearchTavilyKeyResult = await db.getSetting('web_search_tavily_key');
-  const webSearchBraveKeyResult = await db.getSetting('web_search_brave_key');
   const webFetchProviderResult = await db.getSetting('web_fetch_provider');
 
   // Handle legacy 'local' provider by converting to 'ollama'
@@ -288,9 +285,6 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
     ollama_show_thinking: ollamaShowThinkingResult.data !== 'false',
-    web_search_provider: (webSearchProviderResult.data as AISettings['web_search_provider']) || undefined,
-    web_search_tavily_key: webSearchTavilyKeyResult.data || undefined,
-    web_search_brave_key: webSearchBraveKeyResult.data || undefined,
     web_fetch_provider: (webFetchProviderResult.data as AISettings['web_fetch_provider']) || undefined,
   };
 }
@@ -330,9 +324,6 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   await writeNumberSetting('ollama_num_predict', config.ollama_num_predict);
   await writeBoolSetting('ollama_show_thinking', config.ollama_show_thinking);
 
-  await writeStringSetting('web_search_provider', config.web_search_provider);
-  await writeStringSetting('web_search_tavily_key', config.web_search_tavily_key);
-  await writeStringSetting('web_search_brave_key', config.web_search_brave_key);
   await writeStringSetting('web_fetch_provider', config.web_fetch_provider);
 }
 

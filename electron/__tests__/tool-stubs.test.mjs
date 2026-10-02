@@ -58,7 +58,7 @@ describe('native tool failure contract', () => {
       { success: false, error: 'Unavailable', code: 'search_unavailable', retryable: false, retryAfterMs: 60000 },
       { status: 'error', error: 'Unavailable', code: 'search_unavailable', retryable: false, retryAfterMs: 60000 },
     ]) {
-      const [tool] = createToolRegistry([{ name: 'research_search', parameters: { type: 'object', properties: {} } }], {
+      const [tool] = createToolRegistry([{ name: 'resource_search', parameters: { type: 'object', properties: {} } }], {
         executeToolInMain: async () => failure,
       });
       await assert.rejects(tool.execute('search-test', {}), (error) => {
@@ -71,7 +71,7 @@ describe('native tool failure contract', () => {
   it('keeps a successful empty search as a normal result', async () => {
     const { createToolRegistry } = await import('@dome/tools');
     const result = { success: true, results: [], count: 0 };
-    const [tool] = createToolRegistry([{ name: 'research_search', parameters: { type: 'object', properties: {} } }], {
+    const [tool] = createToolRegistry([{ name: 'resource_search', parameters: { type: 'object', properties: {} } }], {
       executeToolInMain: async () => result,
     });
     const output = await tool.execute('search-test', {});

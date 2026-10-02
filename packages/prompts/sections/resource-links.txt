@@ -17,4 +17,4 @@ For Studio outputs (mindmap, quiz, study guide, FAQ, timeline, data table, flash
 
 ALWAYS include a dome:// link whenever you create an element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements generated from Studio tiles (buttons in the Studio panel) are shown automatically, so no link is needed in that context.
 
-When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2]. Reuse the numbering order from the most recent tool results in this answer.
+When you use evidence from resource_search or resource_get, cite the supporting source inline as [1], [2]. Reuse the numbering order from the most recent tool results in this answer.

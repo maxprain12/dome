@@ -188,7 +188,6 @@ export default function ManyPanel({
     showContextUsage,
     showHitlInline,
     activeRunSessionIdRef,
-    voiceAutoSpeakForRunIdRef,
   } = useManyRunLifecycle({
     currentSessionId,
     currentSessionIdRef,
@@ -257,7 +256,6 @@ export default function ManyPanel({
     setPdfRegionStreamingMessage,
     pdfRegionStreamingMessage,
     activeRunSessionIdRef,
-    voiceAutoSpeakForRunIdRef,
     isSubmittingRef,
     activeRunId,
     abortControllerRef,

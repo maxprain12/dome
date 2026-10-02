@@ -30,7 +30,6 @@ __export(prompt_assembler_exports, {
   buildEditorPrompt: () => buildEditorPrompt,
   buildStudioPrompt: () => buildStudioPrompt,
   buildSubagentPrompt: () => buildSubagentPrompt,
-  buildVoiceSuffix: () => buildVoiceSuffix,
   formatVolatileSourceContext: () => formatVolatileSourceContext,
   todayEnLong: () => todayEnLong
 });
@@ -52,18 +51,10 @@ const DOME_LOAD_DOC_IDS = [
   "social_tool"
 ];
 const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (saved documents and interactive apps), artifact_persisted (advanced persistence and editing), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue), social_tool (before social_post_draft/social_post_publish).";
-const VOICE_LANGUAGE_NAMES = {
-  es: "Spanish",
-  en: "English",
-  de: "German",
-  it: "Italian",
-  fr: "French",
-  pt: "Portuguese"
-};
 const PINNED_SOURCE_TOOL_HINTS = {
   social_post: " \u2192 social_post_get",
   social_reference: " \u2192 social_reference_list",
-  social_profile: " \u2192 research_capabilities (analyze supplied evidence before remote reads)",
+  social_profile: " \u2192 social_reference_list (analyze supplied evidence before remote reads)",
   social_campaign: " \u2192 social_campaigns_list",
   email: " \u2192 email_read",
   issue: " \u2192 github_get_issue"
@@ -102,19 +93,6 @@ function todayEnLong() {
     month: "long",
     day: "numeric"
   });
-}
-function buildVoiceSuffix(language) {
-  const langName = language && VOICE_LANGUAGE_NAMES[language] || VOICE_LANGUAGE_NAMES.es;
-  return `
-
-## Voice Response Mode
-You are speaking aloud in a live voice conversation. Follow these rules:
-- Keep the spoken answer SHORT and conversational (2-4 sentences for simple questions).
-- Use natural spoken language \u2014 avoid long markdown, bullet lists, and headers for the part that will be read aloud.
-- You MAY still emit \`\`\`artifact:*\`\`\` blocks after the spoken answer when a visual genuinely helps. The TTS layer skips those blocks automatically.
-- Summarize instead of enumerating long lists.
-- Avoid filler phrases like "of course!", "certainly!".
-- Respond in ${langName}.`;
 }
 function formatPinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
@@ -225,8 +203,6 @@ function buildDomeSystemPrompt(options, coreSections) {
     }
   }
   let assembled = sections.join("\n\n");
-  if (options.voiceLanguage)
-    assembled += buildVoiceSuffix(options.voiceLanguage);
   return assembled;
 }
 function buildSubagentPrompt(roleBody, taskDescription, sections = {}) {
@@ -294,7 +270,6 @@ ${opts.fixtureList.trim()}`);
   buildEditorPrompt,
   buildStudioPrompt,
   buildSubagentPrompt,
-  buildVoiceSuffix,
   formatVolatileSourceContext,
   todayEnLong
 });

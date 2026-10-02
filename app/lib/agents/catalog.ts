@@ -27,18 +27,6 @@ export interface ToolCatalogEntry {
 }
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
-  // Web
-  { id: 'research_capabilities', label: 'Research Capabilities', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
-  { id: 'research_search', label: 'Research Search', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
-  { id: 'research_read', label: 'Research Read', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
-  { id: 'research_profile', label: 'Research Profile', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
-  { id: 'research_collect', label: 'Research Collect', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
-  {
-    id: 'web_search',
-    label: 'Web Search',
-    description: 'Search the web using the integrated Playwright browser. Returns titles, URLs, and relevant excerpts in real time.',
-    group: 'web',
-  },
   {
     id: 'web_fetch',
     label: 'Web Fetch',
@@ -148,22 +136,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     label: 'Generate Quiz',
     description: 'Create an interactive quiz with multiple-choice, true/false, or short-answer questions from content. The quiz is saved in the library and can be used for self-assessment or exam prep.',
     group: 'studio',
-  },
-
-  // Audio
-  {
-    id: 'generate_audio_script',
-    label: 'Audio Script',
-    description: 'Generate a structured script for a podcast or audio overview from a topic or document. The script is optimized for natural narration with intro, body, and conclusion, and is saved as a library resource.',
-    group: 'audio',
-  },
-
-  // Research
-  {
-    id: 'deep_research',
-    label: 'Deep Research',
-    description: 'Launch a multi-step deep investigation on a topic using iterative web search. Performs multiple queries, cross-verifies sources, and produces a comprehensive report with citations. Takes longer but generates high-quality analysis.',
-    group: 'research',
   },
 
   // Notebook

@@ -93,3 +93,52 @@ test('text indexing persists PDF OCR and image extraction without altering origi
     assert.equal(queries.getResourceById.get('image').content, 'original image body');
   } finally { db.close(); }
 });
+
+test('retirement disables KB and user search automations before scheduler while retaining historical media text', () => {
+  const db = database();
+  try {
+    db.exec("INSERT INTO projects(id,name,created_at,updated_at) VALUES('a','A',1,1)");
+    resource(db, 'audio', 'a', 'Original media');
+    db.prepare("UPDATE resources SET type='audio', metadata=? WHERE id='audio'").run(JSON.stringify({ transcription: 'Historical transcript', transcription_structured: { version: 1, segments: [] } }));
+    db.prepare("INSERT INTO many_agents(id,name,tool_ids,created_at,updated_at,project_id) VALUES('agent','Search agent',?,1,1,'a')").run(JSON.stringify(['web_search','web_fetch','research_read']));
+    db.exec("INSERT INTO automation_definitions(id,title,target_type,target_id,trigger_type,enabled,legacy_source,created_at,updated_at) VALUES('search','User search','agent','agent','schedule',1,NULL,1,1),('kbllm-a-compile','KB','agent','kb','schedule',1,'kb_llm',1,1),('keep','Keep','agent','other','schedule',1,NULL,1,1)");
+    applyMigrations(db, 79);
+    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='search'").get().enabled, 0);
+    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='kbllm-a-compile'").get().enabled, 0);
+    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='keep'").get().enabled, 1);
+    assert.deepEqual(JSON.parse(db.prepare("SELECT tool_ids FROM many_agents WHERE id='agent'").get().tool_ids), ['web_fetch']);
+    assert.equal(JSON.parse(db.prepare("SELECT metadata FROM resources WHERE id='audio'").get().metadata).transcription, 'Historical transcript');
+    assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='transcription_sessions'").get(), undefined);
+  } finally { db.close(); }
+});
+
+
+test('main tool module loads with the retired implementations removed', async () => {
+  const { loadCjsModule } = await import('./helpers/load-cjs.mjs');
+  const boundary = new Proxy({}, { get: () => () => {} });
+  const replacements = Object.fromEntries([
+    '../core/database.cjs', '../storage/file-storage.cjs', '../documents/document-extractor.cjs',
+    '../documents/docx-converter.cjs', '../feeders/web-scraper.cjs', './excel-tools-handler.cjs',
+    './docx-tools-handler.cjs', './ppt-tools-handler.cjs', '../calendar/calendar-service.cjs',
+    '../storage/text-index-scheduler.cjs', '../artifacts/artifact-serialize.cjs',
+    '../artifacts/artifact-index-sync.cjs', '../artifacts/artifact-html-normalize.cjs',
+    '../storage/vault-store.cjs', '../services/note-markdown.cjs', '../services/pdf-transcription.cjs',
+    '../services/studio-progress.cjs', '../core/secure-id.cjs', './ai-tools-extra.cjs',
+    'electron', '../coding/bash-executor.cjs', '../core/shell-policy.cjs', '../coding/git-tools.cjs',
+    './file-tree.cjs', './file-disk-tools.cjs', '../agents/hitl-allowlist.cjs',
+  ].map((name) => [name, boundary]));
+  const handlers = loadCjsModule(require.resolve('../tools/ai-tools-handler.cjs'), replacements);
+  for (const name of ['resourceSearch', 'resourceGet', 'webFetch', 'rememberFact']) assert.equal(typeof handlers[name], 'function', name);
+  for (const name of ['webSearch', 'deepResearch', 'testWebSearchConnection', 'generateAudioOverview', 'linkResources', 'getRelatedResources']) assert.equal(handlers[name], undefined, name);
+});
+
+
+test('Ollama chat context discovery uses reported metadata after embedding removal', async () => {
+  const { mock } = await import('node:test');
+  const { fetchOllamaChatContextWindow } = require('../ai/context-window.cjs');
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => ({ model_info: { 'llama.context_length': 131072 } }) }));
+  try {
+    assert.equal(await fetchOllamaChatContextWindow('http://localhost:11434', 'custom-vision-model'), 131072);
+    assert.equal(fetchMock.mock.calls.length, 1);
+  } finally { fetchMock.mock.restore(); }
+});

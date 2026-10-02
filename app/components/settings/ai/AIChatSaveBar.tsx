@@ -18,7 +18,7 @@ export interface AIChatSaveBarProps {
   saveLabel?: string;
 }
 
-/** Save / test-connection footer for chat and transcription tabs. */
+/** Save / test-connection footer for conversation settings. */
 export default function AIChatSaveBar({
   showTest,
   saved,

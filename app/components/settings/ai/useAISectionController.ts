@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TranscriptionSettingsSectionsHandle } from '../transcription/TranscriptionSettingsSections';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import {
   LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
@@ -23,7 +22,7 @@ import {
   type TestResult,
 } from './aiSectionHelpers';
 
-export type AISettingsTab = 'chat' | 'transcription' | 'tools' | 'context';
+export type AISettingsTab = 'chat' | 'context';
 
 export function useAISectionController() {
   const { t } = useTranslation();
@@ -48,7 +47,6 @@ export function useAISectionController() {
   const operation = useRef(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
   const [activeTab, setActiveTab] = useState<AISettingsTab>('chat');
   const [modelsConfigProvider, setModelsConfigProvider] = useState<AIProviderType | null>(null);
 
@@ -128,7 +126,6 @@ export function useAISectionController() {
   }, [handleProviderChange]);
 
   const persist = async (): Promise<boolean> => {
-    if (activeTab === 'transcription') return await transcriptionRef.current?.save() ?? false;
     if (isCloudAIProvider(provider) && !apiKey.trim()) {
       setTestResult({ success: false, message: t('settings.ai.api_key_required') });
       return false;
@@ -214,7 +211,6 @@ export function useAISectionController() {
     testing,
     testResult,
     setTestResult,
-    transcriptionRef,
     activeTab,
     setActiveTab,
     modelsConfigProvider,

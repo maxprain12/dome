@@ -21,7 +21,6 @@ const SHELL_TAB_POINT_OPENERS: Record<string, () => void> = {
   runs: () => useTabStore.getState().openRunsTab(),
   projects: () => useTabStore.getState().openProjectsTab(),
   studio: () => useTabStore.getState().openStudioTab(),
-  transcriptions: () => useTabStore.getState().openTranscriptionsTab(),
 };
 
 const TAB_ACTIONS: Record<string, () => void> = {

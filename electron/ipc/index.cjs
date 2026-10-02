@@ -8,7 +8,6 @@ const initHandlers = require('./core/init.cjs');
 const databaseHandlers = require('./data/database.cjs');
 const interactionsHandlers = require('./data/interactions.cjs');
 const codingHandlers = require('./data/coding.cjs');
-const researchHandlers = require('./ai/research.cjs');
 const cloudLlmHandlers = require('./ai/cloud-llm.cjs');
 const tagsHandlers = require('./data/tags.cjs');
 const resourcesHandlers = require('./data/resources.cjs');
@@ -41,14 +40,9 @@ const runsHandlers = require('./agents/runs.cjs');
 const pipelinesHandlers = require('./agents/pipelines.cjs');
 const marketplaceHandlers = require('./integrations/marketplace.cjs');
 const cloudStorageHandlers = require('./sync/cloud-storage.cjs');
-const transcriptionHandlers = require('./media/transcription.cjs');
-const transcriptionRecovery = require('../transcription/recovery.cjs');
-const transcriptionSession = require('../transcription/session/index.cjs');
 const browserContextHandlers = require('./integrations/browser-context.cjs');
-const kbLlmHandlers = require('./ai/kb-llm.cjs');
 const skillsHandlers = require('./integrations/skills.cjs');
 const shellHandlers = require('./core/shell.cjs');
-const permissionsHandlers = require('./core/permissions.cjs');
 const domeMcpHandlers = require('./integrations/dome-mcp.cjs');
 const artifactsHandlers = require('./agents/artifacts.cjs');
 const socialHandlers = require('./integrations/social.cjs');
@@ -91,7 +85,6 @@ function registerAll(deps) {
     ollamaService,
     getOllamaManager,
     aiToolsHandler,
-    ttsService,
     documentExtractor,
     documentGenerator,
     docxConverter,
@@ -101,7 +94,6 @@ function registerAll(deps) {
     validateSender,
     sanitizePath,
     validateUrl,
-    pendingDisplayMediaSources,
   } = deps;
 
   const secureIpcMain = createSecureIpcMain(ipcMain, windowManager, validateSender);
@@ -132,7 +124,7 @@ function registerAll(deps) {
   aiToolsHandlers.register({ ipcMain: secureIpcMain, windowManager, aiToolsHandler });
   flashcardsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   studioHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
-  audioHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ttsService });
+  audioHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   notebookHandlers.register({ ipcMain: secureIpcMain, windowManager, notebookPython });
   updaterHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   syncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
@@ -154,36 +146,11 @@ function registerAll(deps) {
   pipelinesHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
   cloudStorageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
-  transcriptionSession.setWindowManager(windowManager);
-  transcriptionHandlers.register({
-    ipcMain: secureIpcMain,
-    windowManager,
-    database,
-    fileStorage,
-    aiToolsHandler,
-    thumbnail,
-    initModule,
-    ollamaService,
-    pendingDisplayMediaSources,
-  });
-  // Recover any sessions left mid-flight by a previous crash. Fire-and-forget;
-  // recovery logs its own errors and never blocks startup.
-  void transcriptionRecovery.runOnStartup({
-    database,
-    fileStorage,
-    windowManager,
-    thumbnail,
-    initModule,
-    ollamaService,
-  });
   browserContextHandlers.register({ ipcMain: secureIpcMain, windowManager });
-  kbLlmHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   skillsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender, app });
   shellHandlers.register({ ipcMain: secureIpcMain, windowManager, sanitizePath });
-  permissionsHandlers.register({ ipcMain: secureIpcMain, windowManager });
   domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
-  researchHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   domainSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database });

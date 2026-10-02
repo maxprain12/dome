@@ -12,7 +12,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions(), ...pkg.researchToolDefinitions()];
+  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {
@@ -42,13 +42,6 @@ const TOOL_HANDLER_MAP = {
   resource_move_to_folder: 'resourceMoveToFolder',
   flashcard_create: 'flashcardCreate',
   web_fetch: 'webFetch',
-  web_search: 'webSearch',
-  deep_research: 'deepResearch',
-  research_capabilities: 'research_capabilities',
-  research_search: 'research_search',
-  research_read: 'research_read',
-  research_profile: 'research_profile',
-  research_collect: 'research_collect',
 
   excel_get: 'excelGet',
   excel_get_file_path: 'excelGetFilePath',
@@ -239,15 +232,13 @@ function getToolDefsBySubagent() {
   }
   const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
   return {
-    research: pick('web_search', 'web_fetch', 'deep_research', 'research_capabilities', 'research_search', 'research_read', 'research_profile', 'research_collect'),
+    web: pick('web_fetch'),
     library: pick(
       'resource_search',
       'resource_get',
       'resource_get',
       'resource_list',
       'get_document_structure',
-      'get_related_resources',
-      'link_resources',
       'project_list',
       'project_get',
       'get_recent_resources',
@@ -333,48 +324,6 @@ function getToolDefsBySubagent() {
 function getAllToolDefinitions() {
   return [
     QUESTIONNAIRE_TOOL_DEFINITION,
-    { type: 'function', function: {
-        name: 'research_capabilities',
-        description: 'Research evidence with explicit access and cost controls.',
-        parameters: { type: 'object', properties: {} },
-    } },
-    { type: 'function', function: {
-        name: 'research_search',
-        description: 'Research evidence with explicit access and cost controls.',
-        parameters: { type: 'object', properties: {} },
-    } },
-    { type: 'function', function: {
-        name: 'research_read',
-        description: 'Research evidence with explicit access and cost controls.',
-        parameters: { type: 'object', properties: {} },
-    } },
-    { type: 'function', function: {
-        name: 'research_profile',
-        description: 'Research evidence with explicit access and cost controls.',
-        parameters: { type: 'object', properties: {} },
-    } },
-    { type: 'function', function: {
-        name: 'research_collect',
-        description: 'Research evidence with explicit access and cost controls.',
-        parameters: { type: 'object', properties: {} },
-    } },
-    {
-      type: 'function',
-      function: {
-        name: 'web_search',
-        description: 'Search the web for current information. Returns titles, URLs, and snippets from a configurable backend (SearXNG/DDG by default; Tavily/Brave if configured).',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Search query' },
-            count: { type: 'number', description: 'Max results (1-10). Default: 5' },
-            country: { type: 'string', description: '2-letter country code (e.g. US, DE)' },
-            search_lang: { type: 'string', description: 'ISO language code' },
-          },
-          required: ['query'],
-        },
-      },
-    },
     {
       type: 'function',
       function: {
@@ -387,22 +336,6 @@ function getAllToolDefinitions() {
             max_length: { type: 'number', description: 'Max content length. Default: 50000' },
           },
           required: ['url'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'deep_research',
-        description:
-          'Initiate deep research on a topic. Returns a plan: use web_search and web_fetch to gather info, then synthesize a structured report with sections and citations.',
-        parameters: {
-          type: 'object',
-          properties: {
-            topic: { type: 'string', description: 'Research topic' },
-            depth: { type: 'string', description: "Depth: 'quick', 'standard', or 'comprehensive'" },
-          },
-          required: ['topic'],
         },
       },
     },

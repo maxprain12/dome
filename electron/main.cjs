@@ -54,7 +54,6 @@ const {
   nativeImage,
   protocol,
   session,
-  desktopCapturer,
   systemPreferences,
 } = require('electron');
 
@@ -65,17 +64,6 @@ const {
 // See electron/core/sentry-main.cjs.
 const sentryMain = require('./core/sentry-main.cjs');
 sentryMain.initSentryMain(app);
-
-// Pending display-media source ID.
-// The renderer sets this via IPC immediately before calling getDisplayMedia() so the
-// setDisplayMediaRequestHandler can select the correct source without Chromium's picker.
-// Only one getDisplayMedia call can be in-flight at a time per renderer, so a single
-// variable (no per-window keying) is sufficient.
-const pendingDisplayMediaSources = {
-  sourceId: null,
-  set(id) { this.sourceId = id; },
-  consume() { const id = this.sourceId; this.sourceId = null; return id; },
-};
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -251,7 +239,6 @@ const docxConverter = require('./documents/docx-converter.cjs');
 const authManager = require('./auth/auth-manager.cjs');
 const personalityLoader = require('./personality/personality-loader.cjs');
 const updateService = require('./core/update-service.cjs');
-const ttsService = require('./speech/tts-service.cjs');
 const notebookPython = require('./documents/notebook-python.cjs');
 const mcpOauth = require('./mcp/mcp-oauth.cjs');
 const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
@@ -272,7 +259,6 @@ const domainSyncScheduler = require('./storage/domain-sync-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
-const transcriptionShortcut = require('./transcription/shortcut.cjs');
 const { useViteDevServer } = require('./core/runtime-env.cjs');
 
 // Modo desarrollo (Vite): nunca en app empaquetada
@@ -804,10 +790,6 @@ function installPermissionHandlers() {
   // speaker-selection" and could trigger internal null-iteration errors.
   // background-sync: often queried by SW / tooling; we allow on first-party only.
   const _ALLOWED_PERMISSIONS = new Set([
-    'media',
-    'microphone',
-    'camera',
-    'display-capture',
     'speaker-selection',
     'background-sync',
     'clipboard-read',
@@ -985,7 +967,6 @@ function registerAllIpcHandlers() {
     ollamaService,
     getOllamaManager,
     aiToolsHandler,
-    ttsService,
     documentExtractor,
     documentGenerator,
     docxConverter,
@@ -995,7 +976,6 @@ function registerAllIpcHandlers() {
     validateSender,
     sanitizePath,
     validateUrl,
-    pendingDisplayMediaSources,
   });
 }
 
@@ -1012,7 +992,6 @@ function startDevIpcBridge() {
 
 function tryInitTranscriptionShortcut() {
   try {
-    transcriptionShortcut.registerFromDatabase(database, windowManager);
   } catch (shortcutErr) {
     console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
   }
@@ -1066,64 +1045,6 @@ function trySyncSentryConsent() {
   }
 }
 
-// Modern Electron display-media handler for system/meeting audio capture.
-// The renderer calls window.electron.transcription.setDisplayMediaSource(id)
-// BEFORE calling navigator.mediaDevices.getDisplayMedia(), storing the
-// desired source ID here so we can bypass Chromium's own picker and use the
-// right source.
-function installDisplayMediaHandler() {
-  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
-    try {
-      await chooseDisplayMediaSource(request, callback);
-    } catch (err) {
-      console.error('[DisplayMedia] setDisplayMediaRequestHandler error:', err?.message);
-      try {
-        callback({});
-      } catch (cbErr) {
-        console.error('[DisplayMedia] callback error:', cbErr?.message);
-      }
-    }
-  });
-}
-
-async function chooseDisplayMediaSource(request, callback) {
-  // Only start system audio (loopback) when the renderer asked for audio. The
-  // hub uses getDisplayMedia({ audio: false }) for live video preview; always
-  // forcing loopback here caused a second Core Audio tap alongside real capture
-  // and could crash or kill the app on macOS.
-  const audioRequested = request?.audioRequested === true;
-
-  // Consume the pending source ID set by the renderer just before calling
-  // getDisplayMedia().
-  const sourceId = pendingDisplayMediaSources.consume();
-
-  const sources = await desktopCapturer.getSources({
-    types: ['screen', 'window'],
-    thumbnailSize: { width: 1, height: 1 }, // minimal — we only need IDs
-  });
-
-  const videoSource = pickDisplayMediaSource(sources, sourceId);
-  if (!videoSource) {
-    callback({});
-    return;
-  }
-
-  // 'loopback' captures system audio on macOS 13+ and Windows when audioRequested is true.
-  if (audioRequested) {
-    callback({ video: videoSource, audio: 'loopback' });
-  } else {
-    callback({ video: videoSource });
-  }
-}
-
-function pickDisplayMediaSource(sources, sourceId) {
-  if (sourceId) {
-    const match = sources.find((s) => s.id === sourceId);
-    if (match) return match;
-  }
-  return sources[0]; // fallback: first screen
-}
-
 // Cold start on Windows/Linux: dome:// URL may be in argv
 async function handleColdStartUrlIfAny() {
   if (process.platform === 'darwin') return; // macOS uses the open-url handler above
@@ -1169,6 +1090,7 @@ function initAutoUpdater(mainWindow) {
 }
 
 function initRuntimeServices() {
+  runEngine.init(windowManager, database);
   // Initialize calendar notification service (upcoming events broadcast)
   calendarNotificationService.init(windowManager);
   calendarSyncScheduler.init(windowManager);
@@ -1177,7 +1099,6 @@ function initRuntimeServices() {
   // Start proactive main-process memory monitoring so the GitHub sync
   // scheduler can skip ticks under heap pressure instead of OOMing.
   memoryMonitor.startMemoryMonitor();
-  runEngine.init(windowManager, database, ttsService);
   // Reclaim run contexts (steps, AbortController, API keys) for runs that
   // finished without calling releaseRunContext, or that have been paused on
   // human approval for too long. See T04-cleanup-run-contexts.md.
@@ -1271,7 +1192,6 @@ app
     // La búsqueda textual usa el índice de SQLite.
     const mainWindow = await createWindow();
 
-    installDisplayMediaHandler();
 
     // Create tray icon for background operation (automations, notifications)
     createTray();
@@ -1301,7 +1221,6 @@ app.on('before-quit', async () => {
     appTray.destroy();
     appTray = null;
   }
-  transcriptionShortcut.unregisterAll();
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
   domainSyncScheduler.stop();

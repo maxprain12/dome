@@ -47,7 +47,6 @@ export default function AISection() {
         providerModelsLoading={ctrl.providerModelsLoading}
         onTestResult={ctrl.setTestResult}
         configurationTitle={t('settings.ai.configuration')}
-        transcriptionRef={ctrl.transcriptionRef}
         saved={ctrl.saved}
         saving={ctrl.saving}
         testing={ctrl.testing}

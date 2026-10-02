@@ -33,11 +33,11 @@ describe('buildSharedResourceHint', () => {
   });
 });
 
-it('routes third-party URLs through research capabilities and preserves own-account workflows', () => {
+it('uses saved evidence and configured search tools while preserving own-account workflows', () => {
   const hint = buildSharedResourceHint({ pathname: '/' });
-  expect(hint).toContain('Third-party profile URLs or person/competitor research: call research_capabilities first');
+  expect(hint).toContain('social_reference_list/resource_search/resource_get');
   expect(hint).toContain('OWN social accounts/posts: call social_accounts_list first');
-  expect(hint).toContain('search other public sources via research_search');
-  expect(hint).not.toContain('For public URLs call social_public_resolve');
-  expect(hint).toContain('Do not attempt direct profile scraping or suggest login/browser_get_active_tab as a content extractor');
+  expect(hint).toContain('External search uses configured MCP tools or invoked skills');
+  expect(hint).not.toContain('research_capabilities');
+  expect(hint).not.toContain('research_search');
 });

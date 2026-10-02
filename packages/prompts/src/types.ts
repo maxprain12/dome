@@ -98,7 +98,6 @@ export type DomeSystemPromptOptions = {
   skillsCatalogMarkdown?: string | null;
   includeDate?: boolean;
   extraSections?: Array<string | null | undefined>;
-  voiceLanguage?: string | null;
   omitCoreTools?: boolean;
   coreToolsMode?: 'full' | 'minimal';
 };

@@ -32,7 +32,7 @@
   "regenerate_note_failed": "No se pudo actualizar la nota",
   "speaker_rename_failed": "No se pudo guardar el nombre del hablante",
   "speaker": "Hablante",
-  "transcript_empty_hint": "Aún no hay transcripción. Usa «Transcribir a nota» para generar una transcripción estructurada con marcas de tiempo.",
+  "transcript_empty_hint": "Este archivo no tiene una transcripción guardada.",
   "diarization_heuristic_badge": "Hablantes estimados",
   "diarization_heuristic_hint": "Los turnos se estiman por pausas en el audio, no es diarización real. Renombra hablantes abajo para que coincidan con las personas.",
   "capture_file": "Archivo",

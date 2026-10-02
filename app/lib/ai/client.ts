@@ -1470,7 +1470,6 @@ export {
   createResourceTools,
   createContextTools,
   createMemoryTools,
-  createWebSearchTool,
   createWebFetchTool,
   createResourceSearchTool,
   createResourceGetTool,

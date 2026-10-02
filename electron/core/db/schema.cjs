@@ -1498,40 +1498,7 @@ function createBaseSchema(db) {
         )
   `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS transcription_chunks (
-              session_id TEXT NOT NULL,
-              seq INTEGER NOT NULL,
-              track TEXT NOT NULL CHECK(track IN ('mic','system')),
-              start_ms INTEGER NOT NULL,
-              duration_ms INTEGER,
-              file_path TEXT NOT NULL,
-              text TEXT,
-              PRIMARY KEY (session_id, track, seq),
-              FOREIGN KEY (session_id) REFERENCES transcription_sessions(id) ON DELETE CASCADE
-            )
-  `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS transcription_sessions (
-              id TEXT PRIMARY KEY,
-              project_id TEXT NOT NULL DEFAULT 'default',
-              folder_id TEXT,
-              status TEXT NOT NULL CHECK(status IN ('recording','paused','transcribing','done','error','cancelled')),
-              sources TEXT NOT NULL,
-              live_preview INTEGER NOT NULL DEFAULT 0,
-              save_audio INTEGER NOT NULL DEFAULT 1,
-              session_dir TEXT NOT NULL,
-              resource_id TEXT,
-              partial_text TEXT NOT NULL DEFAULT '',
-              error_message TEXT,
-              started_at INTEGER NOT NULL,
-              updated_at INTEGER NOT NULL,
-              finished_at INTEGER,
-              FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-              FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
-            )
-  `);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS workflow_executions (
@@ -2087,13 +2054,7 @@ function createBaseSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_sync_tombstones_pending ON sync_tombstones(synced) WHERE synced = 0
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_transcription_sessions_project ON transcription_sessions(project_id)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_transcription_sessions_status ON transcription_sessions(status)
-  `);
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_workflow_executions_project_id ON workflow_executions(project_id)

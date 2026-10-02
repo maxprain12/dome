@@ -43,8 +43,8 @@ describe('cap priority lists reference real tools', () => {
 
   it('a coding run ranks the coding families above the generic ones', () => {
     const priority = resolveCapPriority({ coding: true });
-    assert.ok(priority.indexOf('shell_exec') < priority.indexOf('web_search'));
-    assert.ok(priority.indexOf('git_commit') < priority.indexOf('web_search'));
+    assert.ok(priority.indexOf('shell_exec') < priority.indexOf('web_fetch'));
+    assert.ok(priority.indexOf('git_commit') < priority.indexOf('web_fetch'));
   });
 
   it('does not duplicate names shared by both lists', () => {

@@ -40,9 +40,7 @@ const CATEGORY_MAP = {
   dome_load_doc: 'meta',
   get_tool_definition: 'meta',
   remember_fact: 'meta',
-  web_search: 'web',
   web_fetch: 'web',
-  deep_research: 'web',
   browser_get_active_tab: 'web',
   resource_search: 'resources',
   resource_get: 'resources',
@@ -142,16 +140,13 @@ const OPTIONAL_TOOLS = new Set([
   'image_thumbnail',
   'image_describe',
   'marketplace_install',
-  'deep_research',
 ]);
 
 const PROMPTS = {
   dome_load_doc: 'Antes de crear un agente, carga las reglas con dome_load_doc (id: entity_rules) y confirma que las leíste.',
   get_tool_definition: '¿Qué parámetros requiere la herramienta ppt_create? Usa get_tool_definition.',
   remember_fact: 'Recuerda que mi idioma preferido para respuestas es español breve. Usa remember_fact.',
-  web_search: 'Busca noticias recientes (2026) sobre avances en fusión nuclear. Resume con fuentes.',
   web_fetch: 'Lee el contenido de https://example.com y resume en 3 puntos.',
-  deep_research: 'Investiga en profundidad el impacto de CRISPR en agricultura sostenible.',
   browser_get_active_tab: '¿Qué página tengo abierta en el navegador externo? Usa browser_get_active_tab.',
   resource_search: 'Busca en mi biblioteca notas sobre termodinámica (proyecto bench-project).',
   resource_get: 'Lee el contenido completo del recurso bench-note-thermo (id exacto).',
@@ -210,7 +205,7 @@ const PROMPTS = {
   calendar_create_event: 'Crea evento "Bench reunion" mañana 10:00-11:00 (Europe/Madrid).',
   calendar_update_event: 'Si hay un evento bench, muévelo una hora; si no, explícalo.',
   calendar_delete_event: 'Explica calendar_delete_event sin borrar eventos reales del usuario.',
-  agent_create: 'Crea un agente llamado "Bench Research Bot" con tools web_search y resource_search.',
+  agent_create: 'Crea un agente llamado "Bench Library Bot" con tools resource_search y resource_get.',
   automation_create: 'Crea una automatización diaria 09:00 que ejecute un agente de prueba (bench).',
   workflow_create: 'Crea un workflow llamado "Bench Pipeline" con descripción breve.',
   marketplace_search: 'Busca en marketplace agents de investigación.',
@@ -413,7 +408,7 @@ function defaultForbiddenTools(tool) {
     'resource_get_library_overview',
     'get_current_project',
   ];
-  const searchOnly = ['resource_hybrid_search', 'resource_semantic_search', 'resource_search'];
+  const searchOnly = ['resource_search'];
 
   if (!FILE_TOOLS.has(tool)) {
     for (const t of fsOnly) forbidden.add(t);
@@ -469,7 +464,7 @@ function buildCase(tool) {
           : STUDIO_SYNTHESIS_TOOLS.has(tool)
             ? `Debe invocar ${tool} y sintetizar el artefacto en la respuesta (no solo el payload del tool).`
             : `Debe invocar ${tool} (tool_call nativo) y dar respuesta útil.`),
-    timeout_ms: ['deep_research', 'generate_knowledge_graph', 'ppt_create'].includes(tool) ? 120000 : 60000,
+    timeout_ms: ['ppt_create'].includes(tool) ? 120000 : 60000,
     skip_hitl: true,
     optional,
   };

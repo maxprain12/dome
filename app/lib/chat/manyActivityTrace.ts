@@ -80,10 +80,11 @@ export type ActivitySegment =
       segments: ActivitySegment[];
     };
 
+// Legacy names classify saved run history; they are absent from the executable catalog.
 const SEARCH_TOOLS = new Set([
   'web_search',
-  'web_fetch',
   'deep_research',
+  'web_fetch',
 ]);
 
 const CODING_TOOLS = new Set([

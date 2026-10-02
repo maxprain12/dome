@@ -107,5 +107,3 @@ export type { PeopleToolName } from './families/people.js';
 
 export { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } from './domains/manifest.js';
 export type { DomeLoadDocId } from './domains/manifest.js';
-
-export { RESEARCH_TOOL_NAMES, researchToolDefinitions } from './families/research.js';

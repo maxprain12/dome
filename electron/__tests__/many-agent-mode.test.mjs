@@ -55,14 +55,14 @@ describe('explicit mode enforcement', () => {
   });
 
   it('hides writes and unclassified external tools from the actual Plan registry', () => {
-    const names = ['resource_get', 'file_write', 'remember_fact', 'research_collect', 'browser_fill', 'dome_create_note', 'task', 'mcp_custom', 'questionnaire'];
+    const names = ['resource_get', 'file_write', 'remember_fact', 'social_reference_save', 'browser_fill', 'dome_create_note', 'task', 'mcp_custom', 'questionnaire'];
     assert.deepEqual(filterRuntimeToolsForMode(names.map(name => ({ name })), 'plan', ['mcp_custom']).map(tool => tool.name), ['resource_get', 'questionnaire']);
   });
 
   it('blocks Plan writes even after skip-HITL and prior approve-all', async () => {
     allowlist.approveAllForThread('mode-plan-test');
     const hook = buildBeforeToolCall({ agentMode: 'plan', skipHitl: true, threadId: 'mode-plan-test', modeExternalToolNames: ['mcp_custom'] });
-    for (const name of ['file_write', 'remember_fact', 'research_collect', 'browser_click', 'task', 'mcp_custom']) {
+    for (const name of ['file_write', 'remember_fact', 'social_reference_save', 'browser_click', 'task', 'mcp_custom']) {
       assert.equal((await hook(context(name)))?.block, true, name);
     }
     assert.equal(await hook(context('resource_get')), undefined);

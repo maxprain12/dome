@@ -252,7 +252,7 @@ export default function AgentNode({
   }
 
   const isSystemAgent = !data.agentId && !!data.systemAgentRole;
-  const systemDef = data.systemAgentRole ? SYSTEM_AGENTS[data.systemAgentRole] : null;
+  const systemDef = data.systemAgentRole ? SYSTEM_AGENTS[data.systemAgentRole] ?? null : null;
   const systemColor = systemDef?.color ?? 'var(--primary)';
 
   const agentInitials = data.agentName ? data.agentName.slice(0, 2).toUpperCase() : '?';

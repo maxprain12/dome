@@ -1685,151 +1685,9 @@ async function webFetch(args) {
 }
 
 // =============================================================================
-// Web Search Tool (the agent runtime / Subagents)
+// Web Fetch Tool (the agent runtime / Subagents)
 // =============================================================================
 
-const WEB_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
-const WEB_SEARCH_CACHE_MAX_ENTRIES = 200;
-const WEB_SEARCH_CACHE = new Map();
-
-function purgeExpiredWebSearchCache(now = Date.now()) {
-  for (const [key, entry] of WEB_SEARCH_CACHE.entries()) {
-    if (now - entry.createdAt > WEB_SEARCH_CACHE_TTL_MS) {
-      WEB_SEARCH_CACHE.delete(key);
-    }
-  }
-}
-
-function getCachedWebSearchResult(key) {
-  const cached = WEB_SEARCH_CACHE.get(key);
-  if (!cached) return null;
-  if (Date.now() - cached.createdAt > WEB_SEARCH_CACHE_TTL_MS) {
-    WEB_SEARCH_CACHE.delete(key);
-    return null;
-  }
-  return cached.value;
-}
-
-function setCachedWebSearchResult(key, value) {
-  purgeExpiredWebSearchCache();
-  if (WEB_SEARCH_CACHE.size >= WEB_SEARCH_CACHE_MAX_ENTRIES) {
-    const oldestKey = WEB_SEARCH_CACHE.keys().next().value;
-    if (oldestKey != null) WEB_SEARCH_CACHE.delete(oldestKey);
-  }
-  WEB_SEARCH_CACHE.set(key, { createdAt: Date.now(), value });
-}
-
-async function webSearch(args, toolContext = null) {
-  const query = args?.query;
-  if (!query || typeof query !== 'string') {
-    return { status: 'error', error: 'Query is required for web_search' };
-  }
-
-  const count = Math.min(Math.max(1, parseInt(args?.count, 10) || 5), 10);
-  const timeoutMs = 15000;
-  const country = typeof args?.country === 'string' ? args.country : undefined;
-  const searchLang = typeof args?.search_lang === 'string' ? args.search_lang : undefined;
-  const freshness = typeof args?.freshness === 'string' ? args.freshness : undefined;
-  const cacheKey = JSON.stringify({
-    query: query.trim(),
-    count,
-    country: country || '',
-    searchLang: searchLang || '',
-    freshness: freshness || '',
-  });
-
-  try {
-    if (toolContext) {
-      const configured = await require('../research/service.cjs').configuredWebSearch(database.getQueries(), { query, count }, toolContext);
-      if (configured) return configured;
-    }
-    const cached = getCachedWebSearchResult(cacheKey);
-    if (cached) {
-      return { ...cached, cached: true };
-    }
-
-    const result = await webScraper.searchWeb({
-      query,
-      count,
-      country,
-      searchLang,
-      freshness,
-      timeoutMs,
-      signal: toolContext?.signal,
-    });
-    if (!result?.success) {
-      throw Object.assign(new Error(result?.error || 'No se pudo completar la búsqueda web.'), { code: result?.code, retryAfterMs: result?.retryAfterMs });
-    }
-    const payload = {
-      query,
-      provider: result.provider || 'http',
-      engine: result.engine || 'duckduckgo',
-      count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
-      results: Array.isArray(result.results) ? result.results : [],
-    };
-    setCachedWebSearchResult(cacheKey, payload);
-    traceLog('webSearch', { query, provider: payload.provider }, { success: true, count: payload.count });
-    return payload;
-  } catch (err) {
-    traceLog('webSearch', { query }, null, err);
-    return { status: 'error', error: err?.message || String(err),
-      ...(err?.code === 'search_unavailable' ? { code: err.code, retryAfterMs: err.retryAfterMs, retryable: false, results: [] } : {}),
-    };
-  }
-}
-
-async function testWebSearchConnection() {
-  const result = await webSearch({ query: 'Dome app', count: 1 });
-  if (result?.status === 'error') {
-    return { success: false, error: result.error || 'No se pudo validar la búsqueda web.' };
-  }
-
-  return {
-    success: true,
-    provider: result.provider || 'http',
-    count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
-  };
-}
-
-// =============================================================================
-// Deep Research Tool (returns instructions for subagent)
-// =============================================================================
-
-function deepResearch(args) {
-  const topic = args?.topic || 'General topic';
-  const depthRaw = (args?.depth || 'standard').toLowerCase().trim();
-  const validDepths = ['quick', 'standard', 'comprehensive'];
-  const depth = validDepths.includes(depthRaw) ? depthRaw : 'standard';
-
-  const subtopicCount = depth === 'quick' ? '3-4' : depth === 'comprehensive' ? '6-8' : '4-6';
-  const sourceCount = depth === 'quick' ? '3-5' : depth === 'comprehensive' ? '15+' : '8-12';
-
-  return {
-    status: 'success',
-    message:
-      `Research initiated on: "${topic}" at ${depth} depth. ` +
-      'Create a research plan with subtopics, then use web_search and web_fetch tools to gather information. ' +
-      'After gathering data, synthesize findings into a structured report with type: "deep_research".',
-    topic,
-    depth,
-    instructions: {
-      plan: `List ${subtopicCount} subtopics to investigate based on the topic`,
-      search: 'Use web_search for each subtopic to find relevant sources',
-      fetch: 'Use web_fetch to read key pages and extract detailed information',
-      report:
-        `Synthesize into a structured report with sections and ${sourceCount} source citations. ` +
-        'Include an Executive Summary, Key Findings, Detailed Analysis per subtopic, and a Sources section.',
-    },
-    output_format: {
-      type: 'deep_research',
-      schema: {
-        title: 'string',
-        sections: '[{ id: string, heading: string, content: string (markdown) }]',
-        sources: '[{ id: string, title: string, url?: string, snippet: string }]',
-      },
-    },
-  };
-}
 
 // =============================================================================
 // Dynamic Context: get_tool_definition
@@ -4060,17 +3918,9 @@ async function artifactLinkResource(args) {
 }
 
 module.exports = {
-  research_capabilities: (args) => require('../research/service.cjs').getResearchService().execute('research_capabilities', args),
-  research_search: (args) => require('../research/service.cjs').getResearchService().execute('research_search', args),
-  research_read: (args) => require('../research/service.cjs').getResearchService().execute('research_read', args),
-  research_profile: (args) => require('../research/service.cjs').getResearchService().execute('research_profile', args),
-  research_collect: (args) => require('../research/service.cjs').getResearchService().execute('research_collect', args),
 
   // Window manager (for broadcast when tools modify resources in main)
   setWindowManager,
-
-  /** TipTap JSON helper (shared with transcription IPC) */
-
 
   // Meta-tools (handled directly in tool-dispatcher.cjs switch; stub satisfies guard)
   domeLoadDoc: () => null,
@@ -4117,9 +3967,6 @@ module.exports = {
 
   // Web tools (the agent runtime)
   webFetch,
-  webSearch,
-  testWebSearchConnection,
-  deepResearch,
 
   // Notebook tools
   notebookGet,
@@ -4156,8 +4003,6 @@ module.exports = {
 
   // Memory tools
   rememberFact,
-
-  // Graph / linking tools
 
   // Calendar tools
   calendarListEvents,

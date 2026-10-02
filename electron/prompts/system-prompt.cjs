@@ -5,7 +5,6 @@
 
 const {
   buildDomeSystemPrompt: buildShared,
-  buildVoiceSuffix,
   formatVolatileSourceContext,
   buildSubagentPrompt,
   buildEditorPrompt,
@@ -44,7 +43,6 @@ function buildManyRolePrompt() {
 module.exports = {
   buildDomeSystemPrompt,
   buildManyRolePrompt,
-  buildVoiceSuffix,
   formatVolatileSourceContext,
   buildSubagentPrompt,
   buildEditorPrompt,

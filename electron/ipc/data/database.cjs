@@ -495,7 +495,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         throw new Error('Query too long. Maximum 1000 characters');
       }
       const queries = database.getQueries();
-      const results = queries.searchResources.all(query);
+      const results = require('../../search/resource-search.cjs').searchResources(database.getDB(), query);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error searching resources:', error);
@@ -507,7 +507,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Queries are automatically invalidated by handleCorruptionError
         try {
           const queries = database.getQueries();
-          const results = queries.searchResources.all(query);
+          const results = require('../../search/resource-search.cjs').searchResources(database.getDB(), query);
           return { success: true, data: results };
         } catch (retryError) {
           console.error('[DB] Error retrying search after repair:', retryError);
@@ -519,7 +519,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             if (repairedAgain) {
               try {
                 const queries = database.getQueries();
-                const results = queries.searchResources.all(query);
+                const results = require('../../search/resource-search.cjs').searchResources(database.getDB(), query);
                 return { success: true, data: results };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
@@ -1497,7 +1497,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       .map((term) => `"${term}"`)
       .join(' ');
 
-  // Extract plain search terms (no FTS quoting) — used for LIKE/Lance queries.
+  // Extract plain search terms (no FTS quoting) — used for LIKE queries.
   const extractSearchTerms = (rawQuery) =>
     rawQuery.replace(UNIFIED_SEARCH_NON_WORD, ' ').split(/\s+/).filter((t) => t.length > 0);
 
@@ -1518,14 +1518,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
   // Search studio_outputs by title/content using LIKE. Returns [] on error
   // so callers don't need to wrap in try/catch.
-  const searchStudioOutputs = (rawTerms) => {
+  const searchStudioOutputs = (rawTerms, scopeProjectId) => {
     if (rawTerms.length === 0) return [];
     try {
       const db = database.getDB();
       const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
       const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
+      if (scopeProjectId) params.push(scopeProjectId);
       const stmt = db.prepare(
-        `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
+        `SELECT * FROM studio_outputs WHERE (${placeholders}) ${scopeProjectId ? 'AND project_id = ?' : ''} ORDER BY updated_at DESC LIMIT 15`
       );
       return stmt.all(...params) || [];
     } catch (studioErr) {
@@ -1538,11 +1539,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     require('../../search/resource-search.cjs').searchResources(database.getDB(), textQuery, { projectId: scopeProjectId, limit: 25 });
 
   // First-pass search: FTS + interactions + studio outputs + integration sources.
-  const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery) => {
-    const resourceResults = await searchResourcesUnified(queries, lanceQuery, sanitizedQuery, scopeProjectId);
+  const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, textQuery) => {
+    const resourceResults = await searchResourcesUnified(queries, textQuery, sanitizedQuery, scopeProjectId);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-    const studioResults = searchStudioOutputs(rawTerms);
+    const studioResults = searchStudioOutputs(rawTerms, scopeProjectId);
     let sources = [];
     try {
       const sourceIndex = require('../../search/source-index.cjs');
@@ -1571,16 +1572,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
   // Retry path after a corruption repair: use the repaired FTS index,
   // but still include studio outputs.
-  const retryUnifiedSearchAfterRepair = (sanitizedQuery, rawTerms) => {
+  const retryUnifiedSearchAfterRepair = (sanitizedQuery, rawTerms, scopeProjectId) => {
     const queries = database.getQueries();
-    const resourceResults = queries.searchResources.all(sanitizedQuery);
+    const resourceResults = require('../../search/resource-search.cjs').searchResources(database.getDB(), rawTerms.join(' '), { projectId: scopeProjectId, limit: 25 });
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-    const studioResults = searchStudioOutputs(rawTerms);
+    const studioResults = searchStudioOutputs(rawTerms, scopeProjectId);
     let sources = [];
     try {
       const sourceIndex = require('../../search/source-index.cjs');
-      sources = sourceIndex.searchDocuments(sanitizedQuery);
+      sources = sourceIndex.searchDocuments(sanitizedQuery, { projectId: scopeProjectId, rawTerms });
     } catch {
       sources = [];
     }
@@ -1589,16 +1590,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
   // Last-ditch retry after a second repair cycle. Mirrors the original: studio
   // outputs are intentionally omitted on this path.
-  const finalRetryUnifiedSearchAfterRepair = (sanitizedQuery) => {
+  const finalRetryUnifiedSearchAfterRepair = (sanitizedQuery, rawTerms, scopeProjectId) => {
     const queries = database.getQueries();
-    const resourceResults = queries.searchResources.all(sanitizedQuery);
+    const resourceResults = require('../../search/resource-search.cjs').searchResources(database.getDB(), rawTerms.join(' '), { projectId: scopeProjectId, limit: 25 });
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
     return { resources: resourceResults, interactions: interactionResults, sources: [] };
   };
 
   // After a corruption repair fails, run a more aggressive repair cycle.
-  const attemptSecondRepair = (retryError, sanitizedQuery, scopeProjectId) => {
+  const attemptSecondRepair = (retryError, sanitizedQuery, scopeProjectId, rawTerms) => {
     if (retryError.code !== 'SQLITE_CORRUPT' && retryError.code !== 'SQLITE_CORRUPT_VTAB') {
       return { success: false, error: retryError.message };
     }
@@ -1608,7 +1609,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: false, error: retryError.message };
     }
     try {
-      const data = finalRetryUnifiedSearchAfterRepair(sanitizedQuery);
+      const data = finalRetryUnifiedSearchAfterRepair(sanitizedQuery, rawTerms, scopeProjectId);
       return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (finalError) {
       console.error('[DB] Error after second repair attempt:', finalError);
@@ -1624,11 +1625,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: false, error: error.message };
     }
     try {
-      const data = retryUnifiedSearchAfterRepair(sanitizedQuery, rawTerms);
+      const data = retryUnifiedSearchAfterRepair(sanitizedQuery, rawTerms, scopeProjectId);
       return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (retryError) {
       console.error('[DB] Error retrying unified search after repair:', retryError);
-      return attemptSecondRepair(retryError, sanitizedQuery, scopeProjectId);
+      return attemptSecondRepair(retryError, sanitizedQuery, scopeProjectId, rawTerms);
     }
   };
 
@@ -1654,11 +1655,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
 
     const rawTerms = extractSearchTerms(query);
-    const lanceQuery = rawTerms.join(' ');
+    const textQuery = rawTerms.join(' ');
 
     try {
       const queries = database.getQueries();
-      const data = await performUnifiedSearch(queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery);
+      const data = await performUnifiedSearch(queries, sanitizedQuery, rawTerms, scopeProjectId, textQuery);
       return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (error) {
       return handleUnifiedSearchError(error, sanitizedQuery, rawTerms, scopeProjectId);

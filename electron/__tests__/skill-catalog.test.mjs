@@ -34,6 +34,10 @@ test('project precedence, stable nested ids, explicit-only skills and confined r
     assert.equal(readRegisteredSkillFile(skills[0].id, 'reference.md', project), 'auxiliary');
     assert.throws(() => readRegisteredSkillFile(skills[0].id, 'escape.md', project), /escapes/);
     assert.throws(() => readRegisteredSkillFile(skills[0].id, '../../../../../outside.md', project));
+    await require('../skills/install.cjs').removeSkill(skills[0].id, project);
+    assert.equal(fs.existsSync(skills[0].canonicalPath), false);
+    const refreshed = await loadSkillCatalog(project);
+    assert.equal(refreshed.skills[0].source, 'global');
   } finally {
     if (previous === undefined) delete process.env.DOME_SKILLS_DIR; else process.env.DOME_SKILLS_DIR = previous;
     fs.rmSync(temp, { recursive: true, force: true });

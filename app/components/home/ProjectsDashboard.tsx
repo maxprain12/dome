@@ -69,32 +69,6 @@ const DELETE_IMPACT_ORDER = [
   'workflowFolders',
 ] as const;
 
-type KbOverride = 'inherit' | 'enabled' | 'disabled';
-
-async function loadKbOverridesForProjects(projects: Project[]): Promise<Record<string, KbOverride>> {
-  if (!window.electron?.kbllm?.getProjectOverride) return {};
-  const overrides: Record<string, KbOverride> = {};
-  for (const project of projects) {
-    try {
-      const result = await window.electron.kbllm.getProjectOverride(project.id);
-      const raw =
-        result &&
-        typeof result === 'object' &&
-        'success' in result &&
-        result.success &&
-        result.data &&
-        typeof result.data === 'object' &&
-        'override' in result.data
-          ? (result.data as { override?: string }).override
-          : 'inherit';
-      overrides[project.id] = raw === 'enabled' || raw === 'disabled' ? raw : 'inherit';
-    } catch {
-      overrides[project.id] = 'inherit';
-    }
-  }
-  return overrides;
-}
-
 async function getStudioCountForProject(projectId: string): Promise<number> {
   if (!window.electron?.db?.studio?.getByProject) return 0;
   const studioResult = await window.electron.db.studio.getByProject(projectId);
@@ -475,9 +449,6 @@ export default function ProjectsDashboard({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteSubmitting, setBulkDeleteSubmitting] = useState(false);
 
-  // KB overrides
-  const [kbOverrides, setKbOverrides] = useState<Record<string, 'inherit' | 'enabled' | 'disabled'>>({});
-
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
@@ -497,7 +468,6 @@ export default function ProjectsDashboard({
       const nextResources = resourcesResult?.success && resourcesResult.data ? resourcesResult.data : [];
       setProjects(nextProjects);
       setResources(nextResources);
-      setKbOverrides(await loadKbOverridesForProjects(nextProjects));
 
       const scopedResources = nextResources.filter((resource: Resource) => resource.project_id === scopedProjectId);
       const decks = decksResult?.success && Array.isArray(decksResult.data) ? decksResult.data : [];
@@ -727,20 +697,6 @@ export default function ProjectsDashboard({
     { key: 'chats', value: stats.recentChats, labelKey: 'projects.chats' },
   ] as const;
 
-  const handleKbOverride = useCallback(
-    async (projectId: string, val: 'inherit' | 'enabled' | 'disabled') => {
-      try {
-        const r = await window.electron?.kbllm?.setProjectOverride?.({ projectId, override: val });
-        const ok = r && typeof r === 'object' && 'success' in r && (r as { success?: boolean }).success;
-        if (ok) setKbOverrides((prev) => ({ ...prev, [projectId]: val }));
-        else showToast('error', t('settings.kb_llm.error_save'));
-      } catch {
-        showToast('error', t('settings.kb_llm.error_save'));
-      }
-    },
-    [t],
-  );
-
   return (
     <>
       <main className="h-full overflow-y-auto">
@@ -840,12 +796,8 @@ export default function ProjectsDashboard({
                     isSelected={selectedIds.has(project.id)}
                     isDome={project.id === 'default'}
                     selectionMode={selectionMode}
-                    kbOverride={kbOverrides[project.id] ?? 'inherit'}
-                    kbMenuOpen={false}
                     onSelect={() => onSelectProject(project)}
                     onToggleSelect={() => toggleSelect(project.id)}
-                    onKbMenuToggle={() => undefined}
-                    onKbOverrideChange={(value) => void handleKbOverride(project.id, value)}
                     onEdit={() => openEditProject(project)}
                     onDelete={() => openDeleteProject(project)}
                   />

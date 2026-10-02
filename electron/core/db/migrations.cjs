@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 79;
+const SCHEMA_HEAD = 80;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1579,6 +1579,19 @@ function migration79(db, version) {
   setSchemaVersion(db, 79);
 }
 
+function migration80(db, version) {
+  if (version >= 80) return;
+  require('./feature-retirement.cjs').retireTools(db, [
+    'web_search', 'deep_research', 'research_capabilities', 'research_search',
+    'research_read', 'research_profile', 'research_collect', 'generate_audio_script',
+    'generate_audio_overview',
+  ], { legacySource: 'kb_llm' });
+  // Provisioned KB schedules must never run again, including pre-legacy_source versions.
+  db.prepare("UPDATE automation_definitions SET enabled = 0, description = COALESCE(description, '') || ?, updated_at = ? WHERE id LIKE 'kbllm-%' OR legacy_source = 'kb_llm'")
+    .run('\n\nDome disabled this automation because KB LLM was removed.', Date.now());
+  setSchemaVersion(db, 80);
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1645,6 +1658,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration77(db, version);
   migration78(db, version);
   migration79(db, version);
+  migration80(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

@@ -26,8 +26,6 @@ export type TabType =
   | 'runs'
   | 'folder'
   | 'learn'
-  | 'transcriptions'
-  | 'transcription-detail'
   | 'artifact'
   | 'plugin';
 
@@ -67,8 +65,6 @@ const TAB_CONFIGS: TabConfig[] = [
   { type: 'runs', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'folder', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: true },
   { type: 'learn', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
-  { type: 'transcriptions', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
-  { type: 'transcription-detail', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: true },
   { type: 'artifact', projectScoped: true, sidebarNav: false, resourceSource: true, needsResourceId: true },
   { type: 'plugin', projectScoped: false, sidebarNav: false, resourceSource: false, needsResourceId: false },
 ];
