@@ -15,7 +15,7 @@ const fileStorage = require('../storage/file-storage.cjs');
 const documentStaging = require('../documents/document-staging.cjs');
 const documentExtractor = require('../documents/document-extractor.cjs');
 const docxConverter = require('../documents/docx-converter.cjs');
-const semanticIndexScheduler = require('../storage/semantic-index-scheduler.cjs');
+const textIndexScheduler = require('../storage/text-index-scheduler.cjs');
 
 let mammoth = null;
 try {
@@ -196,13 +196,13 @@ async function buildDocxBufferFromOptions(options) {
 
 function scheduleReindex(resourceId) {
   try {
-    semanticIndexScheduler.init(database);
+    textIndexScheduler.init(database);
     const resource = database.getQueries().getResourceById.get(resourceId);
-    if (resource && semanticIndexScheduler.shouldIndex(resource)) {
-      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+    if (resource && textIndexScheduler.shouldIndex(resource)) {
+      textIndexScheduler.scheduleTextIndex(resourceId);
     }
   } catch (e) {
-    console.warn('[DocxTools] semantic reindex schedule failed:', e?.message);
+    console.warn('[DocxTools] text indexing schedule failed:', e?.message);
   }
 }
 

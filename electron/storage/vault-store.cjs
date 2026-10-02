@@ -494,7 +494,7 @@ function contentHash(data) {
   return h.digest('hex');
 }
 
-/** Reduce Dome-flavored Markdown to plain text for FTS / semantic indexing. */
+/** Reduce Dome-flavored Markdown to plain text for FTS indexing. */
 function markdownToPlainText(md) {
   let t = String(md || '');
   t = t.replace(/^:::[^\n]*$/gm, '');

@@ -104,7 +104,7 @@ El Run Engine incluye 6 agentes de sistema preconfigurados:
 | ID | Nombre | Herramientas | Especialidad |
 |----|--------|-------------|-------------|
 | `research` | Research Agent | web_search, web_fetch, deep_research | Investigación en internet |
-| `library` | Library Agent | resource_search, resource_get, resource_semantic_search | Búsqueda en biblioteca Dome |
+| `library` | Library Agent | resource_search, resource_get | Búsqueda en biblioteca Dome |
 | `writer` | Writer Agent | resource_create, resource_update | Creación y edición de contenido |
 | `data` | Data Agent | excel_get, excel_set_*, resource_get | Análisis de datos y tablas |
 | `presenter` | Presenter Agent | ppt_create, ppt_get_slides, resource_create | Presentaciones |

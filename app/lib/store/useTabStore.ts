@@ -129,7 +129,10 @@ export function tabsFromParsedPayload(
   activeProjectId?: string | null,
 ): { tabs: DomeTab[]; activeTabId: string } {
   if (parsed.tabs.length === 0) return defaultTabsState();
-  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs, activeProjectId));
+  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.flatMap((tab) => {
+    if ((tab.type as string) !== 'semantic-graph') return [tab];
+    return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('sectionGuide.library.title'), resourceId: tab.projectId || activeProjectId || 'default' }];
+  }), activeProjectId));
   return { tabs, activeTabId: resolveStoredActiveTabId(tabs, parsed.activeTabId) };
 }
 
@@ -219,7 +222,6 @@ interface TabStore {
   navigateFolderTab: (fromTabId: string, location: { id: string; title: string; color?: string }, projectId?: string) => void;
   openTranscriptionsTab: () => void;
   openTranscriptionDetailTab: (noteId: string, title: string, projectId?: string) => void;
-  openSemanticGraphTab: (focusResourceId?: string, projectId?: string) => void;
   openArtifactTab: (title: string, artifactJson: string, projectId?: string) => void;
   openPluginTab: (pluginId: string, title: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
@@ -723,17 +725,6 @@ export const useTabStore = create<TabStore>((set, get) => {
       });
     },
 
-    openSemanticGraphTab: (focusResourceId, projectId) => {
-      get().openTab({
-        type: 'semantic-graph',
-        title: focusResourceId
-          ? i18n.t('semantic_graph.tab_title_focus')
-          : i18n.t('semantic_graph.tab_title'),
-        resourceId: focusResourceId,
-        pinned: false,
-        ...(projectId ? { projectId } : {}),
-      });
-    },
 
     openArtifactTab: (title, artifactJson, projectId) => {
       let resourceId: string | undefined;

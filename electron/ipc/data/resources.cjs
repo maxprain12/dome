@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const textIndexScheduler = require('../../storage/text-index-scheduler.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');
 
@@ -15,11 +15,11 @@ async function extractDocumentTextOffMain(fullPath, mimeType, documentExtractor)
 }
 
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
-  semanticIndexScheduler.init(database);
+  textIndexScheduler.init(database);
 
   const importer = require('../../storage/resource-import.cjs').createResourceImporter({
     database, fileStorage, thumbnail, documentExtractor, windowManager,
-    semanticIndexScheduler, autoMetadata, extractInWorker,
+    textIndexScheduler, autoMetadata, extractInWorker,
   });
   const importFileAsResource = importer.importFile;
 
@@ -41,7 +41,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
   /**
    * Schedule indexing for a resource (called when workspace opens for URL articles
-   * with scraped_content - embeddings generated later like note-type resources)
+   * with scraped_content - text extraction runs later)
    */
   ipcMain.handle('resource:scheduleIndex', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -59,8 +59,8 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      if (semanticIndexScheduler.shouldIndex(resource)) {
-        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+      if (textIndexScheduler.shouldIndex(resource)) {
+        textIndexScheduler.scheduleTextIndex(resourceId);
       }
 
       return { success: true };

@@ -267,7 +267,7 @@ export interface StructuredTranscriptPayload {
  */
 export interface DomeKbMetadata {
   wikiRole?: 'raw' | 'compiled' | 'index' | 'output';
-  /** Si es true, cada guardado puede programar reindex semántico (embeddings, debounced) en el main process. */
+  /** Si es true, cada guardado puede programar extracción de texto (debounced) en el main process. */
   reindexOnSave?: boolean;
   topicId?: string;
   pipelineVersion?: string;
@@ -297,7 +297,6 @@ export interface ResourceMetadata {
   // Para recursos URL:
   url_type?: 'article' | 'youtube';
   scraped_content?: string;
-  embedding?: number[];
 /** Legacy: algunos flujos usaron 'done' en lugar de 'completed' */
   processing_status?: 'pending' | 'processing' | 'completed' | 'failed' | 'done';
   processed_at?: number;
@@ -376,13 +375,6 @@ export interface SearchResult {
   highlights?: string[];
 }
 
-export interface SemanticSearchResult {
-  id: string;
-  resource_id: string;
-  text: string;
-  score: number;
-  metadata: Record<string, unknown>;
-}
 
 // Estilos de citación
 export type CitationStyle = 'apa' | 'mla' | 'chicago' | 'harvard' | 'vancouver' | 'ieee';
@@ -421,23 +413,17 @@ export interface AISettings {
   provider: AIProviderType;
   api_key?: string;
   model?: string;
-  embedding_model?: string;
   base_url?: string;
   // Para Ollama:
   ollama_base_url?: string;
   ollama_model?: string;
   ollama_api_key?: string;
-  ollama_embedding_model?: string;
   ollama_temperature?: number;
   ollama_top_p?: number;
   ollama_num_predict?: number;
   /** Cuando true, modelos con "thinking" muestran el razonamiento interno. Por defecto false (solo respuesta final). */
   ollama_show_thinking?: boolean;
-  /** Proveedor de embeddings para búsqueda semántica (independiente del chat). */
-  embeddings_provider?: 'openai' | 'google' | 'ollama';
-  embeddings_api_key?: string;
-  embeddings_model?: string;
-  embeddings_base_url?: string;
+
   /** Web search backend preference. */
   web_search_provider?: 'auto' | 'tavily' | 'brave' | 'searxng' | 'ddg';
   web_search_tavily_key?: string;

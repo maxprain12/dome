@@ -153,7 +153,6 @@ export function searchResources(
     projectId?: string;
     type?: string;
     limit?: number;
-    semanticMinScore?: number;
   },
 ) {
   return send<ResourceSearchResult>({

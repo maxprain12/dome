@@ -17,7 +17,7 @@ import SidePanel from './SidePanel';
 import StudioPanel from './StudioPanel';
 import type { Resource } from '@/types';
 
-export type WorkspaceInspectorTab = 'details' | 'relations' | 'sources' | 'outputs';
+export type WorkspaceInspectorTab = 'details' | 'resource' | 'sources' | 'outputs';
 
 interface WorkspaceInspectorProps {
   resource: Resource;
@@ -91,15 +91,17 @@ export default function WorkspaceInspector({
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="shrink-0 border-b p-2">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className={['pdf', 'notebook'].includes(resource.type) ? 'grid w-full grid-cols-4' : 'grid w-full grid-cols-3'}>
             <TabsTrigger value="details" aria-label={t('workspace.details', 'Detalles')}>
               <HugeiconsIcon icon={File02Icon} />
               <span className="hidden sm:inline">{t('workspace.details', 'Detalles')}</span>
             </TabsTrigger>
-            <TabsTrigger value="relations" aria-label={t('workspace.side_panel_tab_relations')}>
+            {['pdf', 'notebook'].includes(resource.type) && (
+            <TabsTrigger value="resource" aria-label={t(resource.type === 'pdf' ? 'workspace.side_panel_tab_pdf' : 'workspace.side_panel_tab_workspace')}>
               <HugeiconsIcon icon={Link02Icon} />
-              <span className="hidden sm:inline">{t('workspace.side_panel_tab_relations')}</span>
+              <span className="hidden sm:inline">{t(resource.type === 'pdf' ? 'workspace.side_panel_tab_pdf' : 'workspace.side_panel_tab_workspace')}</span>
             </TabsTrigger>
+            )}
             <TabsTrigger value="sources" aria-label={t('workspace.sources')}>
               <HugeiconsIcon icon={FolderTreeIcon} />
               <span className="hidden sm:inline">{t('workspace.sources')}</span>
@@ -114,7 +116,7 @@ export default function WorkspaceInspector({
         <TabsContent value="details" className="min-h-0 flex-1 overflow-hidden">
           <ResourceDetails resource={resource} onEditMetadata={onEditMetadata} />
         </TabsContent>
-        <TabsContent value="relations" className="min-h-0 flex-1 overflow-hidden">
+        <TabsContent value="resource" className="min-h-0 flex-1 overflow-hidden">
           <SidePanel resourceId={resource.id} resource={resource} isOpen onClose={onClose} embedded />
         </TabsContent>
         <TabsContent value="sources" className="min-h-0 flex-1 overflow-hidden">

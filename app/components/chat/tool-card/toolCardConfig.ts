@@ -94,7 +94,6 @@ export const TOOL_ICONS: Record<string, IconSvgElement> = {
   image_thumbnail: Layers01Icon,
   generate_mindmap: HierarchySquare01Icon,
   generate_quiz: GraduationCapIcon,
-  generate_knowledge_graph: HierarchySquare01Icon,
   calendar_list_events: Calendar03Icon,
   calendar_list: Calendar03Icon,
   calendar_get_upcoming: Calendar03Icon,

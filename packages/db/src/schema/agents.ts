@@ -143,22 +143,3 @@ export const domeProviderSessions = sqliteTable('dome_provider_sessions', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
-
-export const graphNodes = sqliteTable('graph_nodes', {
-  id: text('id').primaryKey(),
-  resourceId: text('resource_id').notNull(),
-  label: text('label'),
-  metadataJson: text('metadata_json'),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-export const graphEdges = sqliteTable('graph_edges', {
-  id: text('id').primaryKey(),
-  sourceNodeId: text('source_node_id').notNull(),
-  targetNodeId: text('target_node_id').notNull(),
-  relationType: text('relation_type').notNull(),
-  weight: integer('weight'),
-  metadataJson: text('metadata_json'),
-  createdAt: integer('created_at').notNull(),
-});

@@ -155,15 +155,6 @@
     "task2": "Grava o áudio",
     "task3": "Guarda o que importa"
   },
-  "graph": {
-    "title": "Explora as ligações",
-    "step1": "Adiciona primeiro fontes à biblioteca.",
-    "step2": "Abre um nó para explorar os recursos relacionados.",
-    "step3": "Segue as ligações para voltar à fonte de uma ideia.",
-    "task1": "Constrói a biblioteca",
-    "task2": "Explora uma ligação",
-    "task3": "Volta à fonte"
-  },
   "settings": {
     "title": "Adapta o Dome a ti",
     "step1": "Gere aqui a tua conta e os teus acessos.",

@@ -56,7 +56,7 @@ beforeEach(() => {
   fileStorage = loadModule('../storage/file-storage.cjs', { electron: { app: { getPath: () => tmp } } });
   handlers = new Map(); broadcasts = []; extractedPaths = []; thumbnailPaths = [];
   loadModule('../ipc/data/resources.cjs', {
-    '../../storage/semantic-index-scheduler.cjs': { init() {}, shouldIndex: () => false },
+    '../../storage/text-index-scheduler.cjs': { init() {}, shouldIndex: () => false },
     '../../ai/auto-metadata.cjs': { scheduleCloudAutoMetadata() {} },
     '../../workers/document-extract-service.cjs': { extractInWorker: async () => { throw new Error('worker unavailable'); } },
   }).register({
@@ -107,7 +107,7 @@ describe('vault document lifecycle', () => {
     db.prepare('UPDATE resources SET title=? WHERE id=?').run('Renamed', resource.id);
     const indexed = [];
     loadModule('../ipc/data/notes.cjs', {
-      '../../storage/semantic-index-scheduler.cjs': { init() {}, scheduleSemanticReindex: (id) => indexed.push(id) },
+      '../../storage/text-index-scheduler.cjs': { init() {}, scheduleTextIndex: (id) => indexed.push(id) },
     }).register({
       ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, database, fileStorage,
       windowManager: { isAuthorized: () => true, broadcast: (...args) => broadcasts.push(args) },
@@ -118,7 +118,7 @@ describe('vault document lifecycle', () => {
     assert.equal(broadcasts.at(-1)[1].updates.content, 'Latest body');
     const updated = queries.getResourceById.get(resource.id);
     assert.equal(updated.vault_path, 'Renamed.md');
-    assert.match(fs.readFileSync(resourcePath(updated), 'utf8'), /title: "Renamed"/);
+    assert.match(fs.readFileSync(resourcePath(updated), 'utf8'), /^title: "?Renamed"?$/m);
     assert.equal(fs.existsSync(resourcePath(resource)), false, 'the old path is removed');
   });
 

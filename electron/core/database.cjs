@@ -5,9 +5,9 @@
  * Note: Electron runs on Node.js, not Bun, so we use better-sqlite3 instead of bun:sqlite
  */
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
 const { createSettingsRepo, createTagsRepo } = require('./db/drizzle-repos.cjs');
@@ -204,7 +204,7 @@ function populateFTSTables(db) {
       console.log('[DB] Populating resources_fts with existing data...');
       db.exec(`
         INSERT INTO resources_fts(resource_id, title, content)
-        SELECT id, title, COALESCE(content, '') FROM resources
+        SELECT id, title, COALESCE(NULLIF(content_text, ''), content, '') FROM resources
       `);
       console.log(`[DB] Populated resources_fts with ${resourcesCount.count} records`);
     }
@@ -430,7 +430,7 @@ function repairFTSTables() {
       db.exec(`
         CREATE TRIGGER resources_ai AFTER INSERT ON resources BEGIN
           INSERT INTO resources_fts(resource_id, title, content)
-          VALUES (new.id, new.title, COALESCE(new.content, ''));
+          VALUES (new.id, new.title, COALESCE(NULLIF(new.content_text, ''), new.content, ''));
         END
       `);
       
@@ -444,14 +444,14 @@ function repairFTSTables() {
         CREATE TRIGGER resources_au AFTER UPDATE ON resources BEGIN
           DELETE FROM resources_fts WHERE resource_id = old.id;
           INSERT INTO resources_fts(resource_id, title, content)
-          VALUES (new.id, new.title, COALESCE(new.content, ''));
+          VALUES (new.id, new.title, COALESCE(NULLIF(new.content_text, ''), new.content, ''));
         END
       `);
       
       // Repopulate from existing resources
       db.exec(`
         INSERT INTO resources_fts(resource_id, title, content)
-        SELECT id, title, COALESCE(content, '') FROM resources
+        SELECT id, title, COALESCE(NULLIF(content_text, ''), content, '') FROM resources
       `);
       
       console.log('[DB] resources_fts table repaired');

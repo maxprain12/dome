@@ -31,10 +31,6 @@
       "description": "Choose how Many organizes knowledge and when it updates it.",
       "start": "Review the sources and update policy first."
     },
-    "indexing": {
-      "description": "Prepare your documents so they can be found by meaning.",
-      "start": "Set up a model in AI → Document search, then check the index status."
-    },
     "cloud": {
       "description": "Connect Google Drive to access your files from Dome.",
       "start": "Add a Google account. This is separate from syncing Dome between devices."

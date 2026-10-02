@@ -4,11 +4,10 @@
  * Handles communication with Ollama API for embeddings and text generation
  */
 
-const http = require('http');
-const https = require('https');
+const http = require('node:http');
+const https = require('node:https');
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
-const DEFAULT_EMBEDDING_MODEL = 'mxbai-embed-large';
 const DEFAULT_MODEL = 'llama3.2';
 
 /**
@@ -91,37 +90,6 @@ async function checkAvailability(baseUrl = DEFAULT_BASE_URL, apiKey = '') {
  */
 // Most embedding models (e.g. mxbai-embed-large: 512 tokens) have limited context.
 // ~4 chars per token → 512 * 4 = 2048. Use 2000 to stay safe.
-const EMBEDDING_MAX_CHARS = 2000;
-
-async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
-  try {
-    if (!text || text.trim().length === 0) {
-      throw new Error('Text cannot be empty');
-    }
-
-    const truncated = text.length > EMBEDDING_MAX_CHARS
-      ? text.substring(0, EMBEDDING_MAX_CHARS) + '...'
-      : text;
-
-    const response = await makeRequest(`${baseUrl}/api/embeddings`, {
-      method: 'POST',
-      apiKey,
-      body: {
-        model,
-        prompt: truncated
-      }
-    });
-
-    if (response.embedding && Array.isArray(response.embedding)) {
-      return response.embedding;
-    }
-
-    throw new Error('Invalid response from Ollama API');
-  } catch (error) {
-    console.error('[OllamaService] Error generating embedding:', error);
-    throw error;
-  }
-}
 
 /**
  * Generate summary using Ollama
@@ -457,12 +425,10 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
 
 module.exports = {
   checkAvailability,
-  generateEmbedding,
   generateSummary,
   chat,
   chatStream,
   listModels,
   DEFAULT_BASE_URL,
-  DEFAULT_EMBEDDING_MODEL,
   DEFAULT_MODEL
 };

@@ -3,7 +3,6 @@ import {
   Clock01Icon,
   PencilEdit02Icon,
   HistoryIcon,
-  Link02Icon,
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -17,8 +16,6 @@ const EMPTY_TAGS: TagRowItem[] = [];
 interface NoteMetaBarProps {
   wordCount: number;
   editedRelative?: string | null;
-  backlinksCount?: number;
-  aiReadyHint?: boolean;
   tags?: TagRowItem[];
   onRequestAddTag?: () => void;
 }
@@ -26,8 +23,6 @@ interface NoteMetaBarProps {
 export default function NoteMetaBar({
   wordCount,
   editedRelative,
-  backlinksCount = 0,
-  aiReadyHint = false,
   tags = EMPTY_TAGS,
   onRequestAddTag,
 }: NoteMetaBarProps) {
@@ -72,22 +67,13 @@ export default function NoteMetaBar({
 
         <span style={{ flex: 1 }} />
 
-        <span className="note-meta-chip ai-chip note-meta-ai-muted" title={t('notes.meta_ai_ready_help')}>
+        <span className="note-meta-chip ai-chip note-meta-ai-muted">
           <span className="note-meta-dot-small" aria-hidden />
-          {aiReadyHint ? t('notes.meta_ai_ready') : t('notes.meta_ai_workspace')}
+          {t('notes.meta_ai_workspace')}
         </span>
       </div>
 
-      {backlinksCount > 0 ? (
-        <div className="note-doc-meta note-doc-meta--secondary">
-          <span className="note-meta-chip backlinks-chip">
-            <HugeiconsIcon icon={Link02Icon} size={11} strokeWidth={2} />
-            {backlinksCount === 1
-              ? t('notes.backlinks_one', { count: backlinksCount })
-              : t('notes.backlinks_other', { count: backlinksCount })}
-          </span>
-        </div>
-      ) : null}
+
     </div>
   );
 }

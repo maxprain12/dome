@@ -10,7 +10,6 @@ const SECRET_KEYS = new Set([
   'ai_api_key',
   'openai_api_key',
   'ollama_api_key',
-  'embeddings_api_key',
   'transcription_openai_api_key',
   'transcription_groq_api_key',
   'copilot_github_token',

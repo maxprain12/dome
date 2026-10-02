@@ -1,9 +1,9 @@
 /**
  * AI Client - Unified AI interface for Dome
- * 
- * Provides a unified interface for chat, streaming, embeddings, and tools
+ *
+ * Provides a unified interface for chat, streaming and tools
  * across multiple providers (OpenAI, Anthropic, Google, Ollama, Synthetic, etc.)
- * 
+ *
  * Migrated and enhanced from clawdbot's AI system.
  */
 
@@ -31,11 +31,9 @@ export interface AIConfig {
   provider: AIProvider;
   apiKey?: string;
   model?: string;
-  embeddingModel?: string;
   baseURL?: string;
   ollamaBaseURL?: string;
   ollamaModel?: string;
-  ollamaEmbeddingModel?: string;
   ollamaApiKey?: string;
 }
 
@@ -94,7 +92,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       : { data: null };
     const legacyApiKeyResult = apiKeyResult.data ? { data: null } : await db.getSetting('ai_api_key');
     const modelResult = await db.getSetting('ai_model');
-    const embeddingModelResult = await db.getSetting('ai_embedding_model');
     const baseURLResult = activeProvider
       ? await db.getSetting(`ai_base_url_${activeProvider}`)
       : { data: null };
@@ -102,7 +99,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
     const ollamaBaseURLResult = await db.getSetting('ollama_base_url');
     const ollamaModelResult = await db.getSetting('ollama_model');
     const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
-    const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
 
     if (!providerResult.data) return null;
 
@@ -110,7 +106,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       provider: providerResult.data as AIProvider,
       apiKey: apiKeyResult.data || legacyApiKeyResult.data || undefined,
       model: modelResult.data || undefined,
-      embeddingModel: embeddingModelResult.data || undefined,
       baseURL: pickProviderBaseUrl(
         String(providerResult.data),
         baseURLResult.data,
@@ -119,7 +114,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       ollamaBaseURL: ollamaBaseURLResult.data || undefined,
       ollamaModel: ollamaModelResult.data || undefined,
       ollamaApiKey: ollamaApiKeyResult.data || undefined,
-      ollamaEmbeddingModel: ollamaEmbeddingModelResult.data || undefined,
     };
   } catch (error) {
     console.error('Error getting AI config:', error);
@@ -142,9 +136,6 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
   if (config.model) {
     await db.setSetting('ai_model', config.model);
   }
-  if (config.embeddingModel) {
-    await db.setSetting('ai_embedding_model', config.embeddingModel);
-  }
   if (config.baseURL) {
     await db.setSetting(`ai_base_url_${config.provider}`, config.baseURL);
     await db.setSetting('ai_base_url', config.baseURL);
@@ -154,9 +145,6 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
   }
   if (config.ollamaModel) {
     await db.setSetting('ollama_model', config.ollamaModel);
-  }
-  if (config.ollamaEmbeddingModel) {
-    await db.setSetting('ollama_embedding_model', config.ollamaEmbeddingModel);
   }
 
   console.info('AI config saved');
@@ -1474,8 +1462,8 @@ export function chunkText(text: string, maxChunkSize: number = 512): string[] {
 // Re-exports for convenience
 // =============================================================================
 
-export { 
-  createToolRegistry, 
+export {
+  createToolRegistry,
   createDefaultTools,
   createAllMartinTools,
   createResourceOnlyTools,
@@ -1487,7 +1475,6 @@ export {
   createResourceSearchTool,
   createResourceGetTool,
   createResourceListTool,
-  createResourceSemanticSearchTool,
   createProjectListTool,
   createProjectGetTool,
   createInteractionListTool,

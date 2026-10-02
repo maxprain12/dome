@@ -99,7 +99,7 @@ async function enrichImportedFile(id, absPath, type, mime, deps) {
     if (text) {
       db.prepare('UPDATE resources SET content = ?, content_text = ? WHERE id = ?').run(text, text, id);
     }
-    try { deps.semanticIndexScheduler.scheduleSemanticReindex?.(id); } catch { /* */ }
+    try { deps.textIndexScheduler.scheduleTextIndex?.(id); } catch { /* */ }
   } catch (err) {
     console.warn('[VaultWatcher] enrich failed:', err.message);
   }
@@ -107,7 +107,7 @@ async function enrichImportedFile(id, absPath, type, mime, deps) {
 
 /** Import an unknown external `.md` as a new note. */
 function importExternalNote(raw, ctx, deps) {
-  const { database, semanticIndexScheduler, windowManager } = deps;
+  const { database, textIndexScheduler, windowManager } = deps;
   const db = database.getDB();
   const segments = ctx.relPath.split('/').filter(Boolean);
   if (segments.length === 0) return;
@@ -126,7 +126,7 @@ function importExternalNote(raw, ctx, deps) {
   db.prepare(
     'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
   ).run(noteId, ctx.projectId, 'note', title, vaultStore.stripFrontmatter(raw), folderId, ctx.relPath, text, hash, pluginMetadata ? JSON.stringify(pluginMetadata) : null, now, now);
-  try { semanticIndexScheduler.scheduleSemanticReindex?.(noteId); } catch { /* */ }
+  try { textIndexScheduler.scheduleTextIndex?.(noteId); } catch { /* */ }
   windowManager.broadcast('resource:created', {
     id: noteId, type: 'note', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
   });
@@ -208,7 +208,7 @@ function importExternalNotebook(raw, ctx, deps) {
 
 /** Import an unknown external Dome artifact HTML as a persisted artifact resource. */
 function importExternalArtifact(raw, ctx, deps) {
-  const { database, semanticIndexScheduler, windowManager } = deps;
+  const { database, textIndexScheduler, windowManager } = deps;
   const parsed = vaultStore.parseArtifactHtmlDocument(raw);
   if (!parsed) return;
 
@@ -262,7 +262,7 @@ function importExternalArtifact(raw, ctx, deps) {
     now,
   );
 
-  try { semanticIndexScheduler.scheduleSemanticReindex?.(resourceId); } catch { /* */ }
+  try { textIndexScheduler.scheduleTextIndex?.(resourceId); } catch { /* */ }
   windowManager.broadcast('resource:created', {
     id: resourceId,
     type: 'artifact',
@@ -275,7 +275,7 @@ function importExternalArtifact(raw, ctx, deps) {
 }
 
 function reconcileExternalArtifactEdit(row, raw, ctx, hash, deps) {
-  const { database, semanticIndexScheduler, windowManager } = deps;
+  const { database, textIndexScheduler, windowManager } = deps;
   const parsed = vaultStore.parseArtifactHtmlDocument(raw);
   if (!parsed) return false;
 
@@ -298,7 +298,7 @@ function reconcileExternalArtifactEdit(row, raw, ctx, hash, deps) {
   db.prepare(
     'UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?',
   ).run(ctx.relPath, vaultStore.markdownToPlainText(parsed.html), hash, now, row.id);
-  try { semanticIndexScheduler.scheduleSemanticReindex?.(row.id); } catch { /* */ }
+  try { textIndexScheduler.scheduleTextIndex?.(row.id); } catch { /* */ }
   try {
     const updated = queries.getArtifactByResourceId.get(row.id);
     const resource = queries.getResourceById.get(row.id);
@@ -314,7 +314,7 @@ function reconcileExternalArtifactEdit(row, raw, ctx, hash, deps) {
 function handleChange(absPath, deps) {
   if (/\.dome([/\\]|$)/.test(absPath)) return;
 
-  const { database, semanticIndexScheduler, windowManager } = deps;
+  const { database, textIndexScheduler, windowManager } = deps;
   const ext = path.extname(absPath).toLowerCase();
   const isMd = ext === '.md';
   const isHtml = ext === '.html';
@@ -342,7 +342,7 @@ function handleChange(absPath, deps) {
 
   const now = Date.now();
   if (!applyResourceUpdate(row, absPath, buf, ext, isMd, isArtifactHtml, rawText, ctx, hash, deps, now)) return;
-  try { semanticIndexScheduler.scheduleSemanticReindex?.(row.id); } catch { /* */ }
+  try { textIndexScheduler.scheduleTextIndex?.(row.id); } catch { /* */ }
   try { windowManager.broadcast('resource:updated', { id: row.id, updates: { updated_at: now }, fromVault: true }); } catch { /* */ }
   console.log('[VaultWatcher] external edit reconciled:', ctx.relPath);
 }

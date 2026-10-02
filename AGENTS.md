@@ -2,7 +2,7 @@
 
 Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 
-**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-011); `pnpm run lint` surfaces renderer rules in the IDE. Guardrails UI: [docs/guardrails/README.md](docs/guardrails/README.md).
+**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-009 y P-011); `pnpm run lint` surfaces renderer rules in the IDE. Guardrails UI: [docs/guardrails/README.md](docs/guardrails/README.md).
 
 ---
 
@@ -15,7 +15,6 @@ Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 - **Styling**: Tailwind + CSS variables + shadcn/ui (Base UI) — never hardcoded hex in inline styles. Setup: [.claude/sops/shadcn-ui.md](.claude/sops/shadcn-ui.md)
 - **i18n**: `packages/i18n/locales/{en,es,fr,pt}/` (react-i18next; `app/lib/i18n.ts` only bootstraps)
 - **Tabs**: `useTabStore` — not extra Electron windows
-- **Embeddings** (main only): `electron/services/embeddings.service.cjs` — LangChain (OpenAI / Google / Ollama); settings `embeddings_*`
 
 Full rules: [docs/principles.md](docs/principles.md) · Architecture: [docs/architecture/README.md](docs/architecture/README.md) · New IPC: [.claude/sops/new-ipc-channel.md](.claude/sops/new-ipc-channel.md) · Sonar patterns (P-011): [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md)
 
@@ -43,7 +42,7 @@ git checkout -b feat/<short-description>
 
 ### Step 2 — Implement
 
-Obey P-001…P-011. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<group>/<domain>.cjs` (subfolders: core, data, ai, agents, media, learn, sync, integrations) → register in `electron/ipc/index.cjs` with the subfolder path → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
+Obey P-001…P-009 y P-011. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<group>/<domain>.cjs` (subfolders: core, data, ai, agents, media, learn, sync, integrations) → register in `electron/ipc/index.cjs` with the subfolder path → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
 
 ### Step 3 — Validate locally
 

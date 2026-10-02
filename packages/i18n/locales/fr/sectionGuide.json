@@ -155,15 +155,6 @@
     "task2": "Enregistrez votre audio",
     "task3": "Gardez l’essentiel"
   },
-  "graph": {
-    "title": "Explorez les liens",
-    "step1": "Ajoutez d’abord des sources à votre bibliothèque.",
-    "step2": "Ouvrez un nœud pour explorer les ressources associées.",
-    "step3": "Suivez les liens pour retrouver la source d’une idée.",
-    "task1": "Construisez votre bibliothèque",
-    "task2": "Explorez un lien",
-    "task3": "Revenez à la source"
-  },
   "settings": {
     "title": "Adaptez Dome à vos besoins",
     "step1": "Gérez ici votre compte et vos accès.",

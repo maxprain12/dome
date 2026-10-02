@@ -58,7 +58,6 @@ interface AIConfig {
   provider: AIProvider;
   apiKey?: string;
   model?: string;
-  embeddingModel?: string;
   baseURL?: string;
   ollamaBaseURL?: string;
   ollamaModel?: string;
@@ -210,7 +209,7 @@ sequenceDiagram
 
 ### Cloud AI in main process
 
-- Chat and stream for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer. Semantic **embeddings** for search use LangChain providers configured in Settings → AI → Embeddings (`electron/services/embeddings.service.cjs`, `embeddings:*`, `db:semantic:*`).
+- Chat and stream for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer. Resource search uses SQLite FTS5 over extracted text.
 - API keys are read from SQLite in main; Anthropic uses direct API key, same as OpenAI and Google.
 - **Handlers**: `ai:chat`, `ai:stream` (and LangGraph) in `electron/ipc/ai.cjs`; implementation in `electron/ai-cloud-service.cjs`.
 
@@ -254,7 +253,7 @@ Settings → AI → Tools tab (`AIWebSearchTab.tsx`). Keys: `web_search_provider
 
 ### Config
 
-- `getAIConfig()`: reads provider, apiKey, model, embeddingModel, baseURL, ollama* from `db.getSetting` (keys like `ai_provider`, `ai_api_key`, `ai_model`, ...).
+- `getAIConfig()`: reads provider, apiKey, model, baseURL, ollama* from `db.getSetting` (keys like `ai_provider`, `ai_api_key`, `ai_model`, ...).
 - `saveAIConfig(config)`: writes same keys via `db.setSetting`.
 
 ### Chat (non-streaming)
@@ -271,7 +270,7 @@ Settings → AI → Tools tab (`AIWebSearchTab.tsx`). Keys: `web_search_provider
 
 ### Semantic index (search)
 
-- Chunk embeddings and hybrid search are handled by the main-process semantic index (configurable provider), not by `ai:cloud` chat endpoints. See [indexing.md](./indexing.md).
+- Text extraction and OCR populate the SQLite FTS5 search cache. See [indexing.md](./indexing.md).
 
 ### UI (MartinFloatingButton)
 

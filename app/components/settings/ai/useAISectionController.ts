@@ -23,7 +23,7 @@ import {
   type TestResult,
 } from './aiSectionHelpers';
 
-export type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools' | 'context';
+export type AISettingsTab = 'chat' | 'transcription' | 'tools' | 'context';
 
 export function useAISectionController() {
   const { t } = useTranslation();

@@ -1,7 +1,7 @@
 import { createResearchTools } from './research-tools';
 /**
  * AI Tools Index
- * 
+ *
  * Re-exports all tool-related modules.
  */
 
@@ -127,7 +127,6 @@ export {
   createResourceSearchTool,
   createResourceGetTool,
   createResourceListTool,
-  createResourceSemanticSearchTool,
   createPdfRenderPageTool,
   createResourceTools,
 } from './resources';
@@ -186,10 +185,6 @@ export {
   createDeepResearchTools,
 } from './deep-research';
 
-// Tools - Graph
-export {
-  createGraphTools,
-} from './graph-tools';
 
 // Tools - Notebook
 export {
@@ -222,24 +217,7 @@ export {
   createDocxTools,
 } from './docx-tools';
 
-// Tools - Memory
-export {
-  createMemorySearchTool,
-  createMemoryGetTool,
-  createMemorySearchStub,
-  createMemoryGetStub,
-  createMemoryTools,
-  createMemorySearchWithIPC,
-  createMemoryGetWithIPC,
-  createRememberFactTool,
-} from './memory';
-
-export type {
-  MemorySearchConfig,
-  MemorySearchResult,
-  MemoryGetConfig,
-  MemoryDocument,
-} from './memory';
+export { createRememberFactTool, createMemoryTools } from './memory';
 
 // Tools - PPT
 export {
@@ -360,7 +338,6 @@ import { createContextTools } from './context';
 import { createStudioTools } from './studio-outputs';
 import { createAudioOverviewTools } from './audio-overview';
 import { createDeepResearchTools } from './deep-research';
-import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
 import { createDocxTools } from './docx-tools';
@@ -456,7 +433,6 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   tools.push(...createDeepResearchTools());
 
   // Graph tools (knowledge graph, related resources, links)
-  tools.push(...createGraphTools());
 
   // Notebook tools (read/modify notebook cells)
   tools.push(...createNotebookTools());
@@ -593,7 +569,6 @@ export function createManyToolsForContext(
   tools.push(...createStudioTools());
   tools.push(...createAudioOverviewTools());
   tools.push(...createDeepResearchTools());
-  tools.push(...createGraphTools());
 
   // Entity creation tools (agents, workflows, automations): useful when user asks to create
   tools.push(...createEntityTools());

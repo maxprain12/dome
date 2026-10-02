@@ -211,7 +211,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
   });
 
   /**
-   * Process URL resource completely (scrape + screenshot + chunked indexing for semantic search)
+   * Process URL resource completely (scrape + screenshot + text extraction for FTS)
    */
   ipcMain.handle('web:process', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {

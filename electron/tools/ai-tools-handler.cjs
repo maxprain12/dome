@@ -3,7 +3,7 @@
  * 
  * Provides functions to execute AI tools that require access to:
  * - SQLite database (resources, projects, interactions)
- * - Vector database (LanceDB for semantic search)
+ * - SQLite full-text resource search
  * - File storage
  * 
  * These functions are called via IPC from the renderer process
@@ -26,10 +26,8 @@ const excelToolsHandler = require('./excel-tools-handler.cjs');
 const docxToolsHandler = require('./docx-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('../calendar/calendar-service.cjs');
-const semanticIndexScheduler = require('../storage/semantic-index-scheduler.cjs');
-const lancedbSemantic = require('../services/lancedb-semantic.cjs');
+const textIndexScheduler = require('../storage/text-index-scheduler.cjs');
 const path = require('node:path');
-const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
 const { normalizeArtifactState, normalizeArtifactHtml } = require('../artifacts/artifact-html-normalize.cjs');
@@ -87,167 +85,16 @@ function getActiveProjectId() {
  * @returns {Promise<Object>}
  */
 async function resourceSearch(query, options = {}) {
-  // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
   try {
-    const db = database.getDB();
-    const limit = Math.min(options.limit || 10, 50); // Cap at 50
-
-    // Sanitize FTS5 special chars: " ' * ( ) - : . { } [ ] ^ ~ and reserved words
-    const safeQuery = String(query || '')
-      .replace(/["'*():.{}[\]^~-]/g, ' ')
-      .replace(/\b(AND|OR|NOT)\b/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!safeQuery) {
-      traceLog('resourceSearch', { query, options }, { success: true, results: [] });
-      return { success: true, results: [] };
-    }
-
-    // Build FTS query with prefix matching (only for words with 2+ chars to avoid wildcard issues)
-    const words = safeQuery.split(/\s+/).filter((w) => w.length >= 2);
-    if (words.length === 0) {
-      traceLog('resourceSearch', { query, options }, { success: true, results: [] });
-      return { success: true, results: [] };
-    }
-    const ftsQuery = words.map((word) => `${word}*`).join(' ');
-    const lanceQuery = words.join(' ');
-
-    const queries = database.getQueries();
-    let lexHits = [];
-    try {
-      lexHits = await lancedbSemantic.searchLexResources(lanceQuery, limit, {
-        project_id: options.project_id,
-        type: options.type,
-      });
-    } catch (le) {
-      console.warn('[AI Tools] resourceSearch Lance FTS:', le?.message || le);
-    }
-
-    /** @type {any[]} */
-    let results = [];
-    if (lexHits.length) {
-      for (const h of lexHits) {
-        const r = queries.getResourceById.get(h.id);
-        if (!r) continue;
-        if (options.project_id && r.project_id !== options.project_id) continue;
-        if (options.type && r.type !== options.type) continue;
-        results.push({
-          id: r.id,
-          title: r.title,
-          type: r.type,
-          content: r.content,
-          project_id: r.project_id,
-          created_at: r.created_at,
-          updated_at: r.updated_at,
-          thumbnail_data: r.thumbnail_data,
-          metadata: r.metadata,
-          snippet: h.snippet || (r.content ? String(r.content).substring(0, 200) + '...' : ''),
-        });
-      }
-    } else {
-      let stmtResults;
-      if (options.project_id && options.type) {
-        const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.project_id = ?
-          AND r.type = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.project_id, options.type, limit);
-      } else if (options.project_id) {
-        const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.project_id = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.project_id, limit);
-      } else if (options.type) {
-        const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.type = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.type, limit);
-      } else {
-        const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, limit);
-      }
-      results = stmtResults;
-    }
-
-    // Parse metadata and limit content length for AI consumption
-    const processedResults = results.map(r => ({
-      id: r.id,
-      title: r.title,
-      type: r.type,
-      project_id: r.project_id,
-      snippet: r.snippet || (r.content ? r.content.substring(0, 200) + '...' : ''),
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-      metadata: r.metadata ? JSON.parse(r.metadata) : null,
-    }));
-
-    const out = { success: true, query: query, count: processedResults.length, results: processedResults };
-    traceLog('resourceSearch', { query, options }, out);
-    return out;
+    const results = require('../search/resource-search.cjs').searchResources(database.getDB(), query, {
+      projectId: options.project_id || getActiveProjectId(), type: options.type, limit: options.limit || 10,
+    }).map((resource) => ({ id: resource.id, title: resource.title, type: resource.type,
+      project_id: resource.project_id, snippet: resource.snippet,
+      created_at: resource.created_at, updated_at: resource.updated_at }));
+    return { success: true, query, count: results.length, results };
   } catch (error) {
-    traceLog('resourceSearch', { query, options }, null, error);
-    console.error('[AI Tools] resourceSearch error:', error);
-
-    // Try to repair FTS if corrupted
-    if (error.code === 'SQLITE_CORRUPT' || error.code === 'SQLITE_CORRUPT_VTAB') {
-      database.handleCorruptionError(error);
-    }
-
-    // Fallback: try semantic search on FTS5 syntax errors
-    const isFtsError = error?.code === 'SQLITE_ERROR' && /fts5/i.test(String(error?.message || ''));
-    if (isFtsError && typeof resourceSemanticSearch === 'function') {
-      try {
-        const semResult = await resourceSemanticSearch(query, {
-          project_id: options.project_id,
-          limit: options.limit || 10,
-        });
-        if (semResult.success && semResult.results?.length > 0) {
-          return { ...semResult, fallback: 'semantic' };
-        }
-      } catch (_) {
-        /* ignore fallback errors */
-      }
-    }
-
-    return {
-      success: false,
-      error: 'No se pudo completar la búsqueda. Prueba con otros términos.',
-      results: [],
-    };
+    if (error.code === 'SQLITE_CORRUPT' || error.code === 'SQLITE_CORRUPT_VTAB') database.handleCorruptionError(error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -425,65 +272,6 @@ async function resourceGet(resourceId, options = {}) {
       success: false,
       error: error.message,
     };
-  }
-}
-
-/**
- * Get full text of a semantic chunk by chunk_id (format: `resourceId#chunk_index` from resource_semantic_search).
- * @param {string} resourceId - Resource ID
- * @param {string} chunkId - Chunk id e.g. "uuid#3"
- * @returns {Promise<Object>}
- */
-async function resourceGetSection(resourceId, chunkId) {
-  try {
-    if (!resourceId || !chunkId) {
-      return { success: false, error: 'resource_id and chunk_id are required' };
-    }
-
-    const q = database.getQueries();
-    const resource = q.getResourceById?.get(resourceId);
-    if (!resource) {
-      return { success: false, error: 'Resource not found' };
-    }
-
-    const rows = q.getChunksBatchByIds.all(JSON.stringify([String(chunkId)]));
-    const row = rows && rows[0];
-    let chunkRow = row;
-    if (!chunkRow || chunkRow.resource_id !== resourceId) {
-      try {
-        const lr = await lancedbSemantic.getChunkById(String(chunkId));
-        if (lr && String(lr.resource_id) === resourceId) {
-          chunkRow = {
-            resource_id: lr.resource_id,
-            chunk_index: lr.chunk_index,
-            page_number:
-              lr.page_number != null && Number(lr.page_number) >= 0 ? Number(lr.page_number) : null,
-            text: lr.text,
-          };
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-    if (!chunkRow || chunkRow.resource_id !== resourceId) {
-      return {
-        success: false,
-        error: 'Chunk not found. Use chunk_id from resource_semantic_search results.',
-      };
-    }
-
-    return {
-      success: true,
-      resource_id: resourceId,
-      title: resource.title,
-      chunk_id: chunkId,
-      chunk_index: chunkRow.chunk_index,
-      page_number: chunkRow.page_number ?? null,
-      text: chunkRow.text || '',
-    };
-  } catch (error) {
-    console.error('[AI Tools] resourceGetSection error:', error);
-    return { success: false, error: error.message };
   }
 }
 
@@ -677,285 +465,6 @@ function buildFolderPath(folderId, folderMap) {
     current = current.folder_id ? folderMap.get(current.folder_id) : null;
   }
   return parts.join('/');
-}
-
-/**
- * Semantic search over Nomic chunk embeddings (`resource_chunks`).
- * @param {string} query - Search query
- * @param {Object} options - Search options
- * @param {string} [options.project_id] - Filter by project
- * @param {number} [options.limit=10] - Max results
- * @returns {Promise<Object>}
- */
-async function resourceSemanticSearch(query, options = {}) {
-  // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
-  try {
-    const limit = Math.min(options.limit || 10, 50);
-    const queries = database.getQueries();
-    semanticIndexScheduler.init(database);
-
-    const hits = await semanticIndexScheduler.getIndexer().searchSemantic(query, { limit: limit * 3 });
-
-    if (!hits || hits.length === 0) {
-      return resourceSearch(query, options);
-    }
-
-    let filtered = hits;
-    if (options.project_id) {
-      const db = database.getDB ? database.getDB() : null;
-      const inProject = new Set(
-        (db
-          ? db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id)
-          : []
-        ).map((r) => r.id),
-      );
-      filtered = hits.filter((h) => inProject.has(h.resource_id));
-    }
-
-    const results = filtered.slice(0, limit).map((h) => {
-      const resource = queries.getResourceById.get(h.resource_id);
-      if (!resource) return null;
-      let metadata = null;
-      try {
-        metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
-      } catch {
-        metadata = null;
-      }
-      const chunkId = `${h.resource_id}#${h.chunk_index}`;
-      return {
-        id: resource.id,
-        title: resource.title,
-        type: resource.type,
-        project_id: resource.project_id,
-        similarity: h.score,
-        snippet: h.snippet || '',
-        chunk_id: chunkId,
-        chunk_index: h.chunk_index,
-        page_number: h.page_number ?? null,
-        char_start: h.char_start,
-        char_end: h.char_end,
-        search_hint: `Para el texto completo del fragmento: resource_get_section("${h.resource_id}", "${chunkId}")`,
-        created_at: resource.created_at,
-        updated_at: resource.updated_at,
-        metadata,
-      };
-    }).filter(Boolean);
-
-    return {
-      success: true,
-      query,
-      method: 'semantic_chunks',
-      count: results.length,
-      results,
-      navigation_note:
-        results.length > 0
-          ? 'Cada resultado incluye chunk_id. Usa resource_get_section(resource_id, chunk_id) para el fragmento completo; pdf_render_page para ver la página como imagen.'
-          : null,
-    };
-  } catch (error) {
-    console.error('[AI Tools] resourceSemanticSearch error:', error);
-    return resourceSearch(query, options);
-  }
-}
-
-/**
- * Hybrid search: RRF over semantic chunks + knowledge graph + FTS (aligned with app hybrid search).
- * @param {string} query
- * @param {Object} options
- * @param {string} [options.project_id]
- * @param {string} [options.type]
- * @param {number} [options.limit]
- * @param {number} [options.semantic_min_score]
- * @param {number} [options.rrf_k]
- * @param {boolean} [options.include_backlinks]
- * @returns {Promise<Object>}
- */
-async function resourceHybridSearch(query, options = {}) {
-  // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
-  try {
-    const limit = Math.min(options.limit || 10, 50);
-    const semanticThreshold = options.semantic_min_score ?? 0.3;
-    const rrfK = options.rrf_k ?? 60;
-    const includeBacklinks = !!options.include_backlinks;
-    const maxCandidates = Math.min(Number(options.candidate_limit) || 40, 80);
-
-    semanticIndexScheduler.init(database);
-    const queries = database.getQueries();
-    const db = database.getDB();
-
-    let inProject = null;
-    if (options.project_id) {
-      try {
-        const { listProjectResourceIdsInWorker } = require('../workers/document-extract-service.cjs');
-        const ids = await listProjectResourceIdsInWorker(options.project_id);
-        inProject = new Set(ids);
-      } catch (workerErr) {
-        console.warn('[AI Tools] hybrid search project filter worker fallback:', workerErr?.message);
-        inProject = new Set(
-          db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id).map((r) => r.id),
-        );
-      }
-    }
-
-    const semanticMeta = new Map();
-
-    let semanticItems = [];
-    try {
-      const hits = await semanticIndexScheduler.getIndexer().searchSemantic(query, { limit: maxCandidates * 2 });
-      let filtered = (hits || []).filter((h) => (h.score ?? 0) >= semanticThreshold);
-      if (inProject) filtered = filtered.filter((h) => inProject.has(h.resource_id));
-      for (const h of filtered.slice(0, maxCandidates)) {
-        const res = queries.getResourceById.get(h.resource_id);
-        if (!res) continue;
-        if (options.type && res.type !== options.type) continue;
-        semanticItems.push({
-          id: h.resource_id,
-          title: res.title || 'Untitled',
-          type: res.type,
-          snippet: h.snippet || '',
-          metadata: { semanticScore: h.score, chunk_index: h.chunk_index, page_number: h.page_number },
-        });
-        const prev = semanticMeta.get(h.resource_id);
-        if (!prev || (h.score ?? 0) > (prev.score ?? 0)) {
-          semanticMeta.set(h.resource_id, h);
-        }
-      }
-    } catch (e) {
-      console.warn('[AI Tools] resourceHybridSearch semantic leg:', e.message);
-    }
-
-    let graphItems = [];
-    try {
-      const pattern = `%${String(query || '').slice(0, 200)}%`;
-      const nodes = queries.searchGraphNodes.all(pattern, pattern) || [];
-      const seenGraphResources = new Set();
-      const addGraphNode = (node) => {
-        let props = node.properties;
-        if (typeof props === 'string') {
-          try {
-            props = JSON.parse(props);
-          } catch {
-            props = {};
-          }
-        }
-        const rid = node.resource_id || (props && props.resource_id);
-        if (!rid) return;
-        const res = queries.getResourceById.get(rid);
-        if (!res) return;
-        if (inProject && !inProject.has(rid)) return;
-        if (options.type && res.type !== options.type) return;
-        if (seenGraphResources.has(rid)) return;
-        seenGraphResources.add(rid);
-        graphItems.push({
-          id: rid,
-          title: node.label || res.title || 'Untitled',
-          type: res.type,
-          metadata: { nodeType: node.type, reason: 'Graph node match' },
-        });
-      };
-      for (const node of nodes) {
-        addGraphNode(node);
-      }
-      if (includeBacklinks && nodes.length > 0) {
-        for (const node of nodes.slice(0, 5)) {
-          const neighbors = queries.getNodeNeighbors.all(node.id, node.id, node.id) || [];
-          for (const neighbor of neighbors) {
-            addGraphNode(neighbor);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[AI Tools] resourceHybridSearch graph leg:', e.message);
-    }
-
-    let ftsItems = [];
-    try {
-      const ftsOut = await resourceSearch(query, { ...options, limit: maxCandidates });
-      if (ftsOut.success && ftsOut.results && ftsOut.results.length) {
-        ftsItems = ftsOut.results.map((r) => ({
-          id: r.id,
-          title: r.title,
-          type: r.type,
-          snippet: r.snippet,
-          metadata: {},
-        }));
-      }
-    } catch (e) {
-      console.warn('[AI Tools] resourceHybridSearch fts leg:', e.message);
-    }
-
-    const merged = rrfMerge(
-      [
-        { tag: 'semantic', items: semanticItems },
-        { tag: 'graph', items: graphItems },
-        { tag: 'fts', items: ftsItems },
-      ],
-      maxCandidates,
-      rrfK,
-    );
-
-    const results = [];
-    for (const m of merged) {
-      const resource = queries.getResourceById.get(m.id);
-      if (!resource) continue;
-      if (options.project_id && resource.project_id !== options.project_id) continue;
-      if (options.type && resource.type !== options.type) continue;
-
-      let metadata = null;
-      try {
-        metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
-      } catch {
-        metadata = null;
-      }
-
-      const hit = semanticMeta.get(resource.id);
-      const chunkId = hit ? `${resource.id}#${hit.chunk_index}` : undefined;
-      const snippetFromFts = ftsItems.find((x) => x.id === resource.id)?.snippet;
-      const rawSnippet = hit?.snippet || snippetFromFts || m.metadata?.snippet || '';
-      const snippet = String(rawSnippet).replace(/<\/?mark>/gi, '');
-
-      results.push({
-        id: resource.id,
-        title: resource.title,
-        type: resource.type,
-        project_id: resource.project_id,
-        hybrid_sources: m.sources,
-        similarity: hit?.score,
-        snippet,
-        chunk_id: chunkId,
-        chunk_index: hit?.chunk_index,
-        page_number: hit?.page_number ?? null,
-        search_hint: hit
-          ? `Para el texto completo del fragmento: resource_get_section("${resource.id}", "${chunkId}")`
-          : null,
-        created_at: resource.created_at,
-        updated_at: resource.updated_at,
-        metadata,
-      });
-
-      if (results.length >= limit) break;
-    }
-
-    const out = {
-      success: true,
-      query,
-      method: 'hybrid_rrf',
-      count: results.length,
-      results,
-      navigation_note:
-        results.length > 0
-          ? 'Resultados fusionados (semántica + grafo + texto). Si chunk_id está presente, usa resource_get_section para el fragmento; pdf_render_page para ver la página.'
-          : null,
-    };
-    traceLog('resourceHybridSearch', { query, options }, out);
-    return out;
-  } catch (error) {
-    traceLog('resourceHybridSearch', { query, options }, null, error);
-    console.error('[AI Tools] resourceHybridSearch error:', error);
-    return resourceSearch(query, options);
-  }
 }
 
 /**
@@ -1310,28 +819,6 @@ function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
   };
 }
 
-function createManualResourceRelation(queries, sourceId, targetId, label = 'source_note') {
-  if (!sourceId || !targetId || sourceId === targetId) return;
-  const now = Date.now();
-  const id = `${sourceId}__${targetId}`;
-  const existing = queries.getSemanticRelationByPair?.get(sourceId, targetId);
-  if (existing) {
-    if (existing.relation_type === 'auto' || existing.relation_type === 'rejected') {
-      database.getDB().prepare(`
-        UPDATE semantic_relations
-        SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
-        WHERE id = ?
-      `).run(now, label, existing.id);
-    }
-    return;
-  }
-  try {
-    queries.insertSemanticRelation?.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
-  } catch (error) {
-    if (!String(error.message || error).includes('UNIQUE')) throw error;
-  }
-}
-
 const DEFAULT_NOTEBOOK_JSON = JSON.stringify({
   nbformat: 4,
   nbformat_minor: 1,
@@ -1450,12 +937,6 @@ async function createExcelResource(data) {
   };
 }
 
-function linkNoteSources(queries, id, links) {
-  for (const targetId of links) {
-    createManualResourceRelation(queries, id, targetId, 'source_note');
-  }
-}
-
 function broadcastResourceCreated(resource) {
   if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
     windowManagerRef.broadcast('resource:created', resource);
@@ -1510,7 +991,6 @@ async function resourceCreate(data) {
     );
 
     if (type === 'note' && normalizedNoteLinks.length > 0) {
-      linkNoteSources(queries, id, normalizedNoteLinks);
     }
 
     const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
@@ -1624,7 +1104,7 @@ async function persistResourceUpdate(existing, resourceId, title, content, metad
   if (existing.type === 'note' && updates.content !== undefined) {
     const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
       { id: resourceId, markdown: noteMarkdownBody ?? '', title, metadata },
-      { database, fileStorage, semanticIndexScheduler },
+      { database, fileStorage, textIndexScheduler },
     );
     if (!writeResult.success) {
       return { success: false, error: writeResult.error || 'Failed to write note markdown' };
@@ -1717,11 +1197,6 @@ async function resourceUpdate(resourceId, updates) {
     );
     if (!persistResult.success) return persistResult;
 
-    if (existing.type === 'note' && normalizedNoteLinks.length > 0) {
-      for (const targetId of normalizedNoteLinks) {
-        createManualResourceRelation(queries, resourceId, targetId, 'source_note');
-      }
-    }
 
     // Keep the vault mirror in sync with agent edits (workspace == filesystem):
     // renames move the file on disk; url/notebook content rewrites the mirror.
@@ -2494,7 +1969,7 @@ async function getDocumentStructure({ resource_id } = {}) {
     if (!raw.trim()) {
       return {
         success: false,
-        error: 'No content yet. Wait for semantic indexing (PDF vision transcript) or open the resource.',
+        error: 'No content yet. Wait for text extraction or OCR or open the resource.',
       };
     }
     const pages = [];
@@ -2517,227 +1992,6 @@ async function getDocumentStructure({ resource_id } = {}) {
     };
   } catch (err) {
     return { success: false, error: err.message };
-  }
-}
-
-// =============================================================================
-// Graph / Resource Linking Tools
-// =============================================================================
-
-/**
- * Insert or update a manual semantic relation between two resources.
- * Promotes a previously 'rejected' or 'auto' row to 'manual', and silently
- * swallows UNIQUE-constraint races when inserting a new row.
- */
-function upsertSemanticRelation(q, db, { id, source_id, target_id, label, now }) {
-  const existing = q.getSemanticRelationByPair?.get(source_id, target_id);
-  if (existing) {
-    if (existing.relation_type === 'rejected') {
-      db.getDB()
-        .prepare(
-          `
-          UPDATE semantic_relations
-          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
-          WHERE id = ?
-        `,
-        )
-        .run(now, label, existing.id);
-    } else if (existing.relation_type === 'auto') {
-      db.getDB()
-        .prepare(
-          `
-          UPDATE semantic_relations
-          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
-          WHERE id = ?
-        `,
-        )
-        .run(now, label, existing.id);
-    }
-  } else {
-    try {
-      q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
-    } catch (e) {
-      if (!e.message?.includes('UNIQUE')) throw e;
-    }
-  }
-}
-
-/**
- * Create a manual semantic relation between two resources (semantic_relations table).
- * @param {Object} params
- * @param {string} params.source_id - ID of the source resource
- * @param {string} params.target_id - ID of the target resource
- * @param {string} [params.relation]   - Optional label stored in semantic_relations.label
- * @param {string} [params.description] - Alias for label
- */
-async function linkResources({ source_id, target_id, relation = 'related', description = '' } = {}) {
-  try {
-    if (!source_id || !target_id) return { success: false, error: 'source_id and target_id are required' };
-    if (source_id === target_id) return { success: false, error: 'Cannot link a resource to itself' };
-
-    const q = database.getQueries();
-    const source = q.getResourceById?.get(source_id);
-    const target = q.getResourceById?.get(target_id);
-    if (!source) return { success: false, error: `Resource ${source_id} not found` };
-    if (!target) return { success: false, error: `Resource ${target_id} not found` };
-
-    const now = Date.now();
-    const label = description || (relation && relation !== 'related' ? relation : null);
-    const id = `${source_id}__${target_id}`;
-    upsertSemanticRelation(q, database, { id, source_id, target_id, label, now });
-
-    const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
-    try {
-      q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
-    } catch { /* non-fatal if graph nodes missing */ }
-
-    return {
-      success: true,
-      source: { id: source_id, title: source.title, type: source.type },
-      target: { id: target_id, title: target.title, type: target.type },
-      relation,
-      message: `"${source.title}" → "${target.title}" (${relation})`,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Get all resources linked to or from a given resource.
- * Combines semantic_relations (non-rejected) and graph_edges.
- * @param {Object} params
- * @param {string} params.resource_id - Resource to query neighbors for
- */
-async function getRelatedResources({ resource_id } = {}) {
-  try {
-    if (!resource_id) return { success: false, error: 'resource_id is required' };
-
-    const q = database.getQueries();
-    const resource = q.getResourceById?.get(resource_id);
-    if (!resource) return { success: false, error: `Resource ${resource_id} not found` };
-
-    const seen = new Set([resource_id]);
-    const related = [];
-
-    const addResource = (rid, relation, direction) => {
-      if (seen.has(rid)) return;
-      seen.add(rid);
-      const r = q.getResourceById?.get(rid);
-      if (r) related.push({ id: r.id, title: r.title, type: r.type, relation, direction });
-    };
-
-    for (const lnk of q.getSemanticOutgoing?.all(resource_id) || []) {
-      const rel = lnk.label || lnk.relation_type || 'related';
-      addResource(lnk.target_id, rel, 'outgoing');
-    }
-    for (const lnk of q.getSemanticIncoming?.all(resource_id) || []) {
-      const rel = lnk.label || lnk.relation_type || 'related';
-      addResource(lnk.source_id, rel, 'incoming');
-    }
-
-    // Also pull graph neighbors
-    try {
-      const nodeId = `node-${resource_id}`;
-      for (const n of q.getNodeNeighbors?.all(nodeId, nodeId, nodeId) || []) {
-        if (n.resource_id) addResource(n.resource_id, n.relation, 'graph');
-      }
-    } catch { /* graph neighbors non-critical */ }
-
-    return {
-      success: true,
-      resource_id,
-      resource_title: resource.title,
-      related_count: related.length,
-      related,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Generate a semantic similarity graph around a resource.
- * Mirrors the renderer `db:semantic:getGraph` implementation so that
- * the agent runtime tool calls from main can produce the same payload.
- * @param {Object} params
- * @param {string} params.focus_resource_id - Center resource
- * @param {number} [params.min_weight=0.35] - Minimum edge similarity (0-1)
- */
-async function generateKnowledgeGraph({ focus_resource_id, min_weight } = {}) {
-  try {
-    if (!focus_resource_id) {
-      return { success: false, error: 'focus_resource_id is required' };
-    }
-    const th = Math.max(0, Math.min(1, Number(min_weight ?? 0.35) || 0.35));
-    const center = focus_resource_id;
-    const db = database.getDB();
-
-    const nodes = db
-      .prepare(
-        `
-        SELECT r.id, r.title AS label, r.type AS resourceType,
-          (SELECT COUNT(*) FROM semantic_relations sr
-           WHERE (sr.source_id = r.id OR sr.target_id = r.id)
-           AND sr.similarity >= @th
-           AND sr.relation_type != 'rejected') AS connectionCount,
-          CASE WHEN r.id = @center THEN 1 ELSE 0 END AS isCurrentNote
-        FROM resources r
-        WHERE r.id IN (
-          SELECT source_id FROM semantic_relations
-          WHERE target_id = @center AND similarity >= @th AND relation_type != 'rejected'
-          UNION
-          SELECT target_id FROM semantic_relations
-          WHERE source_id = @center AND similarity >= @th AND relation_type != 'rejected'
-          UNION SELECT @center
-        )
-      `,
-      )
-      .all({ th, center });
-
-    const edges = db
-      .prepare(
-        `
-        SELECT id,
-               source_id AS source,
-               target_id AS target,
-               similarity,
-               relation_type,
-               label
-        FROM semantic_relations
-        WHERE (source_id = @center OR target_id = @center)
-          AND similarity >= @th
-          AND relation_type != 'rejected'
-        ORDER BY similarity DESC
-        LIMIT 60
-      `,
-      )
-      .all({ center, th });
-
-    return {
-      success: true,
-      status: 'success',
-      graph: {
-        node_count: nodes.length,
-        edge_count: edges.length,
-        focus_node: center,
-        nodes: nodes.map((n) => ({
-          id: n.id,
-          label: n.label || 'Untitled',
-          type: n.resourceType || 'note',
-        })),
-        edges: edges.map((e) => ({
-          source: e.source,
-          target: e.target,
-          relation: e.relation_type,
-          weight: e.similarity,
-          label: e.label,
-        })),
-      },
-    };
-  } catch (error) {
-    console.error('[AI Tools] generateKnowledgeGraph error:', error);
-    return { success: false, error: error.message };
   }
 }
 
@@ -4827,10 +4081,7 @@ module.exports = {
   // Lazy-context wrappers: actual ID lookup happens in tool-dispatcher.cjs
   resourceGetActive: resourceGet,
   resourceGetPinned: resourceGet,
-  resourceGetSection,
   resourceList,
-  resourceSemanticSearch,
-  resourceHybridSearch,
   getDocumentStructure,
   getLibraryOverview,
 
@@ -4907,9 +4158,6 @@ module.exports = {
   rememberFact,
 
   // Graph / linking tools
-  linkResources,
-  getRelatedResources,
-  generateKnowledgeGraph,
 
   // Calendar tools
   calendarListEvents,

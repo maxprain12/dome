@@ -3,7 +3,6 @@ import {
   ChevronRightIcon,
   EyeIcon,
   InformationCircleIcon,
-  Comment01Icon,
   MoreHorizontalIcon,
   PanelRightIcon,
   Share08Icon,
@@ -47,10 +46,6 @@ interface NoteActionBarProps {
   onOpenMetadata: () => void;
   /** enlaces dome://… para pegar/compartir (notas: resource id) */
   domeLinkToCopy?: string | null;
-  /** Abrir panel lateral en pestaña “backlinks”. */
-  onOpenBacklinksPanel?: () => void;
-  sidePanelOpen: boolean;
-  onToggleSidePanel: () => void;
   hideWindowControls?: boolean;
   sourceMode?: boolean;
   sourceLocked?: boolean;
@@ -96,11 +91,6 @@ function sourcesOpenStyle(open: boolean): React.CSSProperties | undefined {
 /** Tooltip/aria label for the sources-panel toggle. */
 function sourcesPanelLabel(open: boolean, t: (key: string) => string): string {
   return open ? t('notes.hide_sources_panel') : t('notes.show_sources_panel');
-}
-
-/** Dropdown label for the side-insights toggle. */
-function insightsPanelLabel(open: boolean, t: (key: string) => string): string {
-  return open ? t('notes.hide_insights_panel') : t('notes.show_insights_panel');
 }
 
 /** Win titleBarOverlay / Linux frameless controls share the same right inset. */
@@ -241,9 +231,6 @@ export default function NoteActionBar({
   canOpenSplit = true,
   onOpenMetadata,
   domeLinkToCopy,
-  onOpenBacklinksPanel,
-  sidePanelOpen,
-  onToggleSidePanel,
   hideWindowControls,
   sourceMode = false,
   sourceLocked = false,
@@ -261,7 +248,6 @@ export default function NoteActionBar({
     needsRightChromeInset(isWin, isLinux),
   );
   const sourcesLabel = sourcesPanelLabel(sourcesOpen, t);
-  const insightsLabel = insightsPanelLabel(sidePanelOpen, t);
   const focused = viewMode === 'focused';
 
   return (
@@ -316,10 +302,6 @@ export default function NoteActionBar({
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" className="min-w-[220px]">
           <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => onOpenBacklinksPanel?.()}>
-            <HugeiconsIcon icon={Comment01Icon} size={14} />
-            {t('notes.toolbar_backlinks')}
-          </DropdownMenuItem>
           <DropdownMenuItem disabled={!domeLinkToCopy} onClick={() => copyDomeShareLink(domeLinkToCopy, t)}>
             <HugeiconsIcon icon={Share08Icon} size={14} />
             {t('notes.share_copy_tooltip')}
@@ -334,7 +316,6 @@ export default function NoteActionBar({
             <HugeiconsIcon icon={InformationCircleIcon} size={14} />
             {t('notes.metadata')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onToggleSidePanel()}>{insightsLabel}</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>

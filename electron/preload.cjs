@@ -131,7 +131,6 @@ const ALLOWED_CHANNELS = {
     'db:resources:moveToProject',
     'db:resources:removeFromFolder',
     'db:resources:searchForMention',
-    'db:resources:getBacklinks',
     // Database - Interactions
     'db:interactions:create',
     'db:interactions:getByResource',
@@ -208,28 +207,8 @@ const ALLOWED_CHANNELS = {
     'kbllm:syncAll',
     'kbllm:getStatus',
     // Database - Semantic relations
-    'db:semantic:getGraph',
-    'db:semantic:confirm',
-    'db:semantic:reject',
-    'db:semantic:delete',
-    'db:semantic:createManual',
-    'db:semantic:indexResource',
-    'db:semantic:reindexAll',
-    'db:semantic:search',
-    'db:semantic:getIndexingStatus',
-    'db:semantic:resourceHasChunks',
-    'embeddings:getStatus',
-    'embeddings:test',
-    'embeddings:listModels',
-    'embeddings:apply',
     'cloud:llm:pdf-region-stream',
     // Database - Knowledge Graph
-    'db:graph:createNode',
-    'db:graph:getNode',
-    'db:graph:getNodesByType',
-    'db:graph:createEdge',
-    'db:graph:getNeighbors',
-    'db:graph:searchNodes',
     // Database - Search
     'db:search:unified',
     'db:search:reindexSources',
@@ -334,7 +313,6 @@ const ALLOWED_CHANNELS = {
     // Ollama
     'ollama:check-availability',
     'ollama:list-models',
-    'ollama:generate-embedding',
     'ollama:generate-summary',
     'ollama:chat',
     // Ollama manager (native integration)
@@ -394,11 +372,8 @@ const ALLOWED_CHANNELS = {
     // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
-    'ai:tools:resourceGetSection',
     'ai:tools:pdfRenderPage',
     'ai:tools:resourceList',
-    'ai:tools:resourceSemanticSearch',
-    'ai:tools:resourceHybridSearch',
     'ai:tools:pdfExtractText',
     'ai:tools:pdfGetMetadata',
     'ai:tools:pdfGetStructure',
@@ -423,8 +398,6 @@ const ALLOWED_CHANNELS = {
     // AI Tools - Document Structure
     'ai:tools:getDocumentStructure',
     // AI Tools - Graph / Linking
-    'ai:tools:linkResources',
-    'ai:tools:getRelatedResources',
     // AI Tools - Calendar
     'ai:tools:calendarListEvents',
     'ai:tools:calendarGetUpcoming',
@@ -508,7 +481,6 @@ const ALLOWED_CHANNELS = {
     'quiz:listRuns',
     'quiz:getRun',
     'studio:cancel',
-    'indexing:full-sync',
     'pdf:render-page',
     // Notebook (Python via IPC)
     'notebook:workspace',
@@ -892,10 +864,8 @@ const ALLOWED_CHANNELS = {
     'dome:runs-changed',
     // Cloud Storage OAuth result
     'cloud:auth-result',
-    'semantic:progress',
     'cloud:llm:stream-chunk',
     'cloud:llm:stream-done',
-    'indexing:full-sync-progress',
     // Tab navigation (deep links → renderer tab store)
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
@@ -1465,8 +1435,6 @@ const electronHandler = {
         ipcRenderer.invoke('db:resources:removeFromFolder', resourceId),
       searchForMention: (query, projectId) =>
         ipcRenderer.invoke('db:resources:searchForMention', query, projectId),
-      getBacklinks: (id) =>
-        ipcRenderer.invoke('db:resources:getBacklinks', id),
     },
 
     // Resource Interactions (notes, annotations, chat)
@@ -1503,27 +1471,6 @@ const electronHandler = {
         ipcRenderer.invoke('db:tags:removeFromResource', resourceId, tagId),
     },
 
-    // Semantic relations (embeddings + graph)
-    semantic: {
-      getGraph: (resourceId, threshold) =>
-        ipcRenderer.invoke('db:semantic:getGraph', resourceId, threshold),
-      confirm: (edgeId) => ipcRenderer.invoke('db:semantic:confirm', edgeId),
-      reject: (edgeId) => ipcRenderer.invoke('db:semantic:reject', edgeId),
-      delete: (edgeId) => ipcRenderer.invoke('db:semantic:delete', edgeId),
-      createManual: (payload) => ipcRenderer.invoke('db:semantic:createManual', payload),
-      indexResource: (resourceId) => ipcRenderer.invoke('db:semantic:indexResource', resourceId),
-      reindexAll: () => ipcRenderer.invoke('db:semantic:reindexAll'),
-      search: (query, limit, filter) =>
-        ipcRenderer.invoke('db:semantic:search', query, limit, filter),
-      getIndexingStatus: () => ipcRenderer.invoke('db:semantic:getIndexingStatus'),
-      resourceHasChunks: (resourceId) => ipcRenderer.invoke('db:semantic:resourceHasChunks', resourceId),
-      onProgress: (callback) => {
-        const subscription = (_event, data) => callback(data);
-        ipcRenderer.on('semantic:progress', subscription);
-        return () => ipcRenderer.removeListener('semantic:progress', subscription);
-      },
-    },
-
     cloudLlm: {
       pdfRegionStream: (payload) => ipcRenderer.invoke('cloud:llm:pdf-region-stream', payload),
       onStreamChunk: (callback) => {
@@ -1536,16 +1483,6 @@ const electronHandler = {
         ipcRenderer.on('cloud:llm:stream-done', sub);
         return () => ipcRenderer.removeListener('cloud:llm:stream-done', sub);
       },
-    },
-
-    // Knowledge Graph
-    graph: {
-      createNode: (node) => ipcRenderer.invoke('db:graph:createNode', node),
-      getNode: (nodeId) => ipcRenderer.invoke('db:graph:getNode', nodeId),
-      getNodesByType: (type) => ipcRenderer.invoke('db:graph:getNodesByType', type),
-      createEdge: (edge) => ipcRenderer.invoke('db:graph:createEdge', edge),
-      getNeighbors: (nodeId) => ipcRenderer.invoke('db:graph:getNeighbors', nodeId),
-      searchNodes: (query) => ipcRenderer.invoke('db:graph:searchNodes', query),
     },
 
     // Unified Search
@@ -1932,21 +1869,11 @@ const electronHandler = {
       // Get resource by ID with full content
       resourceGet: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:resourceGet', { resourceId, options }),
-
-      // Get full text of one semantic chunk (chunk_id from resource_semantic_search)
-      resourceGetSection: (resourceId, chunkId) =>
-        ipcRenderer.invoke('ai:tools:resourceGetSection', { resourceId, chunkId }),
       pdfRenderPage: (payload) => ipcRenderer.invoke('ai:tools:pdfRenderPage', payload),
 
       // List resources with optional filters
       resourceList: (options) =>
         ipcRenderer.invoke('ai:tools:resourceList', { options }),
-
-      // Semantic search using embeddings
-      resourceSemanticSearch: (query, options) =>
-        ipcRenderer.invoke('ai:tools:resourceSemanticSearch', { query, options }),
-      resourceHybridSearch: (query, options) =>
-        ipcRenderer.invoke('ai:tools:resourceHybridSearch', { query, options }),
 
       // PDF extraction tools
       pdfExtractText: (resourceId, options) =>
@@ -2158,9 +2085,6 @@ const electronHandler = {
     // List available models
     listModels: () => ipcRenderer.invoke('ollama:list-models'),
 
-    // Generate embedding
-    generateEmbedding: (text) => ipcRenderer.invoke('ollama:generate-embedding', text),
-
     // Generate summary
     generateSummary: (text) => ipcRenderer.invoke('ollama:generate-summary', text),
 
@@ -2316,16 +2240,6 @@ const electronHandler = {
     /** Navigate session tree to a branch entry (optional LLM branch summary). */
     navigateTree: (threadId, targetId, opts) =>
       ipcRenderer.invoke('threads:navigate-tree', { threadId, targetId, ...(opts ?? {}) }),
-  },
-
-  // ============================================
-  // EMBEDDINGS — LangChain providers for semantic index
-  // ============================================
-  embeddings: {
-    getStatus: () => ipcRenderer.invoke('embeddings:getStatus'),
-    test: (override) => ipcRenderer.invoke('embeddings:test', override),
-    listModels: (params) => ipcRenderer.invoke('embeddings:listModels', params),
-    apply: () => ipcRenderer.invoke('embeddings:apply'),
   },
 
   // ============================================

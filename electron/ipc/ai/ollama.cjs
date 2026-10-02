@@ -57,40 +57,6 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
   });
 
   /**
-   * Generate embedding with Ollama
-   */
-  ipcMain.handle('ollama:generate-embedding', async (event, text) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      // Validar text
-      if (typeof text !== 'string') {
-        throw new Error('Text must be a string');
-      }
-      if (text.length === 0) {
-        throw new Error('Text cannot be empty');
-      }
-      if (text.length > 100000) {
-        throw new Error('Text too long. Maximum 100000 characters');
-      }
-      const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const embeddingModelResult = database.getQueries().getSetting.get('ollama_embedding_model');
-
-      const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const model = embeddingModelResult?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
-
-      const embedding = await ollamaService.generateEmbedding(text, model, baseUrl, apiKey);
-      return { success: true, embedding };
-    } catch (error) {
-      console.error('[Ollama] Error generating embedding:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
    * Generate summary with Ollama
    */
   ipcMain.handle('ollama:generate-summary', async (event, text) => {

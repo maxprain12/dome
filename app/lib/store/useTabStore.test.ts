@@ -78,3 +78,16 @@ describe('loadStoredTabs helpers (S3776)', () => {
     expect(restored.activeTabId).toBe(HOME_TAB_ID);
   });
 });
+
+it('restores old graph tabs as their resource or project library', () => {
+  const legacy = [
+    { id: 'old-graph', type: 'semantic-graph', title: 'Graph', resourceId: 'source', projectId: 'project-a' },
+    { id: 'old-library', type: 'semantic-graph', title: 'Graph', projectId: 'project-a' },
+  ] as unknown as DomeTab[];
+  const restored = tabsFromParsedPayload({ tabs: legacy, activeTabId: 'old-graph' }, 'project-a');
+  expect(restored.tabs.find((tab) => tab.id === 'old-graph')?.type).toBe('resource');
+  expect(restored.tabs.find((tab) => tab.id === 'old-graph')?.resourceId).toBe('source');
+  expect(restored.tabs.find((tab) => tab.id === 'old-library')?.type).toBe('folder');
+  expect(restored.tabs.find((tab) => tab.id === 'old-library')?.resourceId).toBe('project-a');
+  expect(restored.activeTabId).toBe('old-graph');
+});

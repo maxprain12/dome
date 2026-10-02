@@ -16,7 +16,7 @@ const path = require('node:path');
 const asar = require('@electron/asar');
 
 /** Prebuilt families whose platform package must match `<platform>-<arch>`. */
-const NATIVE_FAMILIES = ['@img/sharp-', '@lancedb/lancedb-', '@napi-rs/canvas-', '@ffmpeg-installer/'];
+const NATIVE_FAMILIES = ['@img/sharp-', '@napi-rs/canvas-', '@ffmpeg-installer/'];
 
 /** electron-builder `Arch` enum → Node arch name. */
 const ARCH_NAMES = { 0: 'ia32', 1: 'x64', 2: 'armv7l', 3: 'arm64', 4: 'universal' };

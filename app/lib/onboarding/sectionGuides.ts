@@ -10,7 +10,7 @@ export interface SectionGuide {
 export const SECTION_KEYS = [
   'home', 'library', 'projects', 'people', 'email', 'social', 'calendar', 'github',
   'agents', 'pipelines', 'workflows', 'automations', 'runs', 'learn', 'marketplace',
-  'chat', 'transcriptions', 'graph', 'settings', 'tags', 'editor',
+  'chat', 'transcriptions', 'settings', 'tags', 'editor',
 ] as const;
 
 export const SECTION_GUIDES: Record<string, SectionGuide> = Object.fromEntries(
@@ -26,7 +26,7 @@ const TAB_GUIDE: Partial<Record<TabType, string>> = {
   agents: 'agents', pipelines: 'pipelines', workflows: 'workflows', automations: 'automations',
   runs: 'runs', learn: 'learn', studio: 'learn', flashcards: 'learn', marketplace: 'marketplace',
   chat: 'chat', transcriptions: 'transcriptions', 'transcription-detail': 'transcriptions',
-  'semantic-graph': 'graph', settings: 'settings', tags: 'tags',
+  settings: 'settings', tags: 'tags',
   note: 'editor', notebook: 'editor', resource: 'library', url: 'library', youtube: 'library',
   docx: 'library', ppt: 'library', artifact: 'library',
 };

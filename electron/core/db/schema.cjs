@@ -637,33 +637,9 @@ function createBaseSchema(db) {
             )
   `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS graph_edges (
-              id TEXT PRIMARY KEY,
-              source_id TEXT NOT NULL,
-              target_id TEXT NOT NULL,
-              relation TEXT NOT NULL,
-              weight REAL DEFAULT 1.0,
-              metadata TEXT,
-              created_at INTEGER NOT NULL,
-              updated_at INTEGER NOT NULL,
-              FOREIGN KEY (source_id) REFERENCES graph_nodes(id) ON DELETE CASCADE,
-              FOREIGN KEY (target_id) REFERENCES graph_nodes(id) ON DELETE CASCADE
-            )
-  `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS graph_nodes (
-              id TEXT PRIMARY KEY,
-              resource_id TEXT,
-              label TEXT NOT NULL,
-              type TEXT NOT NULL CHECK(type IN ('resource', 'concept', 'person', 'location', 'event', 'topic')),
-              properties TEXT,
-              created_at INTEGER NOT NULL,
-              updated_at INTEGER NOT NULL,
-              FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
-            )
-  `);
+
+
 
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS interactions_fts USING fts5(
@@ -1015,22 +991,7 @@ function createBaseSchema(db) {
               )
   `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS resource_chunks (
-          id TEXT PRIMARY KEY,
-          resource_id TEXT NOT NULL,
-          chunk_index INTEGER NOT NULL,
-          text TEXT NOT NULL,
-          embedding BLOB NOT NULL,
-          model_version TEXT NOT NULL,
-          char_start INTEGER,
-          char_end INTEGER,
-          page_number INTEGER,
-          updated_at INTEGER NOT NULL,
-          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
-          UNIQUE(resource_id, chunk_index)
-        )
-  `);
+
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS resource_interactions (
@@ -1111,21 +1072,7 @@ function createBaseSchema(db) {
         )
   `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS semantic_relations (
-          id TEXT PRIMARY KEY,
-          source_id TEXT NOT NULL,
-          target_id TEXT NOT NULL,
-          similarity REAL NOT NULL,
-          relation_type TEXT NOT NULL CHECK(relation_type IN ('auto', 'manual', 'confirmed', 'rejected')),
-          label TEXT,
-          detected_at INTEGER NOT NULL,
-          confirmed_at INTEGER,
-          FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
-          FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,
-          UNIQUE(source_id, target_id)
-        )
-  `);
+
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -1870,29 +1817,17 @@ function createBaseSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_github_repos_selected ON github_repos(selected)
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_edges_relation ON graph_edges(relation)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_id)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_id)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_nodes_label ON graph_nodes(label)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_nodes_resource ON graph_nodes(resource_id)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_graph_nodes_type ON graph_nodes(type)
-  `);
+
+
+
+
+
+
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_interactions_resource ON resource_interactions(resource_id)
@@ -1989,13 +1924,9 @@ function createBaseSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_quiz_runs_output ON quiz_runs(studio_output_id)
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_resource_chunks_model ON resource_chunks(model_version)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_resource_chunks_resource ON resource_chunks(resource_id)
-  `);
+
+
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_resource_transcripts_resource ON resource_transcripts(resource_id)
@@ -2025,17 +1956,11 @@ function createBaseSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_resources_vault_path ON resources(vault_path)
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_semantic_sim ON semantic_relations(similarity DESC)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_relations(source_id)
-  `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_semantic_target ON semantic_relations(target_id)
-  `);
+
+
+
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_account_metrics ON social_account_metrics(account_id, captured_at)

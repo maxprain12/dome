@@ -1174,11 +1174,10 @@ function createManyService(deps = {}) {
 
   async function searchResources(input) {
     const tools = getAiTools();
-    return tools.resourceHybridSearch(input.query, {
+    return tools.resourceSearch(input.query, {
       project_id: input.projectId,
       type: input.type,
       limit: input.limit || 10,
-      semantic_min_score: input.semanticMinScore,
     });
   }
 

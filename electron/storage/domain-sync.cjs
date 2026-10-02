@@ -750,10 +750,10 @@ function runPostPullHooks(deps, db, domain, applied) {
     settingsSyncBridge.applySyncedSettingsToLocal(db, deps.windowManager);
   }
   if (domain === 'library') {
-    // FTS stays consistent via triggers; embeddings/graph are derived and
+    // FTS stays consistent via triggers; extracted text is derived and
     // re-indexed in background for anything the pull just created.
     try {
-      const scheduler = require('./semantic-index-scheduler.cjs');
+      const scheduler = require('./text-index-scheduler.cjs');
       void scheduler.indexMissingResources?.();
     } catch (err) {
       console.warn('[domain-sync] post-pull reindex failed:', err?.message);

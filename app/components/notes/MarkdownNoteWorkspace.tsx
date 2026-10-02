@@ -14,8 +14,6 @@ import { useTranslation } from 'react-i18next';
 import MarkdownNoteEditor, {
   type MarkdownNoteEditorHandle,
 } from '@/components/markdown/MarkdownNoteEditor';
-import SidePanel from '@/components/workspace/SidePanel';
-import type { SidePanelTab } from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
 import StudioPanel from '@/components/workspace/StudioPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
@@ -212,13 +210,10 @@ function NoteWorkspace({
   const [wordCount, setWordCount] = useState(0);
   const [pluginId, setPluginId] = useState<string | null>(null);
 
-  const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
-  const [sidePanelPreferredTab, setSidePanelPreferredTab] = useState<SidePanelTab | null>(null);
   const [splitPickerOpen, setSplitPickerOpen] = useState(false);
   const [projectLabel, setProjectLabel] = useState('');
   const [folderPath, setFolderPath] = useState<Array<{ id: string; title: string }>>([]);
-  const [backlinkCount, setBacklinkCount] = useState(0);
   const [resourceTags, setResourceTags] = useState<Array<{ id: string; name: string }>>([]);
   const [tagQuickModalOpen, setTagQuickModalOpen] = useState(false);
   const [sourceMode, setSourceMode] = useState(false);
@@ -281,11 +276,6 @@ function NoteWorkspace({
     });
   }, [resourceId]);
 
-  const refreshBacklinkCount = useCallback(async (id: string) => {
-    if (!window.electron?.db?.resources?.getBacklinks) return;
-    const bl = await window.electron.db.resources.getBacklinks(id);
-    setBacklinkCount(bl?.success && Array.isArray(bl.data) ? bl.data.length : 0);
-  }, []);
 
   useEffect(() => {
     async function load() {
@@ -324,7 +314,6 @@ function NoteWorkspace({
           } else {
             setFolderPath([]);
           }
-          void refreshBacklinkCount(resourceId);
           refreshResourceTags();
         } else {
           setError('Note not found');
@@ -337,7 +326,7 @@ function NoteWorkspace({
       }
     }
     void load();
-  }, [resourceId, refreshBacklinkCount, refreshResourceTags]);
+  }, [resourceId, refreshResourceTags]);
 
   useEffect(() => {
     if (!window.electron?.on) return undefined;
@@ -421,7 +410,6 @@ function NoteWorkspace({
       setSavePillSavedAt(now);
       setWordCount(countWordsFromMarkdown(nextMarkdown));
       setResource((prev) => (prev ? { ...prev, title, content: nextMarkdown, vault_path: saved.vaultPath, updated_at: now } : prev));
-      void refreshBacklinkCount(resourceId).catch(() => { /* Saving succeeded; backlink counts can refresh later. */ });
     } catch (err) {
       console.error('Error saving note:', err);
       setSaveError(err instanceof Error ? err.message : 'save failed');
@@ -429,7 +417,7 @@ function NoteWorkspace({
       saveInFlightRef.current = false;
       setIsSaving(false);
     }
-  }, [readOnly, resource, resourceId, title, pluginId, refreshBacklinkCount]);
+  }, [readOnly, resource, resourceId, title, pluginId]);
 
   const saveOnExit = useRef(() => {});
   saveOnExit.current = () => {
@@ -693,13 +681,7 @@ function NoteWorkspace({
         canOpenSplit={Boolean(resource.project_id)}
         onOpenMetadata={() => setShowMetadata(true)}
         domeLinkToCopy={domeShareLink}
-        onOpenBacklinksPanel={() => {
-          setSidePanelPreferredTab('backlinks');
-          setSidePanelOpen(true);
-        }}
         hideWindowControls={isPopout}
-        sidePanelOpen={sidePanelOpen}
-        onToggleSidePanel={() => setSidePanelOpen((o) => !o)}
         sourceMode={sourceMode}
         sourceLocked={sourceLocked}
         onToggleSource={() => editorRef.current?.setSourceMode(!sourceMode)}
@@ -720,11 +702,6 @@ function NoteWorkspace({
               <NoteMetaBar
                 wordCount={wordCount}
                 editedRelative={editedRelative}
-                backlinksCount={backlinkCount}
-                aiReadyHint={
-                  Array.isArray(resource.metadata?.embedding) &&
-                  resource.metadata.embedding.length > 0
-                }
                 tags={resourceTags}
                 onRequestAddTag={readOnly ? undefined : () => setTagQuickModalOpen(true)}
               />
@@ -737,14 +714,6 @@ function NoteWorkspace({
         </div>
 
         {sidePanelsNode}
-        <SidePanel
-          resourceId={resource.id}
-          resource={resource}
-          isOpen={sidePanelOpen}
-          onClose={() => setSidePanelOpen(false)}
-          preferredTab={sidePanelPreferredTab}
-          onPreferredTabApplied={() => setSidePanelPreferredTab(null)}
-        />
       </div>
 
       <SplitResourcePicker

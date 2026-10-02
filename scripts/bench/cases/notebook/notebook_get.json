@@ -17,13 +17,13 @@
     "get_library_overview",
     "resource_get_library_overview",
     "get_current_project",
-    "resource_hybrid_search",
-    "resource_semantic_search",
     "resource_search"
   ],
   "explain_only": true,
   "allow_preamble": true,
-  "fixtures": ["bench-notebook"],
+  "fixtures": [
+    "bench-notebook"
+  ],
   "output_shape": {
     "min_length": 30
   },

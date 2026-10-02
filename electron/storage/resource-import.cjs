@@ -16,11 +16,11 @@ function createResourceImporter(deps) {
     thumbnail = require('../documents/thumbnail.cjs'),
     documentExtractor = require('../documents/document-extractor.cjs'),
     windowManager = { broadcast() {} },
-    semanticIndexScheduler = require('./semantic-index-scheduler.cjs'),
+    textIndexScheduler = require('./text-index-scheduler.cjs'),
     autoMetadata = require('../ai/auto-metadata.cjs'),
     extractInWorker = require('../workers/document-extract-service.cjs').extractInWorker,
   } = deps;
-  semanticIndexScheduler.init(database);
+  textIndexScheduler.init(database);
   const generateId = () => crypto.randomUUID();
   async function extractDocumentTextOffMain(fullPath, mimeType) {
     try { return await extractInWorker('documentText', fullPath, undefined, mimeType); }
@@ -64,8 +64,8 @@ function createResourceImporter(deps) {
 
     const resource = queries.getResourceById.get(resourceId);
     windowManager.broadcast('resource:created', resource);
-    if (semanticIndexScheduler.shouldIndex(resource)) {
-      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+    if (textIndexScheduler.shouldIndex(resource)) {
+      textIndexScheduler.scheduleTextIndex(resourceId);
     }
     autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
     return resource;
@@ -209,8 +209,8 @@ function createResourceImporter(deps) {
     // Broadcast so Home and other windows update immediately
     windowManager.broadcast('resource:created', resource);
 
-    if (semanticIndexScheduler.shouldIndex(resource)) {
-      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+    if (textIndexScheduler.shouldIndex(resource)) {
+      textIndexScheduler.scheduleTextIndex(resourceId);
     }
 
     autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });

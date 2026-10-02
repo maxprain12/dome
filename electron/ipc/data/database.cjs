@@ -1,9 +1,7 @@
 /* eslint-disable no-console */
 const crypto = require('node:crypto');
-const kbShared = require('../../agents/kb-llm-shared.cjs');
-const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const textIndexScheduler = require('../../storage/text-index-scheduler.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');
-const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
 const {
@@ -20,7 +18,7 @@ function pickPairPayload(arg1, arg2, keyA, keyB) {
 }
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
-  semanticIndexScheduler.init(database);
+  textIndexScheduler.init(database);
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
 
   function parseJson(raw, fallback) {
@@ -32,30 +30,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   }
 
-  /**
-   * Semantic reindex (debounced) when: metadata.dome_kb.reindexOnSave, or KB LLM is enabled for
-   * the project and autoReindexWikiOnSave is true in global settings.
-   * See docs/indexing.md and docs/kb-llm-wiki-model.md.
-   */
-  function maybeScheduleKbReindex(resourceId, mergedResource, current) {
-    try {
-      const queries = database.getQueries();
-      const meta = parseJson(mergedResource.metadata, {});
-      const candidate = { ...current, ...mergedResource, type: current.type };
-      if (!semanticIndexScheduler.shouldIndex(candidate)) return;
-
-      const global = { ...kbShared.defaultGlobalConfig(), ...parseJson(queries.getSetting.get(kbShared.KB_GLOBAL_KEY)?.value, {}) };
-      const projectId = current.project_id;
-      const ov = parseJson(queries.getSetting.get(kbShared.projectKey(projectId))?.value, {});
-      const kbActive = kbShared.effectiveKbEnabled(global, ov);
-      const autoAll = kbActive && global.autoReindexWikiOnSave === true;
-      const explicit = meta.dome_kb?.reindexOnSave === true;
-      if (!explicit && !autoAll) return;
-
-      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-    } catch (e) {
-      console.warn('[DB] maybeScheduleKbReindex:', e?.message || e);
-    }
+  function scheduleResourceTextIndex(resourceId, mergedResource, current) {
+    if (textIndexScheduler.shouldIndex({ ...current, ...mergedResource })) textIndexScheduler.scheduleTextIndex(resourceId);
   }
 
   function normalizeServerId(name) {
@@ -356,7 +332,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', created);
 
-      semanticIndexScheduler.scheduleSemanticReindex(resource.id);
+      textIndexScheduler.scheduleTextIndex(resource.id);
 
       autoMetadata.scheduleCloudAutoMetadata(resource.id, { database, fileStorage, windowManager });
 
@@ -471,7 +447,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const created = queries.getResourceById.get(id);
       if (created) {
         windowManager.broadcast('resource:created', created);
-        semanticIndexScheduler.scheduleSemanticReindex(id);
+        textIndexScheduler.scheduleTextIndex(id);
       }
 
       return { success: true, data: created };
@@ -488,8 +464,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         database,
         fileStorage,
         windowManager,
-        maybeScheduleKbReindex,
-        semanticIndexScheduler,
+        scheduleResourceTextIndex,
+        textIndexScheduler,
         vaultStore,
       });
     } catch (error) {
@@ -499,8 +475,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         return retryResourcesUpdateAfterCorruption(resource, {
           database,
           windowManager,
-          maybeScheduleKbReindex,
-          semanticIndexScheduler,
+          scheduleResourceTextIndex,
+          textIndexScheduler,
         });
       }
       return { success: false, error: error.message };
@@ -584,19 +560,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  // Get backlinks (resources that link to this resource)
-  ipcMain.handle('db:resources:getBacklinks', (event, resourceId) => {
-    try {
-      validateSender(event, windowManager);
-      const queries = database.getQueries();
-      const results = queries.getBacklinks.all(resourceId);
-      return { success: true, data: results };
-    } catch (error) {
-      console.error('[DB] Error getting backlinks:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
   // Settings
   ipcMain.handle('db:settings:get', (event, key) => {
     try {
@@ -675,7 +638,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
 
-      const { provider, apiKey, model, embeddingModel, baseURL } = config;
+      const { provider, apiKey, model, baseURL } = config;
       const { writeProviderApiKey, writeProviderBaseUrl, KEYLESS_PROVIDERS } = require('../../ai/provider-keys.cjs');
 
       if (provider) {
@@ -703,14 +666,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         if (dbAi) {
           const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
           settingsSyncBridge.mirrorSettingChange(dbAi, 'ai_model', model);
-        }
-      }
-      if (embeddingModel) {
-        queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
-        const dbEmb = database.getDB?.();
-        if (dbEmb) {
-          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
-          settingsSyncBridge.mirrorSettingChange(dbEmb, 'ai_embedding_model', embeddingModel);
         }
       }
       if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
@@ -1579,32 +1534,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   };
 
-  // Search resources via Lance first, then fall back to FTS if nothing matched.
-  const searchResourcesUnified = async (queries, lanceQuery, sanitizedQuery, scopeProjectId) => {
-    /** @type {any[]} */
-    let resourceResults = [];
-    if (lanceQuery) {
-      try {
-        const lexHits = await lancedbSemantic.searchLexResources(
-          lanceQuery,
-          25,
-          scopeProjectId ? { project_id: scopeProjectId } : {}
-        );
-        for (const h of lexHits) {
-          const r = queries.getResourceById.get(h.id);
-          if (r) resourceResults.push(r);
-        }
-      } catch (le) {
-        console.warn('[DB] unified search Lance:', le?.message || le);
-      }
-    }
-    if (!resourceResults.length) {
-      resourceResults = queries.searchResources.all(sanitizedQuery);
-    }
-    return resourceResults;
-  };
+  const searchResourcesUnified = async (_queries, textQuery, _sanitizedQuery, scopeProjectId) =>
+    require('../../search/resource-search.cjs').searchResources(database.getDB(), textQuery, { projectId: scopeProjectId, limit: 25 });
 
-  // First-pass search: Lance + FTS + interactions + studio outputs + integration sources.
+  // First-pass search: FTS + interactions + studio outputs + integration sources.
   const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery) => {
     const resourceResults = await searchResourcesUnified(queries, lanceQuery, sanitizedQuery, scopeProjectId);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
@@ -1636,7 +1569,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     };
   };
 
-  // Retry path after a corruption repair: skip Lance (it may be why we failed),
+  // Retry path after a corruption repair: use the repaired FTS index,
   // but still include studio outputs.
   const retryUnifiedSearchAfterRepair = (sanitizedQuery, rawTerms) => {
     const queries = database.getQueries();

@@ -12,7 +12,6 @@ import {
   FolderOpenIcon,
   BookOpen01Icon,
   SparklesIcon,
-  HierarchySquare01Icon,
   PanelRightIcon,
   PanelRightOpenIcon,
   MoreHorizontalIcon,
@@ -21,7 +20,6 @@ import {
   Maximize02Icon,
 } from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, type CSSProperties } from 'react';
-import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -135,7 +133,6 @@ export default function WorkspaceHeader({
   const studioPanelOpen  = useAppStore((s) => s.studioPanelOpen);
   const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
   const toggleStudioPanel  = useAppStore((s) => s.toggleStudioPanel);
-  const openSemanticGraphTab = useTabStore((s) => s.openSemanticGraphTab);
   const closeSplit = useTabStore((s) => s.closeSplit);
   const activeTabSplitOpen = useTabStore(
     (s) => Boolean(s.tabs.find((tb) => tb.id === s.activeTabId)?.splitOpen),
@@ -292,7 +289,6 @@ export default function WorkspaceHeader({
       {/* ── Right: panels + tools ─────────────────────────────────────── */}
       <div className="no-drag flex items-center gap-0.5 flex-shrink-0">
         {/* AI index status */}
-        <IndexStatusBadge resourceId={resource.id} resourceType={resource.type} />
 
         <HDivider />
 
@@ -312,21 +308,16 @@ export default function WorkspaceHeader({
               activeColor="var(--primary)"
               onClick={toggleStudioPanel}
             />
-            <HeaderIconBtn
-              icon={<HugeiconsIcon icon={HierarchySquare01Icon} size={14} strokeWidth={2} />}
-              label={t('workspace.graph')}
-              active={false}
-              activeColor="var(--primary)"
-              onClick={() => openSemanticGraphTab(resource.id, resource.project_id)}
-            />
           </>
         )}
+        {['pdf', 'notebook'].includes(resource.type) && (
         <HeaderIconBtn
           icon={<HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />}
           label={t('workspace.sidePanel')}
           active={sidePanelOpen}
           onClick={onToggleSidePanel}
         />
+        )}
         <HeaderIconBtn
           icon={<HugeiconsIcon icon={SparklesIcon} size={14} strokeWidth={2} />}
           label={t('workspace.ask_many', 'Ask Many')}

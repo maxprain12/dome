@@ -1,6 +1,6 @@
 /**
  * AI Types - Migrated from clawdbot
- * 
+ *
  * Core types for AI providers, models, and configuration.
  * Based on clawdbot's src/config/types.models.ts
  */
@@ -38,7 +38,7 @@ export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhi
 /**
  * Authentication modes for model providers
  */
-export type ModelProviderAuthMode = 
+export type ModelProviderAuthMode =
   | 'api-key'
   | 'aws-sdk'
   | 'oauth'
@@ -391,37 +391,6 @@ export interface ChatResponse {
 }
 
 // =============================================================================
-// Embedding Types
-// =============================================================================
-
-/**
- * Options for embedding requests
- */
-export interface EmbeddingOptions {
-  /** Model ID to use */
-  model: string;
-  /** Input texts to embed */
-  input: string | string[];
-  /** Dimensions for the embedding (if supported) */
-  dimensions?: number;
-}
-
-/**
- * Embedding response
- */
-export interface EmbeddingResponse {
-  /** Embeddings for each input */
-  embeddings: number[][];
-  /** Model used */
-  model: string;
-  /** Usage statistics */
-  usage: {
-    promptTokens: number;
-    totalTokens: number;
-  };
-}
-
-// =============================================================================
 // Provider Interface
 // =============================================================================
 
@@ -433,19 +402,18 @@ export interface AIProviderInterface {
   id: string;
   /** Provider name */
   name: string;
-  
+
   /** Create a chat completion */
   chat(options: ChatOptions): Promise<ChatResponse>;
-  
+
   /** Create a streaming chat completion */
   chatStream(options: ChatOptions): AsyncIterable<ChatStreamChunk>;
-  
+
   /** Create embeddings (if supported) */
-  embed?(options: EmbeddingOptions): Promise<EmbeddingResponse>;
-  
+
   /** List available models */
   listModels?(): Promise<ModelDefinitionConfig[]>;
-  
+
   /** Check if the provider is available */
   isAvailable(): Promise<boolean>;
 }
@@ -457,7 +425,7 @@ export interface AIProviderInterface {
 /**
  * Provider type identifiers
  */
-export type ProviderType = 
+export type ProviderType =
   | 'openai'
   | 'anthropic'
   | 'google'
@@ -489,7 +457,6 @@ export interface ProviderMeta {
   name: string;
   description: string;
   icon: string;
-  supportsEmbeddings: boolean;
   supportsStreaming: boolean;
   supportsTools: boolean;
   apiKeyPlaceholder?: string;

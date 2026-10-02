@@ -74,7 +74,7 @@ Las herramientas disponibles en Dome incluyen:
 - `web_fetch` - Obtener contenido de URLs
 - `deep_research` - Investigación profunda multi-fuente
 - `resource_search` - Buscar en la biblioteca
-- `resource_semantic_search` - Búsqueda semántica
+- `resource_search` - Búsqueda textual
 - `resource_get` - Obtener contenido de un recurso
 - `resource_create` - Crear nuevo recurso
 - `resource_update` - Actualizar recurso
@@ -88,7 +88,6 @@ Las herramientas disponibles en Dome incluyen:
 - `excel_create` - Crear Excel
 - `calendar_create_event` - Crear evento
 - `generate_audio_script` - Generar guion de audio
-- `generate_knowledge_graph` - Generar grafo de conocimiento
 
 ## Iconos
 
@@ -123,7 +122,7 @@ El campo `iconIndex` selecciona un icono de la librería de iconos interna:
     "web_fetch",
     "deep_research",
     "resource_search",
-    "resource_semantic_search"
+    "resource_search"
   ],
   "mcpServerIds": [],
   "skillIds": [],

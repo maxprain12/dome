@@ -140,7 +140,7 @@ function stripTags(html) {
 }
 
 /**
- * Plain-text + structured payload for semantic index and FTS (artifact resources).
+ * Plain-text + structured payload for FTS (artifact resources).
  * @param {Record<string, unknown>} row resource row
  * @param {unknown} queries database.getQueries() or null
  * @returns {IndexableText}
@@ -248,7 +248,10 @@ function buildNoteIndexableText(row, title) {
 const CONTENT_BODY_TYPES = new Set(['pdf', 'document', 'url', 'notebook', 'ppt', 'excel']);
 
 function buildContentTypeIndexableText(row, title) {
-  const content = String(row.content || '').trim();
+  let content = String(row.content_text || row.content || '').trim();
+  if (row.type === 'url') {
+    try { const metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata; content = String(metadata?.scraped_content || content); } catch { /* retain cached text */ }
+  }
   return buildIndexedTextOrEmpty(title, stripTags(content));
 }
 
@@ -262,6 +265,7 @@ function getIndexableText(row, queries) {
   if (type === 'note') {
     return buildNoteIndexableText(row, title);
   }
+  if (type === 'image') return buildIndexedTextOrEmpty(title, String(row.content_text || ''));
   if (CONTENT_BODY_TYPES.has(type)) {
     return buildContentTypeIndexableText(row, title);
   }

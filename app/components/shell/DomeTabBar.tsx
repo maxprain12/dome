@@ -133,7 +133,6 @@ function getTabIcon(tab: DomeTab): IconSvgElement {
     case 'learn': return BookOpen01Icon;
     case 'transcriptions':
     case 'transcription-detail': return Mic01Icon;
-    case 'semantic-graph': return HierarchySquare01Icon;
     case 'artifact': return LayoutTable01Icon;
     case 'plugin': return PuzzleIcon;
     default: return File01Icon;
@@ -251,7 +250,7 @@ function TabActions({ tab }: { tab: DomeTab }) {
                     size="icon-sm"
                     className="rounded-full border-2"
                     style={{ backgroundColor: color }}
-                    onClick={() => void persistFolderTabColor(tab, color)}
+                    onClick={() => { persistFolderTabColor(tab, color); }}
                     aria-label={color}
                   />
                 ))}

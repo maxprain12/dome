@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import i18n from '@/lib/i18n';
 import WorkspaceHeader from './WorkspaceHeader';
 
-vi.mock('@/components/viewers/shared/IndexStatusBadge', () => ({ default: () => null }));
 vi.mock('@/components/workspace/SplitResourcePicker', () => ({ default: () => null }));
 vi.mock('@/lib/many/openManyCombined', () => ({ openManyWithCombinedContext: vi.fn() }));
 

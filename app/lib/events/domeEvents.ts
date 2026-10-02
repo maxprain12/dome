@@ -13,7 +13,6 @@ export const DOME_EVENTS = {
   agentsChanged: 'dome:agents-changed',
   workflowsChanged: 'dome:workflows-changed',
   resourcesChanged: 'dome:resources-changed',
-  resourceRelationsChanged: 'dome:resource-relations-changed',
   layoutReset: 'dome:layout-reset',
   aiVisibleModelsChanged: 'dome:ai-visible-models-changed',
   contextualFired: 'dome:contextual-fired',
@@ -36,7 +35,6 @@ export type DomeEventPayloads = {
   'dome:agents-changed': undefined;
   'dome:workflows-changed': undefined;
   'dome:resources-changed': undefined;
-  'dome:resource-relations-changed': { resourceId?: string };
   'dome:layout-reset': undefined;
   'dome:ai-visible-models-changed': undefined;
   'dome:contextual-fired': { tag: string; fired: number };
