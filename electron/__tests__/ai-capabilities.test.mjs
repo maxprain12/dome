@@ -112,3 +112,20 @@ test('local custom protocols work without a key while cloud endpoints require th
   models.setProvider(createCustomProvider(ai,{...config,id:'cloud-classifier',models:[{...config.models[0],provider:'cloud-classifier',baseUrl:'https://classifier.example'}]}));
   assert.equal(await models.getAuth('cloud-classifier'),undefined);
 });
+test('structured extraction uses each chat protocol native JSON request format', async () => {
+  const {streamSimple}=await import('@dome/ai');
+  const {buildStreamOptions}=require('../ai/llm-service.cjs');
+  for(const [api,provider] of [['openai-completions','openai'],['openai-responses','openai'],['google-generative-ai','google'],['anthropic-messages','anthropic']]) {
+    const model={api,provider,id:'fixture',name:'Fixture',baseUrl:'http://127.0.0.1:9',input:['text'],reasoning:false,cost,contextWindow:8192,maxTokens:1000};
+    const options=buildStreamOptions({responseFormat:'json_object'},'test-key');
+    let payload;
+    await streamSimple(model,{messages:[{role:'user',content:'Return JSON',timestamp:0}]},{...options,onPayload:(request,model)=>{
+      payload=options.onPayload(request,model);throw new Error('Captured before network');
+    }}).result();
+    assert.ok(payload,api);
+    if(api==='google-generative-ai')assert.equal(payload.config.responseMimeType,'application/json');
+    else if(api==='openai-responses')assert.equal(payload.text.format.type,'json_object');
+    else if(api==='openai-completions')assert.equal(payload.response_format.type,'json_object');
+    else assert.equal(payload.response_format,undefined);
+  }
+});

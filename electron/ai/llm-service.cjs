@@ -20,9 +20,11 @@ function buildStreamOptions(options = {}, apiKey) {
   if (options.maxOutputTokens) out.maxTokens = options.maxOutputTokens;
   if (options.temperature != null) out.temperature = options.temperature;
   if (options.responseFormat === 'json_object') {
-    out.onPayload = (payload) => {
+    out.onPayload = (payload, model) => {
       if (payload && typeof payload === 'object') {
-        return { ...payload, response_format: { type: 'json_object' } };
+        if (['google-generative-ai', 'google-vertex'].includes(model?.api)) return { ...payload, config: { ...payload.config, responseMimeType: 'application/json' } };
+        if (['openai-responses', 'azure-openai-responses'].includes(model?.api)) return { ...payload, text: { ...payload.text, format: { type: 'json_object' } } };
+        if (model?.api === 'openai-completions') return { ...payload, response_format: { type: 'json_object' } };
       }
       return payload;
     };
@@ -121,4 +123,4 @@ async function stream({ provider, model, apiKey, baseUrl, messages, options = {}
   };
 }
 
-module.exports = { chat, stream, buildImageContent };
+module.exports = { chat, stream, buildImageContent, buildStreamOptions };
