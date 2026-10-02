@@ -12,3 +12,5 @@ Dome adaptations:
 - Historical deferred-tool metadata remains accepted by the compatibility reader; new contracts use the unified transcript/system-message and compact-frame helpers.
 
 The SDK is Node-only in Dome. The renderer reads sanitized model metadata over validated IPC and never imports provider implementations or receives credentials. Hosted browser services are excluded; AI providers retain their own account requirements.
+
+Selected deterministic upstream suites are preserved in `test/` (runtime/auth/catalogs, frames/events, transcript/tool changes, constrained sampling, validation, image adapters, classification and the faux provider). They run alongside Dome bridge tests; real-provider tests requiring accounts are not included.
