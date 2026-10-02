@@ -63,12 +63,16 @@ export function useManyConversationSettings(): ManyConversationSettings {
           const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
           setProviderId(String(config.provider));
           setProviderInfo(displayInfo);
-          setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
           const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
+          const capabilities = modelId && window.electron
+            ? await window.electron.invoke('ai:model:input', { provider: config.provider, model: modelId })
+            : null;
+          setSupportsTools(capabilities?.success && typeof capabilities.supportsTools === 'boolean'
+            ? capabilities.supportsTools : providerSupportsTools(config.provider as AIProviderType));
           const found = modelId ? findModelById(modelId) : undefined;
           const fromCatalog = parseContextWindow(found?.model.contextWindow);
           const persisted = await readPersistedContextWindow(String(config.provider));
-          setBudgetCapApprox(fromCatalog || persisted || fallbackContextWindow(String(config.provider)));
+          setBudgetCapApprox(parseContextWindow(capabilities?.contextWindow) || fromCatalog || persisted || fallbackContextWindow(String(config.provider)));
         } else {
           setProviderInfo(t('chat.not_configured'));
           setProviderId('');
