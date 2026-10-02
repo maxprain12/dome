@@ -256,9 +256,6 @@ export async function startAgentRun(params: {
   model?: string;
   threadId?: string;
   skipHitl?: boolean;
-  /** Many voice: read reply with TTS when run completes */
-  autoSpeak?: boolean;
-  voiceLanguage?: string;
   /** IDs of resources pinned to the chat context (lazy content loading). */
   pinnedResourceIds?: string[];
   /** USER.md / MEMORY.md block for context budget rules segment. */

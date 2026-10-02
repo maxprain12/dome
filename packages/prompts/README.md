@@ -7,7 +7,7 @@ Prompt sections, surface templates, and assembler logic.
 | Directory | Purpose |
 | --------- | ------- |
 | [`sections/`](sections/) | Core system prompt sections (role, guardrails, tool catalog, entity rules, capabilities, generated `tools-index.txt`) |
-| [`surfaces/`](surfaces/) | Surface-specific templates (Many subagents, Agent Team, **editor**, **studio**, **kb-wiki**) |
+| [`surfaces/`](surfaces/) | Surface-specific templates (Many subagents, Agent Team, **editor**, **studio**) |
 | [`src/`](src/) | TypeScript assembler (`assembleSystemPrompt`, `buildDomeSystemPrompt`, …) |
 
 Operational tool guides live in **`@dome/tools/src/domains/<domain>/prompt*.txt`** and are loaded via `dome_load_doc` (see [`manifest.ts`](../tools/src/domains/manifest.ts)).

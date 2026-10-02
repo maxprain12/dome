@@ -193,7 +193,7 @@ function buildDocSpecs(families) {
         'get_library_overview',
         'resource_list',
         'resource_get',
-        'resource_hybrid_search',
+        'resource_search',
         'excel_get',
       ],
     },
@@ -207,7 +207,7 @@ function buildDocSpecs(families) {
         'docx_update',
         'docx_delete',
       ],
-      optionalTools: ['resource_hybrid_search', 'resource_get', 'resource_create'],
+      optionalTools: ['resource_search', 'resource_get', 'resource_create'],
     },
     {
       docId: 'calendar_tool',
@@ -218,7 +218,7 @@ function buildDocSpecs(families) {
       docId: 'flashcard_tool',
       relPath: 'packages/tools/src/domains/flashcards/prompt.txt',
       requiredTools: ['flashcard_create'],
-      optionalTools: ['resource_hybrid_search', 'resource_get', 'resource_get_section'],
+      optionalTools: ['resource_search', 'resource_get', 'resource_get'],
     },
     {
       docId: 'excel_notebook_tool',

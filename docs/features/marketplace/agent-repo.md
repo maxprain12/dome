@@ -23,7 +23,7 @@ El archivo `manifest.json` define completamente tu agente:
   "longDescription": "Descripción extendida que aparece en el detalle del agente. Puedes usar múltiples párrafos para explicar las capacidades, casos de uso y особенidades.",
   "systemInstructions": "Eres un [rol específico]. Cuando el usuario te pida [tarea]: (1) [primer paso], (2) [segundo paso], (3) [tercer paso]. Siempre [regla importante]. Responde siempre en el idioma del usuario.",
   "toolIds": [
-    "web_search",
+    "web_fetch",
     "web_fetch",
     "resource_search",
     "resource_get",
@@ -70,9 +70,9 @@ El archivo `manifest.json` define completamente tu agente:
 
 Las herramientas disponibles en Dome incluyen:
 
-- `web_search` - Búsqueda en la web
+- `web_fetch` - Lectura de URLs públicas; las búsquedas usan MCP configurados o skills
 - `web_fetch` - Obtener contenido de URLs
-- `deep_research` - Investigación profunda multi-fuente
+- `web_fetch` - Investigación profunda multi-fuente
 - `resource_search` - Buscar en la biblioteca
 - `resource_search` - Búsqueda textual
 - `resource_get` - Obtener contenido de un recurso
@@ -87,7 +87,7 @@ Las herramientas disponibles en Dome incluyen:
 - `excel_get` - Leer Excel
 - `excel_create` - Crear Excel
 - `calendar_create_event` - Crear evento
-- `generate_audio_script` - Generar guion de audio
+- `resource_create` - Generar guion de audio
 
 ## Iconos
 
@@ -116,11 +116,11 @@ El campo `iconIndex` selecciona un icono de la librería de iconos interna:
   "name": "Investigador Académico",
   "description": "Especialista en investigación académica con búsqueda web y análisis de fuentes.",
   "longDescription": "Este agente está diseñado para realizar investigaciones académicas rigurosas. Combina búsqueda web profunda con análisis de fuentes bibliográficas para producir trabajos bien documentados. Ideal para estudiantes, investigadores y profesionales que necesitan información verificada.",
-  "systemInstructions": "Eres un investigador académico experto. Cuando el usuario te pida investigar un tema: (1) usa web_search para encontrar fuentes académicas relevantes, (2) usa web_fetch para leer el contenido completo de las fuentes más prometedoras, (3) sintetiza la información encontrada con citas apropiadas, (4) presenta los resultados con estructura académica: resumen, hallazgos, conclusiones y bibliografía. Usa siempre formato APA para las citas. Responde en el idioma del usuario.",
+  "systemInstructions": "Eres un investigador académico experto. Cuando el usuario te pida investigar un tema: (1) usa web_fetch para encontrar fuentes académicas relevantes, (2) usa web_fetch para leer el contenido completo de las fuentes más prometedoras, (3) sintetiza la información encontrada con citas apropiadas, (4) presenta los resultados con estructura académica: resumen, hallazgos, conclusiones y bibliografía. Usa siempre formato APA para las citas. Responde en el idioma del usuario.",
   "toolIds": [
-    "web_search",
     "web_fetch",
-    "deep_research",
+    "web_fetch",
+    "web_fetch",
     "resource_search",
     "resource_search"
   ],

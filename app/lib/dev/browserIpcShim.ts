@@ -86,8 +86,6 @@ export function installBrowserIpcShim(): void {
       listOpenRouterModels: (apiKey) => invoke('ai:openrouter:listModels', { apiKey }),
       listProviderModels: (params) => invoke('ai:provider:listModels', params),
       testConnection: () => invoke('ai:testConnection'),
-      testWebSearch: () => invoke('ai:testWebSearch'),
-      webSearch: (args) => invoke('ai:webSearch', args),
       onStreamChunk: () => () => {},
     },
     // `threads.*` channels are kebab-cased in preload.cjs (threads:get-state,

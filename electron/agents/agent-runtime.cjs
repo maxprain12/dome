@@ -75,7 +75,6 @@ const CREATION_TOOL_CAPS = Object.freeze({
   generate_faq: 5,
   generate_timeline: 5,
   generate_table: 5,
-  generate_audio_overview: 5,
   generate_video_overview: 5,
   notebook_add_cell: 50,
   pdf_annotation_create: 50,
@@ -929,7 +928,7 @@ async function setupHarness(surface, opts) {
     // with every tool filtered away. In a coding run it replaces the content
     // subagents, which have no file/shell tools and would answer "I can't".
     const enabledSubagents = workspaceSession
-      ? ['coding', ...requestedSubagents.filter((id) => id === 'research')]
+      ? ['coding']
       : requestedSubagents.filter((id) => id !== 'coding');
     if (enabledSubagents.length > 0) {
       tools.push(buildTaskTool({
@@ -964,9 +963,8 @@ async function setupHarness(surface, opts) {
     }, opts.teamMemberAgents));
   }
 
-  const nativeWeb = ai.resolveNativeWebActivation(resolvedModel, tools);
   const registeredTools = manyMode.filterRuntimeToolsForMode(
-    nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools,
+    tools,
     mode, mcpToolNames,
   );
 
@@ -1029,7 +1027,6 @@ async function setupHarness(surface, opts) {
     // one instead of being rejected by the provider.
     thinkingLevel: resolveThinkingLevel(ai, resolvedModel, thinkingLevel),
     streamOptions: {
-      nativeWeb: nativeWeb.search || nativeWeb.fetch ? nativeWeb : undefined,
     },
     getApiKeyAndHeaders: async () => {
       try {
@@ -1427,19 +1424,21 @@ async function prepareRunDomeInputs(opts) {
   const ai = await import('@dome/ai');
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
   const { attachmentsToImageContent } = require('../ai/image-attach.cjs');
+  const input = require('../ai/model-input.cjs').resolveModelInput(opts.provider, opts.model, undefined, opts.baseUrl);
   const rawNonSystem = (Array.isArray(opts.messages) ? opts.messages : []).filter(
     (m) => m && m.role !== 'system',
   );
   const normalizedNonSystem = normalizeMessagesForProvider(rawNonSystem, {
     provider: opts.provider,
     modelId: opts.model,
+    input,
   });
   const contextMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
   let userPrompt = lastUserText(contextMessages);
   const lastRaw = lastRawUserMessage(rawNonSystem);
   const lastContextUser = [...contextMessages].reverse().find((message) => message.role === 'user');
   const promptImages = lastRaw?.attachments?.images?.length
-    ? await attachmentsToImageContent(lastRaw.attachments, { provider: opts.provider, modelId: opts.model })
+    ? await attachmentsToImageContent(lastRaw.attachments, { provider: opts.provider, modelId: opts.model, input })
     : (Array.isArray(lastContextUser?.content) ? lastContextUser.content.filter((block) => block.type === 'image') : []);
   if (!userPrompt.trim() && promptImages.length > 0) {
     userPrompt = '(see attached image)';

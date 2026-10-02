@@ -6,11 +6,8 @@ const PREAMBLE_TOOLS = new Set(['dome_load_doc', 'get_tool_definition']);
 
 /** Optional helpers per primary tool (still scoped, no filesystem). */
 const HELPER_TOOLS = {
-  resource_get: ['resource_search', 'resource_hybrid_search', 'resource_semantic_search'],
-  resource_get_section: ['resource_hybrid_search', 'resource_semantic_search', 'resource_get'],
+  resource_get: ['resource_search'],
   resource_get_pinned: ['resource_get'],
-  resource_hybrid_search: ['resource_get'],
-  resource_semantic_search: ['resource_get'],
   resource_get_active: ['resource_get'],
   generate_mindmap: ['resource_get'],
   generate_quiz: ['resource_get'],
@@ -41,8 +38,6 @@ const HELPER_TOOLS = {
   automation_create: ['dome_load_doc', 'agent_create'],
   workflow_create: ['dome_load_doc'],
   marketplace_install: ['marketplace_search'],
-  link_resources: ['resource_get'],
-  get_related_resources: ['resource_get'],
 };
 
 /**

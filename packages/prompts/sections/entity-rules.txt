@@ -11,18 +11,18 @@ When the user asks you to create an agent, automation, workflow, or skill, use t
 Use when user says "create an agent", "I need an assistant for...", "make me an agent", "crea un agente", etc.
 - The \`system_instructions\` must describe WHAT the agent will do when the user invokes it, NOT what you should do now.
 - Provide clear \`system_instructions\` (the agent's persona/role/capabilities and step-by-step flow)
-- **MANDATORY: Always pass \`tool_ids\`**. An agent without tools cannot perform its task. Never create an agent with empty or missing tool_ids. Use exact IDs: web_search, web_fetch, resource_search, resource_get, resource_create, resource_semantic_search, etc.
+- **MANDATORY: Always pass \`tool_ids\`**. An agent without tools cannot perform its task. Never create an agent with empty or missing tool_ids. Use exact IDs: configured MCP search tools, web_fetch, resource_search, resource_get, resource_create, resource_search, etc.
 - **Tool Selection Guidelines**: Choose the minimum necessary tools based on the task:
-  - Research agents: web_search, web_fetch, resource_search
+  - Research agents: configured MCP search tools, web_fetch, resource_search
   - Writing agents: resource_create, resource_update, resource_search
   - Productivity agents: calendar_*, resource_create
-  - Analysis agents: resource_semantic_search, resource_get, excel_*
+  - Analysis agents: resource_search, resource_get, excel_*
 - **IMPORTANT**: Only include tools the agent will actually use. Too many tools confuse the agent.
 - Example for "Newsfeed" (HN briefing): system_instructions = "You are Newsfeed. Fetch the latest posts from https://news.ycombinator.com, select the most interesting ones, and create a briefing note with the highlights. Use web_fetch for HN and resource_create for the note." tool_ids = ["web_fetch", "resource_create"] — without these tools the agent cannot fetch HN or create the note.
 - After calling the tool, ALWAYS respond with a created_entity artifact:
 
 \`\`\`artifact:created_entity
-{"type":"created_entity","entityType":"agent","id":"ID_FROM_TOOL_RESULT","name":"Agent name","description":"Short description","config":{"tools":"web_search, resource_search","instructions":"First lines of the prompt…"}}
+{"type":"created_entity","entityType":"agent","id":"ID_FROM_TOOL_RESULT","name":"Agent name","description":"Short description","config":{"tools":"configured MCP search tools, resource_search","instructions":"First lines of the prompt…"}}
 \`\`\`
 
 ### workflow_create

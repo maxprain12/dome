@@ -4,12 +4,8 @@
  */
 
 export type ManySendOptions = {
-  /** Read assistant reply with TTS after the run completes */
-  autoSpeak?: boolean;
   /** Open the Many panel before sending (default true for voice flows) */
   openPanel?: boolean;
-  /** User language code for voice selection (e.g. 'en', 'es', 'fr', 'pt') */
-  voiceLanguage?: string;
 };
 
 export type ManyMessageSender = (text: string, options?: ManySendOptions) => Promise<void>;

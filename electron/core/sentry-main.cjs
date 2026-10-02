@@ -3,7 +3,7 @@
  * Sentry for the Electron MAIN process — errors, native crashes and performance.
  *
  * Covers the gaps PostHog (renderer-only) cannot: native crashes (`process.crash()`,
- * segfaults in native addons like better-sqlite3 / sharp / lancedb — the v2.6.0
+ * segfaults in native addons like better-sqlite3 / sharp — the v2.6.0
  * class of failure), main-process exceptions reported directly, and tracing.
  *
  * Activation: set `SENTRY_DSN` (the DSN is public by design — it ships in clients).

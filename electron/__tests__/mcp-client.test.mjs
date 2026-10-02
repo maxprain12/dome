@@ -16,6 +16,7 @@ const {
   testSingleMcpServer,
   buildStdioEnv,
   exposedToolName,
+  filterToolsForServerPolicy,
   loadToolsForServer,
   closeAllMcpClients,
   getMCPTools,
@@ -177,4 +178,11 @@ it('server failures do not hide healthy servers', async () => {
     }) });
     assert.equal(tools.length, 2);
   } finally { await closeAllMcpClients(); }
+});
+
+it('selects MCP tools by exact original or exposed name without enabling normalized collisions', () => {
+  const tools = [{ originalName: 'a.b', name: exposedToolName('one', 'a.b', true) }, { originalName: 'a-b', name: exposedToolName('one', 'a-b', true) }];
+  assert.deepEqual(filterToolsForServerPolicy(tools, { enabledToolIds: ['a.b'] }), [tools[0]]);
+  assert.deepEqual(filterToolsForServerPolicy(tools, { enabledToolIds: [tools[1].name] }), [tools[1]]);
+  assert.equal(filterToolsForServerPolicy(tools, { enabledToolIds: ['a_b'] }).length, 1);
 });

@@ -75,7 +75,6 @@ export const WORKFLOWS_TAB_ID = 'workflows';
 export const AUTOMATIONS_TAB_ID = 'automations';
 export const RUNS_TAB_ID = 'runs';
 export const FOLDER_TAB_PREFIX = 'folder:';
-export const TRANSCRIPTIONS_TAB_ID = 'transcriptions';
 
 const HOME_TAB: DomeTab = { id: HOME_TAB_ID, type: 'home', title: 'Home', pinned: true };
 
@@ -130,7 +129,7 @@ export function tabsFromParsedPayload(
 ): { tabs: DomeTab[]; activeTabId: string } {
   if (parsed.tabs.length === 0) return defaultTabsState();
   const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.flatMap((tab) => {
-    if ((tab.type as string) !== 'semantic-graph') return [tab];
+    if (!['semantic-graph', 'transcriptions', 'transcription-detail'].includes(tab.type as string)) return [tab];
     return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('sectionGuide.library.title'), resourceId: tab.projectId || activeProjectId || 'default' }];
   }), activeProjectId));
   return { tabs, activeTabId: resolveStoredActiveTabId(tabs, parsed.activeTabId) };
@@ -220,8 +219,6 @@ interface TabStore {
   openProjectsTab: () => void;
   openFolderTab: (folderId: string, title: string, color?: string, projectId?: string) => void;
   navigateFolderTab: (fromTabId: string, location: { id: string; title: string; color?: string }, projectId?: string) => void;
-  openTranscriptionsTab: () => void;
-  openTranscriptionDetailTab: (noteId: string, title: string, projectId?: string) => void;
   openArtifactTab: (title: string, artifactJson: string, projectId?: string) => void;
   openPluginTab: (pluginId: string, title: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
@@ -266,7 +263,6 @@ export const useTabStore = create<TabStore>((set, get) => {
         'runs',
         'learn',
         'projects',
-        'transcriptions',
       ];
       if (singletonTypes.includes(tabSpec.type)) {
         const existing = tabs.find((t) => t.type === tabSpec.type);
@@ -704,25 +700,6 @@ export const useTabStore = create<TabStore>((set, get) => {
       migrateFolderHistory(fromTabId, newTabId);
       set({ tabs: newTabs, activeTabId });
       saveTabs(newTabs, activeTabId);
-    },
-
-    openTranscriptionsTab: () => {
-      get().openTab({
-        id: TRANSCRIPTIONS_TAB_ID,
-        type: 'transcriptions',
-        title: i18n.t('transcriptions.tab_title'),
-        pinned: false,
-      });
-    },
-
-    openTranscriptionDetailTab: (noteId, title, projectId) => {
-      get().openTab({
-        type: 'transcription-detail',
-        title: title.trim() || i18n.t('transcriptions.tab_title'),
-        resourceId: noteId,
-        pinned: false,
-        ...(projectId ? { projectId } : {}),
-      });
     },
 
 

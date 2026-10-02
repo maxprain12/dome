@@ -52,7 +52,6 @@ export type DomeSystemPromptOptions = {
   skillsCatalogMarkdown?: string | null;
   includeDate?: boolean;
   extraSections?: Array<string | null | undefined>;
-  voiceLanguage?: string | null;
   omitCoreTools?: boolean;
   coreToolsMode?: 'full' | 'minimal';
 };
@@ -86,19 +85,10 @@ export type BenchPromptOptions = {
   explainOnly?: boolean;
 };
 
-const VOICE_LANGUAGE_NAMES: Record<string, string> = {
-  es: 'Spanish',
-  en: 'English',
-  de: 'German',
-  it: 'Italian',
-  fr: 'French',
-  pt: 'Portuguese',
-};
-
 const PINNED_SOURCE_TOOL_HINTS: Record<string, string> = {
   social_post: ' → social_post_get',
   social_reference: ' → social_reference_list',
-  social_profile: ' → research_capabilities (analyze supplied evidence before remote reads)',
+  social_profile: ' → social_reference_list (analyze supplied evidence before remote reads)',
   social_campaign: ' → social_campaigns_list',
   email: ' → email_read',
   issue: ' → github_get_issue',
@@ -148,21 +138,6 @@ export function todayEnLong(): string {
     month: 'long',
     day: 'numeric',
   });
-}
-
-export function buildVoiceSuffix(language: string | null | undefined): string {
-  const langName =
-    (language && VOICE_LANGUAGE_NAMES[language]) || VOICE_LANGUAGE_NAMES.es;
-  return `
-
-## Voice Response Mode
-You are speaking aloud in a live voice conversation. Follow these rules:
-- Keep the spoken answer SHORT and conversational (2-4 sentences for simple questions).
-- Use natural spoken language — avoid long markdown, bullet lists, and headers for the part that will be read aloud.
-- You MAY still emit \`\`\`artifact:*\`\`\` blocks after the spoken answer when a visual genuinely helps. The TTS layer skips those blocks automatically.
-- Summarize instead of enumerating long lists.
-- Avoid filler phrases like "of course!", "certainly!".
-- Respond in ${langName}.`;
 }
 
 function formatPinnedPersonLine(person: PinnedPerson): string {
@@ -306,7 +281,6 @@ export function buildDomeSystemPrompt(
   }
 
   let assembled = sections.join('\n\n');
-  if (options.voiceLanguage) assembled += buildVoiceSuffix(options.voiceLanguage);
   return assembled;
 }
 

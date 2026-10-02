@@ -147,17 +147,6 @@ describe('invokeToolHandler', () => {
     assert.equal(resourceGet.mock.calls[0].arguments[0], 'res-1');
   });
 
-  it('deepResearch invokes fn without wrapping in an extra async await layer', () => {
-    assert.equal(typeof HANDLER_INVOKERS.deepResearch, 'function');
-    const rejected = Promise.reject(new Error('research-failed'));
-    // Prevent unhandledRejection in the test process.
-    rejected.catch(() => {});
-    const fn = mock.fn(() => rejected);
-    const out = HANDLER_INVOKERS.deepResearch({ fn, args: { q: 1 } });
-    assert.equal(out, rejected);
-    assert.equal(fn.mock.calls[0].arguments[0].q, 1);
-  });
-
   it('domeLoadDoc validates id and returns section body', async () => {
     const missing = await invokeToolHandler('domeLoadDoc', {
       fn: async () => {},
@@ -231,7 +220,7 @@ describe('getToolTimeoutMs', () => {
     const src = require('node:fs').readFileSync(dispatcherPath, 'utf8');
     assert.match(src, /web_fetch:\s*90_000/);
     assert.match(src, /DEFAULT_TOOL_TIMEOUT_MS/);
-    assert.match(src, /handlerName === 'deepResearch'/);
+    assert.doesNotMatch(src, /handlerName === 'deepResearch'/);
     assert.match(src, /invokeToolHandler/);
   });
 });

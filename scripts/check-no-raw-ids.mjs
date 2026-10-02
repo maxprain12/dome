@@ -15,7 +15,6 @@ export function defaultAllowlist() {
     'app/components/shared/DateTimePicker.tsx',
     'app/components/settings/sections/McpSection.tsx',
     'app/components/settings/sections/KbLlmSection.tsx',
-    'app/components/settings/ai/AIWebSearchTab.tsx',
     'app/components/settings/TranscriptionSettingsSections.tsx',
     'app/components/learn/DeckEditor.tsx',
   ]);

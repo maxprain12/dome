@@ -3,7 +3,5 @@
   "close_sidebar": "Close sidebar",
   "open_right_panel": "Open Many panel",
   "close_right_panel": "Close Many panel",
-  "new_chat": "New chat",
-  "dictation_dock": "Transcription hub (speech-to-text)",
-  "open_transcriptions": "Transcription history"
+  "new_chat": "New chat"
 }

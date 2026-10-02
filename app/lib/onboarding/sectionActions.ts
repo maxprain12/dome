@@ -36,7 +36,6 @@ const ACTIONS: Record<string, readonly [GuideAction, GuideAction, GuideAction]> 
   workflows: ['explore', 'agents', 'runs'], automations: ['explore', 'agents', 'runs'],
   runs: ['explore', 'explore', 'agents'], learn: ['explore', 'explore', 'explore'],
   marketplace: ['explore', 'explore', 'modes'], chat: ['ai', 'explore', 'explore'],
-  transcriptions: ['ai', 'explore', 'explore'], graph: ['projects', 'explore', 'explore'],
   settings: ['account', 'ai', 'modes'], tags: ['explore', 'explore', 'projects'],
   editor: ['explore', 'explore', 'ai'],
 };

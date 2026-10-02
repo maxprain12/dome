@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * Ollama Service Module - Main Process
- * Handles communication with Ollama API for embeddings and text generation
+ * Handles communication with Ollama API for models and text generation
  */
 
 const http = require('node:http');
@@ -178,7 +178,9 @@ async function listModels(baseUrl = DEFAULT_BASE_URL, apiKey = '') {
 
     if (response && Array.isArray(response.models)) {
       return Promise.all(response.models.map(async (model) => {
-        const metadata = await makeRequest(`${baseUrl}/api/show`, { method: 'POST', apiKey, body: { model: model.name } });
+        let metadata;
+        try { metadata = await makeRequest(`${baseUrl}/api/show`, { method: 'POST', apiKey, body: { model: model.name } }); }
+        catch (error) { console.warn(`[OllamaService] Cannot discover ${model.name} capabilities:`, error.message); }
         return { name: model.name, size: model.size || 0, modified_at: model.modified_at || '',
           input: metadata?.capabilities?.includes('vision') ? ['text', 'image'] : ['text'] };
       }));

@@ -34,5 +34,6 @@
   "confirm_sources": "Confirmar",
   "validation_failed": "A saída do Studio tinha dados inválidos e não pôde ser guardada. Tente novamente.",
   "validation_no_items": "A IA não devolveu conteúdo válido suficiente.",
-  "quiz_data_corrupted": "Este quiz tem dados corrompidos e não pode ser exibido corretamente."
+  "quiz_data_corrupted": "Este quiz tem dados corrompidos e não pode ser exibido corretamente.",
+  "saved_transcript_without_audio": "Transcrição guardada. Nenhum ficheiro de áudio disponível."
 }

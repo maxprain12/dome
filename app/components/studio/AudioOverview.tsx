@@ -6,7 +6,6 @@ import {
   PauseIcon,
   VolumeHighIcon,
   VolumeOffIcon,
-  Loading03Icon,
   Mic01Icon,
   PreviousIcon,
   NextIcon,
@@ -35,7 +34,6 @@ interface AudioOverviewProps {
   transcript: AudioTranscript;
   title?: string;
   onClose?: () => void;
-  isGenerating?: boolean;
 }
 
 // =============================================================================
@@ -120,19 +118,8 @@ function AudioHeader({ title, formatLabel, onClose, closeLabel }: AudioHeaderPro
   );
 }
 
-function GeneratingIndicator() {
-  return (
-    <div
-      className="flex items-center justify-center gap-3 px-4 py-6 border-b shrink-0"
-      style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
-    >
-      <HugeiconsIcon icon={Loading03Icon} size={20} className="animate-spin text-primary" />
-      <span className="text-sm text-muted-foreground">Generating audio...</span>
-    </div>
-  );
-}
-
 function NoAudioIndicator() {
+  const { t } = useTranslation();
   return (
     <div
       className="flex items-center justify-center gap-2 p-4 border-b shrink-0"
@@ -140,7 +127,7 @@ function NoAudioIndicator() {
     >
       <HugeiconsIcon icon={Mic01Icon} size={16} className="text-muted-foreground" />
       <span className="text-xs text-muted-foreground">
-        No audio generated yet. Transcript only.
+        {t('studio.saved_transcript_without_audio')}
       </span>
     </div>
   );
@@ -332,12 +319,10 @@ function PlayerControls({
 }
 
 interface PlayerSectionProps extends PlayerControlsProps {
-  isGenerating: boolean;
   hasAudio: boolean;
 }
 
-function PlayerSection({ isGenerating, hasAudio, ...controls }: PlayerSectionProps) {
-  if (isGenerating) return <GeneratingIndicator />;
+function PlayerSection({ hasAudio, ...controls }: PlayerSectionProps) {
   if (!hasAudio) return <NoAudioIndicator />;
   return <PlayerControls {...controls} />;
 }
@@ -440,7 +425,6 @@ export default function AudioOverview({
   transcript,
   title,
   onClose,
-  isGenerating = false,
 }: AudioOverviewProps) {
   const { t } = useTranslation();
   // Audio state
@@ -659,7 +643,6 @@ export default function AudioOverview({
         closeLabel={t('studio.close_button')}
       />
       <PlayerSection
-        isGenerating={isGenerating}
         hasAudio={hasAudio}
         progress={progress}
         currentTime={currentTime}

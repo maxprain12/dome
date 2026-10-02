@@ -409,8 +409,6 @@ export interface AIProviderInterface {
   /** Create a streaming chat completion */
   chatStream(options: ChatOptions): AsyncIterable<ChatStreamChunk>;
 
-  /** Create embeddings (if supported) */
-
   /** List available models */
   listModels?(): Promise<ModelDefinitionConfig[]>;
 

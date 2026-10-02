@@ -9,8 +9,6 @@ const approval = require('../ipc/agents/approval.cjs');
 const agentRuntime = require('./agent-runtime.cjs');
 const { extraHitlToolNames, parseManyAgentMode } = require('./many-agent-mode.cjs');
 const { getToolDefinitionsByIds, getAllToolDefinitions } = require('../tools/tool-definitions.cjs');
-const streamingTts = require('../speech/streaming-tts.cjs');
-const { getOpenAIKey } = require('../ai/openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readCoreSection } = require('../prompts/tool-prompt-loader.cjs');
@@ -345,9 +343,6 @@ function handleTextChunk(data, runId, context, heartbeat) {
   context.fullResponse = next;
   if (emitted) {
     emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: emitted });
-    if (context.autoSpeak) {
-      streamingTts.feedChunk(runId, emitted);
-    }
   }
   patchRun(runId, {
     status: 'running',
@@ -654,9 +649,6 @@ async function finalizeAgentRunSuccess(runId, params, context) {
     content: context.fullResponse.slice(0, 8000),
     ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
   });
-  if (context.autoSpeak) {
-    streamingTts.flush(runId);
-  }
   finalizeRunningRunSteps(runId, 'completed', context);
   return patchRun(runId, {
     status: 'completed',
@@ -712,9 +704,6 @@ function updateToolCallsOnAbort(context, aborted) {
 }
 
 async function finalizeAgentRunError(runId, params, context, error, aborted) {
-  if (context.autoSpeak) {
-    streamingTts.cancel(runId);
-  }
   updateToolCallsOnAbort(context, aborted);
   finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
   appendRunStep({
@@ -841,8 +830,6 @@ async function startAgentRun(params) {
   });
   const controller = new AbortController();
   setMaxListeners(64, controller.signal);
-  const autoSpeak = Boolean(params.autoSpeak);
-  const voiceLanguage = typeof params.voiceLanguage === 'string' ? params.voiceLanguage : 'es';
   activeRunContexts.set(run.id, {
     controller,
     createdAt: Date.now(),
@@ -856,15 +843,10 @@ async function startAgentRun(params) {
     model: providerConfig.model,
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,
-    autoSpeak,
-    voiceLanguage,
     projectId: params.projectId ?? 'default',
     uiPhase: 'queued',
     uiPhaseDetail: null,
   });
-  if (autoSpeak) {
-    streamingTts.start(run.id, { language: voiceLanguage });
-  }
   setImmediate(() => { executeAgentRun(run.id, {
       ...params,
       sessionId: run.sessionId,
@@ -1401,7 +1383,7 @@ function recoverStuckRuns() {
   }
 }
 
-function init(windowManager, database, ttsService) {
+function init(windowManager, database) {
   _windowManager = windowManager;
   _database = database;
   workflowExecutor.init({ database, loadManyAgents });
@@ -1425,16 +1407,6 @@ function init(windowManager, database, ttsService) {
       setAutomationRunStatus(automationId, status),
     onRunTerminal: (run) => pipelineRunner.onRunTerminal(run),
   });
-
-  // Initialize streaming TTS with dependencies
-  if (ttsService) {
-    streamingTts.init({
-      broadcast: (channel, payload) => _windowManager?.broadcast?.(channel, payload),
-      getApiKey: () => _database ? getOpenAIKey(_database) : null,
-      generateSpeech: (text, voice, apiKey, opts) =>
-        ttsService.generateSpeech(text, voice, apiKey, opts),
-    });
-  }
 
   recoverStuckRuns();
   migrateLegacyData();

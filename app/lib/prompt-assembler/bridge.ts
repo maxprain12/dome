@@ -6,7 +6,6 @@ export {
   DOME_LOAD_DOC_IDS,
   DOME_LOAD_DOC_DESCRIPTION,
   buildDomeSystemPrompt as buildDomeSystemPromptFromCore,
-  buildVoiceSuffix,
   formatVolatileSourceContext,
   buildSubagentPrompt,
   buildEditorPrompt as buildEditorPromptFromTemplate,

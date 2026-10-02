@@ -18,17 +18,6 @@ export {
 export type { BuiltinProvider } from './providers/all.js';
 
 export * from './tool-schema.js';
-export {
-	buildAnthropicServerWebTools,
-	buildGoogleSearchTool,
-	buildOpenAIResponsesWebSearchTool,
-	filterClientWebTools,
-	resolveNativeWebActivation,
-	resolveNativeWebSupport,
-	toolNamesIncludeWeb,
-	WEB_CLIENT_TOOL_NAMES,
-} from './native-web-tools.js';
-export type { NativeWebSupport, WebClientToolName } from './native-web-tools.js';
 export { legacyMessagesToContext, mapThinkingLevel } from './legacy-bridge.js';
 export { resolveProviderAuth } from './auth/resolve.js';
 export { builtinProviders } from './providers/all.js';

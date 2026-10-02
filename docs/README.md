@@ -54,8 +54,7 @@ pnpm run check:remote-protocol # contrato Remote Many vs protocol.json
 
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
-| **KB LLM** | [kb-llm-wiki-model.md](features/kb-llm-wiki-model.md) | Recurso `dome_kb`, roles |
-| **Indexación** | [indexing.md](features/indexing.md) | LangChain embeddings, LanceDB, `embeddings:*`, `db:semantic:*` |
+| **Indexación** | [indexing.md](features/indexing.md) | SQLite FTS5, extracción/OCR, aislamiento por proyecto |
 | **KB UX** | [kb-ux-unification.md](features/kb-ux-unification.md) | Learn, Studio, Runs |
 | **Agent Canvas** | [agent-canvas.md](features/agent-canvas.md) | Workflows D3 |
 | **Agent Teams** | [agent-teams.md](features/agent-teams.md) | Equipos multi-agente |

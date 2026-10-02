@@ -56,14 +56,5 @@
   "delete_impact_agentFolders": "Pastas de agentes",
   "delete_impact_workflowFolders": "Pastas de fluxos",
   "select_project_aria": "Selecionar {{name}}",
-  "kb_llm": "KB LLM",
-  "kb_llm_footer_label": "Base de conhecimento",
-  "kb_llm_inherit": "Usar global",
-  "kb_llm_on": "Forçar ativo",
-  "kb_llm_off": "Forçar inativo",
-  "kb_llm_value_inherit": "Global",
-  "kb_llm_value_on": "Ativa",
-  "kb_llm_value_off": "Inativa",
-  "kb_llm_helper": "Substitui só neste projeto a configuração global da base de conhecimento.",
   "active": "Ativo"
 }

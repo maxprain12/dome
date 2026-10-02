@@ -102,7 +102,7 @@ IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 - `data/`: database, storage, files, resources, tags, interactions
 - `ai/`: ai, ai-tools, cloud-llm, kb-llm, ollama
 - `agents/`: agent-team, runs, chat, threads, approval, artifacts
-- `media/`: audio, images, pdf-render, transcription, minimax-files, notebook
+- `media/`: audio, images, pdf-render, minimax-files, notebook
 - `learn/`: learn, quiz, flashcards, studio
 - `sync/`: sync, indexing-sync, cloud-sync, cloud-storage
 - `integrations/`: calendar, mcp, dome-mcp, dome-auth, auth, marketplace, plugins, skills, personality, web, browser-context, feeders
@@ -143,8 +143,7 @@ dome/
 │   ├── tools/                  # ai-tools-handler(+extra), tool-dispatcher/selector/cap, docx/excel/ppt tool handlers, file-tree, crop-image, browser-context-service, tool-result-*
 │   ├── prompts/                # core-prompt-loader, prompts-loader, prompt-sections, prompt-budget, system-prompt
 │   ├── documents/              # document-extractor/generator/staging, pdf-extractor, ppt-slide-extractor, ppt-spec-pptxgen, pptx-normalize/validate, docx-converter, notebook-python, thumbnail
-│   ├── transcription/          # session/ (store, audio, finalize), stt/ (config, batch, realtime, structured), stt-engine, recovery, shortcut — see docs/features/transcription.md
-│   ├── speech/                 # tts-service, streaming-tts, audio-playback
+│   ├── speech/                 # audio-playback (existing files)
 │   ├── permissions/            # media-permissions (mic / screen recording, macOS TCC)
 │   ├── calendar/               # calendar-service, calendar-import/notification, calendar-sync-scheduler, google-calendar-service
 │   ├── mcp/                    # dome-mcp-server, mcp-client, mcp-oauth, mcp-tool-policy (bridge stays an anchor in root)

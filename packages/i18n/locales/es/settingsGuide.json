@@ -27,10 +27,6 @@
       "description": "Conecta la IA que usará Many y configura la búsqueda, la voz y su contexto.",
       "start": "Empieza por Conversación. Las demás pestañas son opcionales y se configuran por separado."
     },
-    "kb_llm": {
-      "description": "Elige cómo organiza Many su conocimiento y cuándo lo actualiza.",
-      "start": "Revisa primero las fuentes y la política de actualización."
-    },
     "cloud": {
       "description": "Conecta Google Drive para acceder a tus archivos desde Dome.",
       "start": "Añade una cuenta de Google. Esta conexión es distinta de sincronizar Dome entre dispositivos."
@@ -79,10 +75,6 @@
       "description": "Actualiza Dome, configura el guardado y exporta o importa tus datos.",
       "start": "Usa una exportación para conservar una copia antes de importar datos."
     },
-    "research": {
-      "description": "Configura las fuentes de Many, comprueba su acceso y controla los costes. Capacidades de Agent-Reach adaptadas a Dome.",
-      "start": "Elige una fuente, revisa su ruta y prueba una operación. Los proveedores de pago necesitan clave y permiso explícito."
-    },
     "memory": {
       "description": "Revisa recuerdos personales, contexto por dominio y logs recientes.",
       "start": "Desactivar memoria excluye recuerdos personales del contexto nuevo y bloquea la escritura automática en todas las superficies. SOUL, las instrucciones del proyecto y el historial de conversación se conservan. La edición manual sigue disponible."
@@ -90,9 +82,6 @@
   },
   "ai": {
     "chat": "El proveedor es el servicio que responde a Many. Seleccionarlo aquí no lo activa hasta que guardes.",
-    "embeddings": "Este modelo convierte tus documentos en representaciones para buscarlos por significado. Se configura por separado de la conversación.",
-    "transcription": "Elige cómo convertir audio en texto y si quieres un resumen. Los permisos se solicitan cuando los necesitas.",
-    "tools": "Configura las fuentes de búsqueda en internet que Many puede consultar.",
     "context": "Decide qué información recibe Many y cómo gestiona conversaciones largas.",
     "cloud": "Necesitas una clave API de {{provider}}. Su uso se factura con ese proveedor, por separado de tu cuenta Dome.",
     "subscription": "Conecta la cuenta de este proveedor y elige un modelo disponible. Esta conexión es independiente de tu cuenta Dome.",

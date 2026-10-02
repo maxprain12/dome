@@ -1,13 +1,11 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import type { IconSvgElement } from '@hugeicons/react';
 import {
-  BookMarkedIcon,
   BrainIcon,
   Calendar03Icon,
   CloudCogIcon,
   CloudIcon,
   ComputerIcon,
-  DatabaseIcon,
   GlobeIcon,
   LayoutGridIcon,
   MagicWand01Icon,
@@ -19,7 +17,6 @@ import {
   ServerStack01Icon,
   Settings01Icon,
   Share08Icon,
-  Search01Icon,
   UserIcon,
 } from '@hugeicons/core-free-icons';
 
@@ -34,8 +31,6 @@ export type SettingsSection =
   | 'features'
   | 'ai'
   | 'memory'
-  | 'research'
-  | 'transcription'
   | 'mcp'
   | 'dome_mcp'
   | 'skills'
@@ -44,7 +39,6 @@ export type SettingsSection =
   | 'cloud'
   | 'dome_sync'
   | 'language'
-  | 'kb_llm'
   | 'calendar'
   | 'email'
   | 'social'
@@ -52,7 +46,7 @@ export type SettingsSection =
   | 'remote_many';
 
 /** Sections reachable from the nav (legacy aliases resolve into these). */
-type NavSection = Exclude<SettingsSection, 'transcription'>;
+type NavSection = SettingsSection;
 
 export interface SettingsEntry {
   id: NavSection;
@@ -80,10 +74,8 @@ const GROUP_DEFS: GroupDef[] = [
     { id: 'features', icon: LayoutGridIcon },
   ] },
   { labelKey: 'settingsGuide.groups.intelligence', sections: [
-    { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription', 'indexing'], layout: 'wide' },
+    { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription', 'indexing', 'research', 'agent-reach', 'kb_llm'], layout: 'wide' },
     { id: 'memory', icon: BrainIcon },
-    { id: 'research', icon: Search01Icon, layout: 'wide', legacyAliases: ['agent-reach'] },
-    { id: 'kb_llm', icon: BookMarkedIcon },
   ] },
   { labelKey: 'settingsGuide.groups.connections', sections: [
     { id: 'cloud', icon: CloudIcon }, { id: 'calendar', icon: Calendar03Icon },
@@ -105,7 +97,6 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   features: lazy(() => import('./sections/FeaturesSection')),
   ai: lazy(() => import('./sections/AISection')),
   memory: lazy(() => import('./sections/MemorySection')),
-  research: lazy(() => import('./sections/ResearchSection')),
   browser_extension: lazy(() => import('./sections/BrowserExtensionSection')),
   remote_many: lazy(() => import('./sections/RemoteManySection')),
   mcp: lazy(() => import('./sections/McpSection')),
@@ -115,7 +106,6 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   advanced: lazy(() => import('./sections/AdvancedSection')),
   cloud: lazy(() => import('./sections/CloudStorageSection')),
   dome_sync: lazy(() => import('./sections/DomeSyncSection')),
-  kb_llm: lazy(() => import('./sections/KbLlmSection')),
   calendar: lazy(() => import('./sections/CalendarSection')),
   email: lazy(() => import('./sections/EmailSection')),
   social: lazy(() => import('./sections/SocialSection')),

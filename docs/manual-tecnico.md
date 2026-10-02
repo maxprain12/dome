@@ -12,7 +12,7 @@
 3. [Estructura de directorios](#3-estructura-de-directorios)
 4. [IPC — Comunicación entre procesos](#4-ipc--comunicación-entre-procesos)
 5. [Base de datos SQLite](#5-base-de-datos-sqlite)
-6. [Indexación semántica (LangChain + LanceDB)](#6-indexación-semántica-langchain--lancedb) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
+6. [Indexación textual y OCR](#6-indexación-textual-y-ocr)
 7. [AI Integration](#7-ai-integration)
 8. [Run Engine y Automatizaciones](#8-run-engine-y-automatizaciones)
 9. [State Management (Zustand)](#9-state-management-zustand)
@@ -79,7 +79,7 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 | UI components | shadcn/ui (Base UI) | latest |
 | Styling | Tailwind CSS + CSS Variables | — |
 | Database | better-sqlite3 + `@dome/db` (Drizzle) | schema v53 |
-| Vector search | LangChain embeddings + LanceDB (`dome-lance`) | — |
+| Búsqueda textual | SQLite FTS5 | — |
 | Agent runtime | `@dome/agent-core` (loop nativo, sin LangGraph) | workspace |
 | AI providers | OpenAI, Anthropic, Google, Ollama, Dome | — |
 | Editor | Tiptap (ProseMirror) | — |
@@ -299,32 +299,28 @@ const resource = await dbClient.getResourceById(id);
 
 ---
 
-## 6. Indexación semántica (LangChain + LanceDB)
+## 6. Indexación textual y OCR
 
-La búsqueda híbrida usa **vectores en LanceDB** (embeddings LangChain configurables: OpenAI, Google Gemini u Ollama) más FTS y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** del usuario (Ajustes → IA, visión / multimodal). Configuración en **Ajustes → IA → Embeddings**; IPC `embeddings:*` y `db:semantic:*`.
+SQLite FTS5 indexa títulos y texto extraído sin reemplazar el contenido original.
+`electron/search/resource-search.cjs` trata las consultas literalmente y aplica
+el filtro de proyecto antes del límite. `text-indexing.cjs` mantiene la cola de
+extracción; `resource-text.cjs` reutiliza el texto guardado y el OCR de PDF/imágenes.
 
-Documentación detallada: **[indexing.md](./features/indexing.md)**.
+Documentación: [indexing.md](./features/indexing.md).
 
-### Flujo resumido
-
+```text
+Recursos → text-index-scheduler → text-indexing → resource-text / OCR
+    → resources.content_text → resources_fts (SQLite FTS5)
 ```
-Recursos → semantic-index-scheduler → indexing.pipeline.cjs
-    → (texto) resource-text / cloud PDF / cloud imagen
-    → chunking.cjs → embeddings.service.cjs (LangChain) → lancedb-semantic.cjs
-```
 
-### IPC principal
+La migración 79 deja las tablas históricas de relaciones inactivas y retira sus
+triggers. La migración 80 desactiva las automatizaciones de KB y las que dependen
+de herramientas retiradas antes de arrancar el scheduler. Conserva documentos,
+notas, ejecuciones y transcripciones anteriores; no recrea esos servicios.
 
-| Área | Canales / módulo |
-|------|------------------|
-| Embeddings / índice | `embeddings:*`, `db:semantic:*`, `semantic:progress` |
-| Cloud LLM (visión) | `cloud:llm:pdf-region-stream`, streaming `cloud:llm:stream-*` |
-| Reindex biblioteca | `indexing:full-sync` |
-| Vista página PDF (chat) | `pdf:render-page`, `ai:tools:pdfRenderPage` |
-
-### KB LLM (wiki compilada por agentes)
-
-Metadatos y FTS5: [kb-llm-wiki-model.md](./features/kb-llm-wiki-model.md). Si `metadata.dome_kb.reindexOnSave` es `true`, las actualizaciones pueden programar reindexación semántica vía `semantic-index-scheduler.cjs`.
+El lector `web_fetch` conserva la lectura de URLs. La búsqueda externa se ofrece
+mediante MCP configurados o herramientas de skills. La reproducción multimedia
+y las transcripciones guardadas siguen disponibles, sin captura ni síntesis.
 
 ---
 
@@ -385,11 +381,9 @@ Definidas en `electron/ai-chat-with-tools.cjs` y `app/lib/ai/tools/`:
 
 | Tool | Descripción |
 |------|-------------|
-| `web_search` | DuckDuckGo/Brave search |
 | `web_fetch` | Descarga y procesa URLs |
-| `deep_research` | Investigación multi-paso |
 | `resource_search` | FTS en biblioteca Dome |
-| `resource_semantic_search` | Búsqueda semántica (embeddings LangChain + LanceDB, chunks + `page_number`) |
+| `resource_search` | Búsqueda textual SQLite FTS5 con filtro por proyecto |
 | `resource_get` | Lee contenido de recurso |
 | `resource_create` | Crea nota nueva |
 | `resource_update` | Edita nota existente |

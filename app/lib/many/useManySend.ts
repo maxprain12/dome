@@ -266,7 +266,6 @@ type ExecuteLaunchArgs = {
   setStreamingMessage: (updater: Updater<ManyMessageData | null>) => void;
   setActiveRunId: (runId: string | null) => void;
   applyRunSnapshot: (run: PersistentRun | null) => void;
-  voiceAutoSpeakForRunIdRef: MutableRefObject<string | null>;
   historyMessages: ManyMessage[];
   textPart: string;
   pinSnapshot: PreparedManySendInput['pinSnapshot'];
@@ -460,7 +459,6 @@ async function buildManyRunMessages(args: {
   historyMessages: ManyMessage[];
   currentSessionId: string | null;
   sendOptions: ManySendOptions | undefined;
-  voiceLanguage: string;
   agentMode: ReturnType<typeof parseManyAgentMode>;
 }): Promise<Array<{ role: string; content: string }>> {
   const staticPersona = args.buildStaticPersona();
@@ -475,7 +473,6 @@ async function buildManyRunMessages(args: {
     staticPersona,
     volatileContext: args.volatileContext,
     extraSections: [toolHint],
-    voiceLanguage: args.sendOptions?.autoSpeak ? args.voiceLanguage : null,
     coreToolsMode: 'minimal',
   });
 
@@ -565,7 +562,6 @@ async function dispatchManyAgentRun(args: {
   t: TFunction;
   setActiveRunId: (runId: string | null) => void;
   applyRunSnapshot: (run: PersistentRun | null) => void;
-  voiceAutoSpeakForRunIdRef: MutableRefObject<string | null>;
   sendOptions: ManySendOptions | undefined;
   currentSessionId: string | null;
   currentSession: ManyChatSession | null;
@@ -582,7 +578,6 @@ async function dispatchManyAgentRun(args: {
   memoryEnabled: boolean;
   userMemory: string;
   workspacePath: string | undefined;
-  voiceLanguage: string;
   agentMode: ReturnType<typeof parseManyAgentMode>;
 }): Promise<PersistentRun> {
   const run = await startAgentRun({
@@ -599,8 +594,6 @@ async function dispatchManyAgentRun(args: {
     subagentIds: [],
     threadId: args.threadId,
     projectId: args.chatProjectId,
-    autoSpeak: args.sendOptions?.autoSpeak ? true : undefined,
-    voiceLanguage: args.sendOptions?.autoSpeak ? args.voiceLanguage : undefined,
     pinnedResourceIds:
       args.pinnedDocs.length > 0 ? args.pinnedDocs.map((r) => r.id) : undefined,
     userMemory: args.userMemory || undefined,
@@ -612,9 +605,6 @@ async function dispatchManyAgentRun(args: {
       : 'off',
     agentMode: args.agentMode,
   });
-  if (args.sendOptions?.autoSpeak) {
-    args.voiceAutoSpeakForRunIdRef.current = run.id;
-  }
   args.setActiveRunId(run.id);
   args.applyRunSnapshot(run);
   return run;
@@ -715,11 +705,6 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     has_tools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
   });
 
-  const voiceLanguage =
-    args.sendOptions?.voiceLanguage ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) ||
-    'es';
-
   const runMessages = await buildManyRunMessages({
     buildStaticPersona: args.buildStaticPersona,
     volatileContext,
@@ -736,7 +721,6 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     historyMessages: args.historyMessages,
     currentSessionId: args.currentSessionId,
     sendOptions: args.sendOptions,
-    voiceLanguage,
     agentMode,
   });
 
@@ -768,7 +752,6 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     t: args.t,
     setActiveRunId: args.setActiveRunId,
     applyRunSnapshot: args.applyRunSnapshot,
-    voiceAutoSpeakForRunIdRef: args.voiceAutoSpeakForRunIdRef,
     sendOptions: args.sendOptions,
     currentSessionId: args.currentSessionId,
     currentSession: args.currentSession,
@@ -785,7 +768,6 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     memoryEnabled: args.memoryEnabled,
     userMemory: memoryForPrompt || '',
     workspacePath,
-    voiceLanguage,
     agentMode,
   });
 }
@@ -831,7 +813,6 @@ export interface UseManySendOptions {
   setPdfRegionStreamingMessage: (updater: Updater<ManyMessageData | null>) => void;
   pdfRegionStreamingMessage: ManyMessageData | null;
   activeRunSessionIdRef: MutableRefObject<string | null>;
-  voiceAutoSpeakForRunIdRef: MutableRefObject<string | null>;
   isSubmittingRef: MutableRefObject<boolean>;
   activeRunId: string | null;
   abortControllerRef: MutableRefObject<AbortController | null>;
@@ -884,7 +865,6 @@ export function useManySend(options: UseManySendOptions) {
     setPdfRegionStreamingMessage,
     pdfRegionStreamingMessage,
     activeRunSessionIdRef,
-    voiceAutoSpeakForRunIdRef,
     isSubmittingRef,
     activeRunId,
     abortControllerRef,
@@ -1102,7 +1082,6 @@ export function useManySend(options: UseManySendOptions) {
           setStreamingMessage,
           setActiveRunId,
           applyRunSnapshot,
-          voiceAutoSpeakForRunIdRef,
           historyMessages: messages.slice(-10),
           textPart,
           pinSnapshot,
@@ -1179,7 +1158,6 @@ export function useManySend(options: UseManySendOptions) {
       setPendingApproval,
       setStreamingMessage,
       setActiveRunId,
-      voiceAutoSpeakForRunIdRef,
       isSubmittingRef,
       inputRef,
       setInput,

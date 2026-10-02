@@ -4,7 +4,6 @@ import { CommandIcon, SidebarLeftIcon } from '@hugeicons/core-free-icons';
 
 import ManyIcon from '@/components/many/ManyIcon';
 import DomeTabBar from '@/components/shell/DomeTabBar';
-import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -108,7 +107,6 @@ export default function TitleBar({
         >
           <HugeiconsIcon icon={CommandIcon} />
         </Button>
-        <TranscriptionPill />
       </div>
     </header>
   );

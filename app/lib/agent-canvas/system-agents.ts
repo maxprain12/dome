@@ -17,22 +17,7 @@ export interface SystemAgentDefinition {
   systemPrompt: string;
 }
 
-export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
-  research: {
-    role: 'research',
-    name: 'Research Agent',
-    description: 'Web research and deep search',
-    color: CANVAS_AGENT_COLORS.research.color,
-    bg: CANVAS_AGENT_COLORS.research.bg,
-    emoji: '🔍',
-    toolIds: ['web_search', 'web_fetch', 'deep_research'],
-    systemPrompt: `You are an expert research agent. Your mission is to find, analyze, and synthesize high-quality information.
-- Use web_search to locate up-to-date and relevant sources
-- Cross-verify facts with multiple sources when possible
-- Structure findings clearly with sections, key points, and citations
-- Be thorough but concise: prioritize quality over quantity
-- Always list the sources used at the end of your response`,
-  },
+export const SYSTEM_AGENTS: Partial<Record<SystemAgentRole, SystemAgentDefinition>> = {
 
   library: {
     role: 'library',
@@ -96,7 +81,6 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
       'ppt_get_slides',
       'generate_mindmap',
       'generate_quiz',
-      'generate_audio_script',
       'resource_create',
     ],
     systemPrompt: `You are an agent specialized in transforming information into high-quality visual and audio-visual materials.
@@ -130,7 +114,7 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
   },
 };
 
-export function getSystemAgent(role: SystemAgentRole): SystemAgentDefinition {
+export function getSystemAgent(role: SystemAgentRole): SystemAgentDefinition | undefined {
   return SYSTEM_AGENTS[role];
 }
 

@@ -868,54 +868,6 @@ function buildQueries(db) {
       DELETE FROM calendar_notifications WHERE event_id = ?
     `),
 
-    // Transcription sessions (redesign — single unified pipeline)
-    insertTranscriptionSession: db.prepare(`
-      INSERT INTO transcription_sessions
-        (id, project_id, folder_id, status, sources, live_preview, save_audio, session_dir, partial_text, started_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
-    `),
-    updateTranscriptionSessionStatus: db.prepare(`
-      UPDATE transcription_sessions
-      SET status = ?, updated_at = ?, error_message = ?
-      WHERE id = ?
-    `),
-    setTranscriptionPartial: db.prepare(`
-      UPDATE transcription_sessions
-      SET partial_text = ?, updated_at = ?
-      WHERE id = ?
-    `),
-    finalizeTranscriptionSession: db.prepare(`
-      UPDATE transcription_sessions
-      SET status = 'done', resource_id = ?, finished_at = ?, updated_at = ?
-      WHERE id = ?
-    `),
-    getTranscriptionSession: db.prepare(`
-      SELECT * FROM transcription_sessions WHERE id = ?
-    `),
-    getStaleTranscriptionSessions: db.prepare(`
-      SELECT * FROM transcription_sessions
-      WHERE status IN ('recording','paused','transcribing')
-      ORDER BY started_at ASC
-    `),
-    deleteTranscriptionSession: db.prepare(`
-      DELETE FROM transcription_sessions WHERE id = ?
-    `),
-
-    // Transcription chunks
-    insertTranscriptionChunk: db.prepare(`
-      INSERT OR REPLACE INTO transcription_chunks
-        (session_id, seq, track, start_ms, duration_ms, file_path, text)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `),
-    updateTranscriptionChunkText: db.prepare(`
-      UPDATE transcription_chunks SET text = ? WHERE session_id = ? AND track = ? AND seq = ?
-    `),
-    listSessionChunks: db.prepare(`
-      SELECT * FROM transcription_chunks
-      WHERE session_id = ?
-      ORDER BY track ASC, seq ASC
-    `),
-
     // Artifacts
     createArtifact: db.prepare(`
       INSERT INTO artifacts (id, resource_id, artifact_type, template, state, linked_resource_id, version, created_at, updated_at)

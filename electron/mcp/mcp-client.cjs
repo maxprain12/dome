@@ -344,13 +344,13 @@ function buildMcpServersObject(servers) {
 function getEnabledToolIdsForServer(server) {
   if (Array.isArray(server?.enabledToolIds) && server.enabledToolIds.length > 0) {
     return server.enabledToolIds
-      .map((toolId) => normalizeToolId(toolId))
+      .map((toolId) => String(toolId).trim())
       .filter(Boolean);
   }
   if (Array.isArray(server?.tools) && server.tools.length > 0) {
     return server.tools
       .filter((tool) => tool?.enabled !== false)
-      .map((tool) => normalizeToolId(tool.id || tool.name))
+      .map((tool) => String(tool.id || tool.name).trim())
       .filter(Boolean);
   }
   return null;
@@ -538,22 +538,20 @@ function createNativeMcpTool(server, toolDef, collision = false) {
  */
 function filterToolsForServerPolicy(tools, server) {
   if (!Array.isArray(tools)) return [];
-  const enabledSet = Array.isArray(server?.enabledToolIds) && server.enabledToolIds.length > 0
-    ? new Set(server.enabledToolIds.map((id) => normalizeMcpId(id)))
-    : null;
-
+  const selected = getEnabledToolIdsForServer(server);
+  const enabled = selected ? new Set() : null;
+  for (const id of selected || []) {
+    const exact = tools.filter((tool) => tool.name === id || tool.originalName === id);
+    // Legacy normalized selections can be ambiguous: choose one deterministically.
+    const matches = exact.length ? exact : tools.filter((tool) => normalizeToolId(tool.originalName || tool.name) === normalizeToolId(id)).slice(0, 1);
+    for (const tool of matches) enabled.add(tool.name);
+  }
   return tools.filter((tool) => {
-    const id = normalizeMcpId(tool?.originalName || tool?.name);
-    const exposedId = normalizeMcpId(tool?.name);
-    if (isMcpToolDisabledByDefault(id, server)) {
-      return enabledSet?.has(id) || enabledSet?.has(exposedId) || false;
-    }
-    if (enabledSet) return enabledSet.has(id) || enabledSet.has(exposedId);
-    return true;
+    if (enabled) return enabled.has(tool.name);
+    return !isMcpToolDisabledByDefault(normalizeMcpId(tool.originalName || tool.name), server);
   });
 }
 
-/** @type {{ key: string; tools: Array<{ name: string, description: string, schema: object, invoke: Function }>; at: number } | null} */
 let mcpToolsCache = null;
 
 function mcpCacheKey(serverIds) {
@@ -662,15 +660,7 @@ async function getMCPTools(database, serverIds) {
         continue;
       }
       const policyFiltered = filterToolsForServerPolicy(tools, server);
-      const enabledToolIds = getEnabledToolIdsForServer(server);
-      if (!enabledToolIds || enabledToolIds.length === 0) {
-        allTools.push(...policyFiltered);
-        continue;
-      }
-
-      const enabledSet = new Set(enabledToolIds);
-      const filteredTools = policyFiltered.filter((tool) => enabledSet.has(normalizeToolId(tool?.originalName || tool?.name)) || enabledSet.has(normalizeToolId(tool?.name)));
-      allTools.push(...filteredTools);
+      allTools.push(...policyFiltered);
     }
     mcpToolsCache = { key: cacheKey, tools: allTools, at: Date.now() };
     return allTools;
@@ -729,5 +719,6 @@ module.exports = {
   buildStdioEnv,
   normalizeCallToolResult,
   exposedToolName,
+  filterToolsForServerPolicy,
   loadToolsForServer,
 };

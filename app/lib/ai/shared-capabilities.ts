@@ -164,10 +164,10 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
 
 export function buildSharedResourceHint(context: SharedAgentContext): string {
   const hints: string[] = [
+    'For third-party URLs, analyze supplied or saved evidence with social_reference_list/resource_search/resource_get. Read public URLs with web_fetch. External search uses configured MCP tools or invoked skills. Do not invent missing profile fields or metrics.',
     'GitHub milestones, fechas de entrega, issues or Seguimiento: call github_upcoming_milestones (all synced repos) or github_list_repos + github_list_milestones. Requires GitHub connected and repos selected in Seguimiento — never answer from library search alone.',
     'Email / correo / bandeja / inbox: if mentioned-sources lists an email, call email_read first. For mail the user sent, search the Sent folder with the address from the pin — do not spam INBOX email_search. Requires an IMAP account in Settings → Email — never say the tool is unavailable without calling it first.',
     'The user\'s OWN social accounts/posts: call social_accounts_list first, then social_posts_list / social_post_get (for a pinned sp-… id) and/or social_metrics_summary. Requires the user\'s accounts connected in Social. If mentioned-sources lists a social_post, call social_post_get before claiming there is no post.',
-    'Third-party profile URLs or person/competitor research: call research_capabilities first, then enabled research_profile/research_search/research_read/research_collect. This does not require connecting the user\'s own Social accounts. For pending LinkedIn access, analyze supplied/pinned/local evidence via social_reference_list/resource_search/resource_get and search other public sources via research_search. Do not attempt direct profile scraping or suggest login/browser_get_active_tab as a content extractor. Ask for authorized evidence import/paste only when available evidence is insufficient.',
   ];
   const isNotebook = context.pathname.includes('/workspace/notebook');
 

@@ -91,3 +91,14 @@ it('restores old graph tabs as their resource or project library', () => {
   expect(restored.tabs.find((tab) => tab.id === 'old-library')?.resourceId).toBe('project-a');
   expect(restored.activeTabId).toBe('old-graph');
 });
+
+it('opens historical transcription tabs as the saved resource or library', () => {
+  const legacy = [
+    { id: 'old-audio', type: 'transcription-detail', title: 'Recording', resourceId: 'audio-file', projectId: 'project-a' },
+    { id: 'old-recordings', type: 'transcriptions', title: 'Recordings', projectId: 'project-a' },
+  ] as unknown as DomeTab[];
+  const restored = tabsFromParsedPayload({ tabs: legacy, activeTabId: 'old-audio' }, 'project-a');
+  expect(restored.tabs.find((tab) => tab.id === 'old-audio')).toMatchObject({ type: 'resource', resourceId: 'audio-file' });
+  expect(restored.tabs.find((tab) => tab.id === 'old-recordings')).toMatchObject({ type: 'folder', resourceId: 'project-a' });
+  expect(restored.activeTabId).toBe('old-audio');
+});

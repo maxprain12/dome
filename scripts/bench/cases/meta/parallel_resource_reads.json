@@ -8,10 +8,12 @@
     "resource_get"
   ],
   "forbidden_tools": [
-    "shell_exec",
-    "web_search"
+    "shell_exec"
   ],
-  "fixtures": ["bench-note-thermo", "bench-note-calc"],
+  "fixtures": [
+    "bench-note-thermo",
+    "bench-note-calc"
+  ],
   "output_shape": {
     "min_length": 40
   },

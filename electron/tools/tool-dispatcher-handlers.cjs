@@ -234,16 +234,6 @@ async function invokeWebFetch(ctx) {
   result = await fn(args);
   return result;
 }
-async function invokeWebSearch(ctx) {
-  const { fn, args, toolContext } = ctx;
-  let result;
-  result = await fn(args, toolContext);
-  return result;
-}
-/** Intentionally not async — mirrors historical `result = fn(args)` (no await). */
-function invokeDeepResearch(ctx) {
-  return ctx.fn(ctx.args);
-}
 async function invokeExcelGet(ctx) {
   const { fn, args, automationProjectId } = ctx;
   let result;
@@ -778,8 +768,6 @@ const HANDLER_INVOKERS = {
   resourceMoveToFolder: invokeResourceMoveToFolder,
   flashcardCreate: invokeFlashcardCreate,
   webFetch: invokeWebFetch,
-  webSearch: invokeWebSearch,
-  deepResearch: invokeDeepResearch,
   excelGet: invokeExcelGet,
   excelGetFilePath: invokeExcelGetFilePath,
   notebookGet: invokeNotebookGet,

@@ -8,11 +8,6 @@ declare module '*.txt?raw' {
 
 // Tiptap custom commands declaration
 import type { MCPServerConfig, MCPToolConfig, Resource } from '@/types';
-import type {
-  MediaPermissionKind,
-  MediaPermissionRequestResult,
-  MediaPermissionsSnapshot,
-} from '@/lib/permissions/types';
 
 type ThemeChangeCallback = (theme: 'light' | 'dark') => void;
 type RemoveListenerFn = () => void;
@@ -346,29 +341,6 @@ declare global {
 
       // IPC Communication
       invoke: (channel: string, ...args: any[]) => Promise<any>;
-      /** KB LLM automations & settings (optional until preload loads) */
-      kbllm?: {
-        getGlobal: () => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
-        setGlobal: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        getProjectOverride: (projectId: string) => Promise<{ success: boolean; data?: { override?: string }; error?: string }>;
-        setProjectOverride: (payload: {
-          projectId: string;
-          override: 'inherit' | 'enabled' | 'disabled';
-        }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        syncProject: (projectId: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        syncAll: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        getStatus: (projectId?: string) => Promise<{
-          success: boolean;
-          data?: {
-            effectiveEnabled?: boolean;
-            lastRuns?: {
-              compile: { status?: string; finishedAt?: number | null; updatedAt?: number } | null;
-              health: unknown;
-            };
-          };
-          error?: string;
-        }>;
-      };
       on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
       once: (channel: string, callback: (...args: any[]) => void) => void;
       send: (channel: string, ...args: any[]) => void;
@@ -1470,35 +1442,6 @@ declare global {
           content?: string;
           error?: string;
         }>;
-        testWebSearch: () => Promise<{
-          success: boolean;
-          provider?: string;
-          count?: number;
-          warning?: string;
-          error?: string;
-        }>;
-        webSearch: (args: {
-          query: string;
-          count?: number;
-          country?: string;
-          search_lang?: string;
-          freshness?: string;
-        }) => Promise<{
-          status?: string;
-          query?: string;
-          provider?: string;
-          engine?: string;
-          count?: number;
-          results?: Array<{
-            title: string;
-            url: string;
-            description?: string;
-            displayedUrl?: string;
-            siteName?: string;
-          }>;
-          error?: string;
-          cached?: boolean;
-        }>;
         stream: (
           provider: IpcAiChatProvider | 'ollama',
           messages: Array<{ role: string; content: string }>,
@@ -2007,179 +1950,7 @@ declare global {
 
       // Audio API (TTS)
       audio: {
-        generateSpeech: (
-          text: string,
-          voice?: string,
-          options?: { model?: string; response_format?: string; speed?: number }
-        ) => Promise<{
-          success: boolean;
-          audioPath?: string;
-          size?: number;
-          error?: string;
-        }>;
         playFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
-        generatePodcast: (
-          lines: Array<{ speaker: string; text: string }>,
-          options?: {
-            model?: string;
-            voices?: Record<string, string>;
-          }
-        ) => Promise<{
-          success: boolean;
-          audioPath?: string;
-          duration?: number;
-          transcript?: Array<{ speaker: string; text: string; startTime: number }>;
-          generationId?: string;
-          error?: string;
-        }>;
-        getStatus: (generationId: string) => Promise<{
-          success: boolean;
-          data?: {
-            status: string;
-            progress?: number;
-            total?: number;
-            error?: string;
-          } | null;
-          error?: string;
-        }>;
-        list: () => Promise<{
-          success: boolean;
-          data?: Array<{
-            filename: string;
-            path: string;
-            size: number;
-            created: number;
-          }>;
-          error?: string;
-        }>;
-        onGenerationProgress: (callback: (data: { current: number; total: number }) => void) => RemoveListenerFn;
-        stopStreamingTts: (runId: string) => Promise<{ success: boolean; error?: string }>;
-        onTtsSentencePlaying: (callback: (data: { runId: string; sentence: string }) => void) => RemoveListenerFn;
-        onTtsFinished: (callback: (data: { runId: string }) => void) => RemoveListenerFn;
-        onTtsError: (callback: (data: { runId: string; error: string }) => void) => RemoveListenerFn;
-      };
-
-      permissions: {
-        get: () => Promise<DBResponse<MediaPermissionsSnapshot>>;
-        request: (kind: MediaPermissionKind) => Promise<DBResponse<MediaPermissionRequestResult>>;
-        openSettings: (kind: MediaPermissionKind) => Promise<DBResponse<{ opened: boolean }>>;
-        relaunch: () => Promise<DBResponse<{ relaunching: boolean }>>;
-      };
-
-      transcription: {
-        // Settings
-        getSettings: () => Promise<{
-          success: boolean;
-          data?: {
-            sttProvider: 'openai' | 'groq' | 'custom';
-            model: string;
-            language: string | null;
-            apiBaseUrl: string;
-            prompt: string;
-            pauseThresholdSec: number;
-            hasOpenAIKey: boolean;
-            hasGroqKey: boolean;
-            globalShortcut: string;
-            globalShortcutEnabled: boolean;
-            defaultSources: Array<'mic' | 'system'>;
-            liveTranscriptDefault: boolean;
-            autoSummary: boolean;
-            chunkSec: number;
-            summaryModel: string;
-            liveEngine: 'realtime' | 'chunks';
-          };
-          error?: string;
-        }>;
-        setSettings: (args: {
-          sttProvider?: 'openai' | 'groq' | 'custom';
-          model?: string;
-          language?: string | null;
-          dedicatedOpenaiKey?: string | null;
-          groqApiKey?: string | null;
-          globalShortcut?: string;
-          globalShortcutEnabled?: boolean;
-          apiBaseUrl?: string;
-          prompt?: string | null;
-          pauseThresholdSec?: number | string | null;
-          defaultSources?: Array<'mic' | 'system'>;
-          liveTranscriptDefault?: boolean;
-          autoSummary?: boolean;
-          chunkSec?: number;
-          summaryModel?: string;
-          liveEngine?: 'realtime' | 'chunks';
-        }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        // Capture sources
-        listCaptureSources: () => Promise<{
-          success: boolean;
-          sources?: Array<{
-            id: string;
-            name: string;
-            kind: 'screen' | 'window';
-            thumbnailDataUrl: string;
-            iconDataUrl?: string;
-          }>;
-          error?: string;
-          errorCode?: 'screen_capture_permission' | 'capture_sources_failed';
-        }>;
-        setDisplayMediaSource: (sourceId: string) => Promise<{ success: boolean; error?: string }>;
-        // Session lifecycle
-        sessionStart: (args: {
-          sources: Array<'mic' | 'system'>;
-          systemSourceId?: string;
-          projectId?: string;
-          folderId?: string | null;
-          livePreview?: boolean;
-          saveAudio?: boolean;
-        }) => Promise<{ success: boolean; sessionId?: string; liveEngine?: 'realtime' | 'chunks' | null; error?: string }>;
-        sessionAppend: (args: {
-          sessionId: string;
-          track: 'mic' | 'system';
-          seq: number;
-          startMs: number;
-          buffer: ArrayBuffer;
-          extension?: string;
-        }) => Promise<{ success: boolean; error?: string }>;
-        sessionAudio: (args: { sessionId: string; buffer: ArrayBuffer }) => Promise<{ success: boolean; error?: string }>;
-        sessionControl: (args: {
-          sessionId: string;
-          action: 'pause' | 'resume' | 'cancel' | 'stop';
-        }) => Promise<{ success: boolean; resourceId?: string; error?: string }>;
-        getActive: () => Promise<{
-          success: boolean;
-          data?: {
-            sessionId: string | null;
-            phase: 'idle' | 'recording' | 'paused' | 'transcribing' | 'error';
-            sources: Array<'mic' | 'system'>;
-            seconds: number;
-            livePreview: boolean;
-            liveEngine: 'realtime' | 'chunks' | null;
-            partialText: string;
-            notice: string | null;
-            error: string | null;
-          };
-          error?: string;
-        }>;
-        // Manual conversion
-        resourceToNote: (args: { resourceId: string }) => Promise<{
-          success: boolean;
-          note?: import('./index').Resource;
-          error?: string;
-        }>;
-        // Subscriptions
-        onState: (
-          callback: (payload: {
-            sessionId: string | null;
-            phase: 'idle' | 'recording' | 'paused' | 'transcribing' | 'error';
-            sources: Array<'mic' | 'system'>;
-            seconds: number;
-            livePreview: boolean;
-            liveEngine: 'realtime' | 'chunks' | null;
-            partialText: string;
-            notice: string | null;
-            error: string | null;
-          }) => void,
-        ) => RemoveListenerFn;
-        onToggleRecording: (callback: () => void) => RemoveListenerFn;
       };
 
       // Ollama API

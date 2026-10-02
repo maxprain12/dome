@@ -32,7 +32,7 @@
   "regenerate_note_failed": "Could not refresh note",
   "speaker_rename_failed": "Could not save speaker name",
   "speaker": "Speaker",
-  "transcript_empty_hint": "No transcript yet. Use “Transcribe to note” to generate a structured transcript with timestamps.",
+  "transcript_empty_hint": "No saved transcript is available for this file.",
   "diarization_heuristic_badge": "Estimated speakers",
   "diarization_heuristic_hint": "Speaker turns are estimated from pauses in the audio, not true diarization. Rename speakers below to match real people.",
   "capture_file": "File",

@@ -11,7 +11,7 @@ Do NOT use when:
 - A tool exists but does not match the user's exact request (re-read the ask)
 
 Parallelize (independent reads):
-- web_search + resource_search when both are needed and unrelated
+- configured MCP search tools + resource_search when both are needed and unrelated
 - Multiple resource_get calls when IDs are already known
 - Independent dome_load_doc ids when preparing a multi-domain action
 

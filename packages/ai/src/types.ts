@@ -110,7 +110,6 @@ export type CacheRetention = "none" | "short" | "long";
 export type Transport = "sse" | "websocket" | "websocket-cached" | "auto";
 
 /** Which provider-native web tools to enable for this request. */
-export type NativeWebActivation = { search: boolean; fetch: boolean };
 
 /** Provider-scoped environment overrides. Values take precedence over process.env. */
 export type ProviderEnv = Record<string, string>;
@@ -323,7 +322,6 @@ export interface SimpleStreamOptions extends StreamOptions {
 	/** Custom token budgets for thinking levels (token-based providers only) */
 	thinkingBudgets?: ThinkingBudgets;
 	/** Dome: enable provider-native web search/fetch for this turn. */
-	nativeWeb?: NativeWebActivation;
 }
 
 // Generic StreamFunction with typed options.

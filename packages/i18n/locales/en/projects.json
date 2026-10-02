@@ -56,14 +56,5 @@
   "delete_impact_agentFolders": "Agent folders",
   "delete_impact_workflowFolders": "Workflow folders",
   "select_project_aria": "Select {{name}}",
-  "kb_llm": "KB LLM",
-  "kb_llm_footer_label": "Knowledge base",
-  "kb_llm_inherit": "Use global default",
-  "kb_llm_on": "Force on",
-  "kb_llm_off": "Force off",
-  "kb_llm_value_inherit": "Global default",
-  "kb_llm_value_on": "Enabled",
-  "kb_llm_value_off": "Disabled",
-  "kb_llm_helper": "Overrides global Knowledge Base setting for this project only.",
   "active": "Active"
 }

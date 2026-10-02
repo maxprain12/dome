@@ -38,14 +38,13 @@ const CORE_SECTIONS = {
 
 const DOME_CASES = [
   {
-    name: 'buildDomeSystemPrompt — full, no date, with skills + extras + voice',
+    name: 'buildDomeSystemPrompt — full, no date, with skills + extras',
     options: {
       staticPersona: 'You are Many.\n\nBe concise.',
       volatileContext: 'Source (session):\n**ui-context**\nLibrary view.',
       skillsCatalogMarkdown: '## Skills\n- pdf-tools: extract text.',
       includeDate: false,
       extraSections: ['Extra A', null, '  ', 'Extra B'],
-      voiceLanguage: 'pt',
       omitCoreTools: false,
       coreToolsMode: 'full',
     },
@@ -58,7 +57,6 @@ const DOME_CASES = [
       skillsCatalogMarkdown: null,
       includeDate: false,
       extraSections: undefined,
-      voiceLanguage: null,
       omitCoreTools: true,
       coreToolsMode: 'minimal',
     },
@@ -71,7 +69,6 @@ const DOME_CASES = [
       skillsCatalogMarkdown: '',
       // includeDate omitted → defaults to true (date line included)
       extraSections: [],
-      voiceLanguage: 'en',
     },
   },
 ];
@@ -190,3 +187,13 @@ for (const c of VOLATILE_CASES) {
     assert.equal(got, want);
   });
 }
+
+// Both runtime paths must stop suggesting removed research tools or voice output.
+test('retired voice options are ignored and Social uses retained tools in both assemblers', () => {
+  for (const assembler of [pkg, legacy]) {
+    assert.doesNotMatch(assembler.buildDomeSystemPrompt({ staticPersona: 'Many', includeDate: false, voiceLanguage: 'es' }, CORE_SECTIONS), /Voice Response Mode|TTS/);
+    const context = assembler.formatVolatileSourceContext({ pinnedSources: [{ kind: 'social_profile', id: 'p1', title: 'Profile' }] });
+    assert.match(context, /social_reference_list/);
+    assert.doesNotMatch(context, /research_capabilities/);
+  }
+});

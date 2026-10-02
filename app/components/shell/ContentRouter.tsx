@@ -38,8 +38,6 @@ const WorkflowsStudioView = lazy(() => import('@/components/orchestration/Workfl
 const AutomationsStudioView = lazy(() => import('@/components/orchestration/AutomationsStudioView'));
 const RunsStudioView = lazy(() => import('@/components/orchestration/RunsStudioView'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
-const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
-const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
 const PluginRuntimeView = lazy(() => import('@/components/plugins/PluginRuntimeView'));
 
@@ -477,28 +475,6 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <FolderTabView folderId={resourceId} folderTitle={tab.title} />
-          </Suspense>
-        </TabBoundary>
-      ));
-
-    case 'transcriptions':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-              <TranscriptionsListPage />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
-
-    case 'transcription-detail':
-      return renderWithResource(tab, (resourceId) => (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-              <TranscriptionDetailPage noteId={resourceId} />
-            </div>
           </Suspense>
         </TabBoundary>
       ));

@@ -30,7 +30,6 @@ export {
   buildStudioPrompt,
   buildSubagentPrompt,
   buildBenchPrompt,
-  buildVoiceSuffix,
   applyTemplate,
   formatVolatileSourceContext,
   todayEnLong,

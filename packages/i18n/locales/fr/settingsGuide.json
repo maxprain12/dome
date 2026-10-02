@@ -27,10 +27,6 @@
       "description": "Connectez l’IA de Many et configurez la recherche, la voix et le contexte.",
       "start": "Commencez par Conversation. Les autres onglets sont facultatifs et indépendants."
     },
-    "kb_llm": {
-      "description": "Choisissez comment Many organise ses connaissances et les actualise.",
-      "start": "Vérifiez d’abord les sources et la politique de mise à jour."
-    },
     "cloud": {
       "description": "Connectez Google Drive pour accéder à vos fichiers depuis Dome.",
       "start": "Ajoutez un compte Google. Cette connexion est distincte de la synchronisation de Dome."
@@ -79,10 +75,6 @@
       "description": "Mettez Dome à jour et gérez l’enregistrement, l’export et l’import.",
       "start": "Exportez une copie avant d’importer des données."
     },
-    "research": {
-      "description": "Configurez les sources de Many, vérifiez leur accès et maîtrisez les coûts. Capacités Agent-Reach adaptées à Dome.",
-      "start": "Choisissez une source et testez une opération. Les fournisseurs payants nécessitent une clé et une autorisation explicite."
-    },
     "memory": {
       "description": "Consultez les souvenirs personnels, le contexte par domaine et les journaux récents.",
       "start": "Désactiver la mémoire exclut les souvenirs personnels du nouveau contexte et bloque les écritures automatiques partout. SOUL, les instructions du projet et l’historique restent disponibles. La modification manuelle reste possible."
@@ -90,9 +82,6 @@
   },
   "ai": {
     "chat": "Le fournisseur est le service qui répond à Many. Il devient actif uniquement après l’enregistrement.",
-    "embeddings": "Ce modèle prépare vos documents pour une recherche par sens. Il se configure séparément de la conversation.",
-    "transcription": "Choisissez comment convertir l’audio en texte et ajouter un résumé. Les autorisations sont demandées au besoin.",
-    "tools": "Configurez les sources de recherche web que Many peut consulter.",
     "context": "Choisissez les informations transmises à Many et la gestion des longues conversations.",
     "cloud": "Une clé API de {{provider}} est nécessaire. Ce fournisseur facture son utilisation séparément de votre compte Dome.",
     "subscription": "Connectez votre compte chez ce fournisseur et choisissez un modèle. Cette connexion est distincte de votre compte Dome.",

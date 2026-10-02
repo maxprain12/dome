@@ -32,7 +32,7 @@
   "regenerate_note_failed": "Impossible de mettre à jour la note",
   "speaker_rename_failed": "Impossible d’enregistrer le nom",
   "speaker": "Locuteur",
-  "transcript_empty_hint": "Pas encore de transcription. Utilisez « Transcrire en note » pour générer une transcription structurée avec horodatage.",
+  "transcript_empty_hint": "Ce fichier ne contient aucune transcription enregistrée.",
   "diarization_heuristic_badge": "Locuteurs estimés",
   "diarization_heuristic_hint": "Les tours de parole sont estimés par les pauses, pas une vraie diarisation. Renommez les locuteurs ci-dessous.",
   "capture_file": "Fichier",

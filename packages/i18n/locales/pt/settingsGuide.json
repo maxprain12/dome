@@ -27,10 +27,6 @@
       "description": "Liga a IA do Many e configura a pesquisa, a voz e o contexto.",
       "start": "Começa por Conversa. Os outros separadores são opcionais e independentes."
     },
-    "kb_llm": {
-      "description": "Escolhe como o Many organiza o conhecimento e quando o atualiza.",
-      "start": "Revê primeiro as fontes e a política de atualização."
-    },
     "cloud": {
       "description": "Liga o Google Drive para aceder aos teus ficheiros no Dome.",
       "start": "Adiciona uma conta Google. Esta ligação é diferente da sincronização do Dome."
@@ -79,10 +75,6 @@
       "description": "Atualiza o Dome e gere a gravação, a exportação e a importação.",
       "start": "Exporta uma cópia antes de importar dados."
     },
-    "research": {
-      "description": "Configure as fontes do Many, verifique o acesso e controle os custos. Capacidades do Agent-Reach adaptadas ao Dome.",
-      "start": "Escolha uma fonte e teste uma operação. Provedores pagos exigem chave e permissão explícita."
-    },
     "memory": {
       "description": "Revise memórias pessoais, contexto por domínio e registros recentes.",
       "start": "Desativar a memória exclui lembranças pessoais do novo contexto e impede gravações automáticas em todas as superfícies. SOUL, instruções do projeto e histórico da conversa são preservados. A edição manual continua disponível."
@@ -90,9 +82,6 @@
   },
   "ai": {
     "chat": "O fornecedor é o serviço que responde ao Many. Só fica ativo depois de guardares.",
-    "embeddings": "Este modelo prepara os documentos para pesquisa por significado. É configurado separadamente da conversa.",
-    "transcription": "Escolhe como converter áudio em texto e se queres um resumo. As permissões são pedidas quando necessárias.",
-    "tools": "Configura as fontes de pesquisa na internet que o Many pode consultar.",
     "context": "Escolhe a informação que o Many recebe e como gere conversas longas.",
     "cloud": "Precisas de uma chave API de {{provider}}. O fornecedor cobra a utilização separadamente da tua conta Dome.",
     "subscription": "Liga a conta deste fornecedor e escolhe um modelo. Esta ligação é independente da tua conta Dome.",

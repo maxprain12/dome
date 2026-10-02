@@ -1,4 +1,3 @@
-import ResearchTabControl from './ResearchTabControl';
 import {
   useCallback,
   useEffect,
@@ -523,7 +522,7 @@ export default function PanelApp({
           ].join('\n\n')
         }
         page={snapshot}
-        browserTools={<>{browserTools}<ResearchTabControl token={session.token!} projectId={projectId} tabId={snapshot.tabId} url={snapshot.url} /></>}
+        browserTools={browserTools}
         disabled={busy || !connected}
         onOpenChat={openManyChat}
         onHeaderStateChange={setManyHeaderState}

@@ -72,9 +72,7 @@ async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
     return cmsTools.executeTool(normalizedToolName, rawArgs, toolContext);
   }
 
-  if (normalizedToolName.startsWith('research_')) {
-    return require('../research/service.cjs').getResearchService().execute(normalizedToolName, rawArgs, toolContext);
-  }
+
 
   // Coding runs anchor relative tool paths to the repository root so the model
   // never has to guess absolute paths (and cannot silently drift outside it).
@@ -100,11 +98,6 @@ async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   };
 
   try {
-    // deepResearch historically used `result = fn(args)` without await so a
-    // rejected thenable bypasses this catch (same as returning it raw).
-    if (handlerName === 'deepResearch') {
-      return invokeToolHandler(handlerName, ctx);
-    }
     return await invokeToolHandler(handlerName, ctx);
   } catch (error) {
     console.error('[AI Chat Tools] Tool execution error:', toolName, error);

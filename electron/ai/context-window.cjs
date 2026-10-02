@@ -113,8 +113,14 @@ async function fetchOllamaChatContextWindow(baseUrl, model, apiKey) {
     });
     if (!res.ok) return 0;
     const json = /** @type {Record<string, unknown>} */ (await res.json());
-    const { extractOllamaContextLength } = require('../services/embedding-context.cjs');
-    return parseContextWindow(extractOllamaContextLength(name, json.model_info));
+    const info = json.model_info;
+    if (!info || typeof info !== 'object') return 0;
+    for (const [key, value] of Object.entries(info)) {
+      if (key !== 'context_length' && !key.endsWith('.context_length')) continue;
+      const tokens = parseContextWindow(value);
+      if (tokens > 0) return tokens;
+    }
+    return 0;
   } catch {
     return 0;
   }

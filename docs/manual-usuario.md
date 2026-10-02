@@ -109,7 +109,7 @@ Dome ya está configurado. Puedes empezar a añadir recursos.
 | 📝 Nota | Documento de texto enriquecido con el editor Dome |
 | 📄 PDF | Archivo PDF con visor integrado y anotaciones |
 | 🎥 Video | Archivos de vídeo locales o URLs de YouTube |
-| 🎵 Audio | Archivos de audio, transcripción automática |
+| 🎵 Audio | Archivos de audio y lectura de transcripciones guardadas |
 | 🖼️ Imagen | Imágenes locales |
 | 🔗 URL | Páginas web guardadas para lectura offline |
 | 📊 Presentación | Archivos PowerPoint (.pptx) |
@@ -134,7 +134,7 @@ Dome ya está configurado. Puedes empezar a añadir recursos.
 
 ### Indexación — "Listo para IA"
 
-Cuando añades un recurso, Dome lo indexa en segundo plano (texto, embeddings locales y, para PDFs/imágenes, descripción/transcripción con tu **IA en la nube** configurada en Ajustes → IA). Cuando el recurso tiene chunks en el índice semántico, el badge **"Listo para IA"** indica que Many puede usarlo con búsqueda semántica.
+Cuando añades un recurso, Dome extrae su texto en segundo plano y lo incorpora a SQLite FTS5. Para PDFs e imágenes puede utilizar OCR con un modelo compatible con visión configurado en Ajustes → IA. El documento original se conserva. La búsqueda textual admite filtros por proyecto.
 
 La indexación se programa al crear o editar recursos y con el scheduler automático (según carga del sistema).
 
@@ -199,7 +199,7 @@ Escribe cualquier término para buscar en:
 
 Si pegas una URL en el Command Center:
 - Dome descarga y guarda el artículo
-- Para YouTube: extrae transcripción automáticamente
+- Los enlaces de vídeo se conservan como recursos; las transcripciones ya guardadas siguen disponibles.
 - El recurso queda disponible para consulta offline
 
 ### Drop de archivos
@@ -219,7 +219,7 @@ Many puede:
 - Buscar en la web en tiempo real
 - Crear y editar notas directamente
 - Agendar eventos en tu calendario
-- Buscar semánticamente en tus documentos
+- Buscar texto en tus documentos
 - Ejecutar herramientas MCP (si tienes servidores MCP configurados)
 
 ### Herramientas disponibles
@@ -227,12 +227,11 @@ Many puede:
 | Herramienta | Descripción |
 |-------------|-------------|
 | `resource_search` | Busca en tu biblioteca por texto |
-| `resource_semantic_search` | Búsqueda semántica por embeddings (Nomic) |
+| `resource_search` | Búsqueda textual SQLite FTS5 con filtro por proyecto |
 | `pdf_render_page` | Muestra una página del PDF como imagen en el chat |
 | `resource_get` | Lee el contenido de un recurso específico |
 | `resource_create` | Crea una nueva nota |
 | `resource_update` | Edita una nota existente |
-| `web_search` | Búsqueda en internet |
 | `web_fetch` | Descarga el contenido de una URL |
 | `create_event` | Crea un evento en el calendario |
 | `import_file_to_dome` | Importa archivos desde MCP a tu biblioteca |
@@ -288,7 +287,6 @@ Dome incluye agentes de sistema preconfigurados:
 
 | Agente | Especialidad |
 |--------|-------------|
-| Research Agent | Búsqueda web, fuentes, síntesis de información |
 | Library Agent | Búsqueda en tu biblioteca personal |
 | Writer Agent | Redacción y creación de contenido |
 | Data Agent | Análisis de datos y tablas |
@@ -480,7 +478,7 @@ El proceso es idéntico: Settings → Cloud Storage → Conectar OneDrive.
 2. Navega por tus carpetas o busca por nombre
 3. Selecciona uno o varios archivos
 4. Haz clic en **Importar** — los archivos se descargan y añaden a tu proyecto actual
-5. Se programa la indexación semántica (embeddings) en segundo plano
+5. Se programa la extracción e indexación textual en segundo plano
 
 ---
 
@@ -526,7 +524,7 @@ Accede a Settings con `Cmd+,` o desde el icono de engranaje en la barra lateral.
 | **Agents** | Gestionar agentes personalizados |
 | **Calendar** | Conectar Google Calendar |
 | **Cloud Storage** | Conectar Google Drive y OneDrive |
-| **Indexing** | Embeddings Nomic, reindexar biblioteca, estado de indexación |
+| **Memoria** | Recuerdos personales, política global y edición con detección de conflictos |
 | **MCP Servers** | Configurar servidores MCP |
 | **Privacy** | Analytics (PostHog), datos de uso |
 | **Advanced** | Limpiar caché, datos experimentales |
@@ -555,7 +553,7 @@ Sí, con Ollama como proveedor. La búsqueda y organización de recursos siempre
 Copia la carpeta `dome-files` de tu directorio de datos de usuario a la nueva máquina. También puedes hacer exportaciones de notas individuales desde el editor.
 
 **Many no encuentra información de mis PDFs**
-Comprueba que el badge "Listo para IA" aparece en el workspace. La primera indexación de PDFs grandes puede tardar (transcripción con visión en la nube, consume tokens del proveedor). Puedes reindexar desde Settings → Indexing.
+Comprueba que el recurso contiene texto extraído o guardado. La extracción inicial de PDFs grandes puede tardar; el OCR con visión usa tu proveedor configurado. Many puede leer el recurso y buscar su texto mediante FTS5.
 
 **¿Puedo usar varios proyectos a la vez?**
 Sí. Dome soporta múltiples pestañas (tabs) dentro del workspace, una por recurso abierto.

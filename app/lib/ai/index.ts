@@ -114,7 +114,6 @@ export {
 
 export {
   // Tool creation
-  createWebSearchTool,
   createWebFetchTool,
   createDefaultTools,
   createAllMartinTools,
@@ -174,7 +173,6 @@ export type {
   GeminiToolDefinition,
 
   // Config types
-  WebSearchConfig,
   WebFetchConfig,
   DefaultToolsConfig,
   ToolRegistryInstance,

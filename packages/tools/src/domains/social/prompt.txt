@@ -61,17 +61,7 @@ tone, hashtags) instead of copying it verbatim. Reuse the same `campaign` and
 
 ## Public URLs, references and watchlists
 
-6. For third-party profile analysis/investigation, call `research_capabilities`
-   first and use enabled research operations. `social_public_resolve` remains
-   a legacy reference/local-account resolver; it does not enable pending sources.
-   LinkedIn remote access is pending regardless of browser login. Use imported,
-   pinned or local evidence and `research_search` for other public sources.
-   Search excerpts are partial evidence, not a full profile; do not fetch
-   pending platform URLs. If insufficient, offer import/paste of authorized evidence.
-   Do not suggest `browser_extract_social` or an authenticated tab as a workaround.
-   For enabled web sources only, an exact tab explicitly enabled in the paired
-   extension can be read with `research_read` and `source: browser`.
-   `browser_get_active_tab` returns only URL/title, never profile content.
+6. `social_public_resolve` reads existing public evidence and local matches; it does not enable unavailable platforms. Analyze imported or saved evidence using social_reference_list, resource_search and resource_get. Cite sources and do not infer missing metrics. For external search use only configured MCP tools or explicitly invoked skills.
 7. `social_reference_save` / `social_reference_list` — third-party evidence lives
    in references, NEVER in `social_posts` (that table is the user's editorial
    pipeline). Dedupes by canonical URL.
@@ -90,7 +80,6 @@ tone, hashtags) instead of copying it verbatim. Reuse the same `campaign` and
 
 When Source / **mentioned-sources** lists a `social_reference` or `social_profile`,
 use `social_reference_list` or the pinned body before claiming it is missing.
-For a profile URL, check `research_capabilities` before requesting remote data.
 
 Use `social_metrics_summary` (optionally `refresh: true`) before making claims
 about performance. Look at `topPosts`, per-provider totals and the `topics` /

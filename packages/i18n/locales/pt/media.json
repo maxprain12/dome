@@ -32,7 +32,7 @@
   "regenerate_note_failed": "Não foi possível atualizar a nota",
   "speaker_rename_failed": "Não foi possível salvar o nome do falante",
   "speaker": "Falante",
-  "transcript_empty_hint": "Ainda não há transcrição. Use «Transcrever para nota» para gerar uma transcrição estruturada com carimbos de tempo.",
+  "transcript_empty_hint": "Este arquivo não tem uma transcrição salva.",
   "diarization_heuristic_badge": "Falantes estimados",
   "diarization_heuristic_hint": "Os turnos são estimados pelas pausas no áudio, não é diarização real. Renomeie os falantes abaixo.",
   "capture_file": "Arquivo",

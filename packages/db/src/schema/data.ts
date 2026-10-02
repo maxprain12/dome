@@ -11,26 +11,7 @@ export const resourceTranscripts = sqliteTable('resource_transcripts', {
   updatedAt: integer('updated_at').notNull(),
 });
 
-export const transcriptionSessions = sqliteTable('transcription_sessions', {
-  id: text('id').primaryKey(),
-  resourceId: text('resource_id').notNull(),
-  status: text('status').notNull(),
-  language: text('language'),
-  metadataJson: text('metadata_json'),
-  startedAt: integer('started_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-  finishedAt: integer('finished_at'),
-});
 
-export const transcriptionChunks = sqliteTable('transcription_chunks', {
-  id: text('id').primaryKey(),
-  sessionId: text('session_id').notNull(),
-  chunkIndex: integer('chunk_index').notNull(),
-  text: text('text'),
-  startMs: integer('start_ms'),
-  endMs: integer('end_ms'),
-  createdAt: integer('created_at').notNull(),
-});
 
 export const artifactRuntimeData = sqliteTable('artifact_runtime_data', {
   id: text('id').primaryKey(),

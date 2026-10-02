@@ -263,7 +263,7 @@ export interface StructuredTranscriptPayload {
 
 /**
  * Convenciones para KB LLM (wiki compilada por agentes).
- * Ver docs/features/kb-llm-wiki-model.md y docs/features/indexing.md.
+ * Texto histórico del recurso.
  */
 export interface DomeKbMetadata {
   wikiRole?: 'raw' | 'compiled' | 'index' | 'output';
@@ -425,9 +425,6 @@ export interface AISettings {
   ollama_show_thinking?: boolean;
 
   /** Web search backend preference. */
-  web_search_provider?: 'auto' | 'tavily' | 'brave' | 'searxng' | 'ddg';
-  web_search_tavily_key?: string;
-  web_search_brave_key?: string;
   /** Web fetch backend preference. */
   web_fetch_provider?: 'auto' | 'jina' | 'readability' | 'tavily';
 }

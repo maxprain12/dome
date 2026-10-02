@@ -228,26 +228,7 @@ sequenceDiagram
 
 ### Web search & fetch (HTTP providers)
 
-Settings → AI → Tools tab (`AIWebSearchTab.tsx`). Keys: `web_search_provider`, `web_fetch_provider`, `web_search_tavily_key`, `web_search_brave_key`.
-
-| Tool | Default (zero-config) | Optional (API key) | Main process |
-|------|----------------------|--------------------|--------------|
-| `web_search` | SearXNG public instances → DuckDuckGo HTML | Tavily Search, Brave Search API | `electron/services/web/search-dispatcher.cjs` |
-| `web_fetch` | Jina Reader → HTTP + Readability | Tavily Extract | `electron/services/web/fetch-dispatcher.cjs` |
-
-- **`include_screenshot`** on `web_fetch` is deprecated (returns `null` + warning); HTTP providers cannot render JS-heavy pages like a headless browser.
-- Configure keys in Settings for higher-quality agent research; without keys, search/fetch work out of the box.
-
-### Chat with tools
-
-- `chatWithTools(messages, tools, { signal })` in `app/lib/ai/client.ts`: uses the LangGraph agent in the main process. Sends messages and tool definitions via IPC `streamLangGraph`; the agent streams text and executes tools server-side. Returns `{ response, toolResults }`.
-
-### System prompt
-
-- `getMartinSystemPrompt(options?)` in `app/lib/ai/client.ts`: builds Many’s system prompt with `resourceContext` (title, type, content, summary, transcription), `toolsEnabled`, `location` ('workspace' | 'home'), and optional date/time.
-- Extended personality/context from `electron/personality-loader.cjs`: SOUL.md, USER.md, MEMORY.md, memory/YYYY-MM-DD.md (loaded in main; can be exposed to renderer or used in main-side prompts if needed).
-
----
+Web search is provided by configured MCP servers or invoked skills. Dome keeps `web_fetch` to read supplied public URLs; no built-in search or provider-native search adaptation remains.
 
 ## Functionality
 

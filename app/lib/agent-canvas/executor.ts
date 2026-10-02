@@ -229,6 +229,7 @@ async function resolveAgentRuntimeConfig(
 
   if (agentData.systemAgentRole) {
     const sysAgent = getSystemAgent(agentData.systemAgentRole);
+    if (!sysAgent) throw new Error(`The system agent ${agentData.systemAgentRole} has been removed.`);
     return {
       toolIds: sysAgent.toolIds,
       systemPrompt: sysAgent.systemPrompt,

@@ -34,5 +34,6 @@
   "confirm_sources": "Confirm",
   "validation_failed": "Studio output had invalid data and could not be saved. Please try again.",
   "validation_no_items": "The AI did not return enough valid content.",
-  "quiz_data_corrupted": "This quiz has corrupted data and cannot be displayed correctly."
+  "quiz_data_corrupted": "This quiz has corrupted data and cannot be displayed correctly.",
+  "saved_transcript_without_audio": "Saved transcript. No audio file available."
 }

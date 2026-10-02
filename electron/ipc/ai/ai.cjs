@@ -657,36 +657,6 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       return { success: false, error: error.message || String(error) };
     }
   });
-
-  ipcMain.handle('ai:testWebSearch', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      return await aiToolsHandler.testWebSearchConnection();
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  });
-
-  ipcMain.handle('ai:webSearch', async (event, args) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { status: 'error', error: 'Unauthorized' };
-    }
-
-    try {
-      return await aiToolsHandler.webSearch(args);
-    } catch (error) {
-      return {
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  });
 }
 
 module.exports = { register };

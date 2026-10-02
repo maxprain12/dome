@@ -13,9 +13,7 @@ import SettingsNav from '@/components/settings/SettingsNav';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
-import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
 import CommandPalette from '@/components/search/CommandPalette';
 import { EntityPeekDialog } from '@/components/inspect/EntityPeekDialog';
@@ -174,15 +172,6 @@ export default function AppShell() {
   useEffect(() => {
     const off = installDomeUiActionBridge();
     return off;
-  }, []);
-
-  // Transcription: subscribe once to the main-process broadcast and prime settings.
-  useEffect(() => {
-    const tx = window.electron?.transcription;
-    if (!tx) return undefined;
-    void useTranscriptionStore.getState().loadSettings();
-    const off = tx.onState(useTranscriptionStore.getState()._onStateBroadcast);
-    return () => off?.();
   }, []);
 
   const handleManyResize = useCallback((width: number) => {
@@ -522,7 +511,6 @@ export default function AppShell() {
       <PetPluginSlot />
 
       {/* Voice IPC bridge — always mounted, zero UI */}
-      <ManyVoiceBridge />
       <SystemErrorNotifier />
 
       {/* In-app HITL approval modals */}

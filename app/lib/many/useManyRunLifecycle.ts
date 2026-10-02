@@ -81,7 +81,6 @@ export function useManyRunLifecycle({
 
   const streamingMessageRef = useRef<ManyMessageData | null>(null);
   const hitlDecisionsRef = useRef<Array<unknown> | null>(null);
-  const voiceAutoSpeakForRunIdRef = useRef<string | null>(null);
   const activeRunSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -224,9 +223,6 @@ export function useManyRunLifecycle({
 
   const handleManyRunTerminal = useCallback(
     (run: PersistentRun) => {
-      if (voiceAutoSpeakForRunIdRef.current === run.id) {
-        voiceAutoSpeakForRunIdRef.current = null;
-      }
       const streamSnap = streamingMessageRef.current;
       setActiveRunId(null);
       setIsLoading(false);
@@ -524,7 +520,6 @@ export function useManyRunLifecycle({
     questionnairePending,
     streamingMessageRef,
     hitlDecisionsRef,
-    voiceAutoSpeakForRunIdRef,
     activeRunSessionIdRef,
   };
 }
