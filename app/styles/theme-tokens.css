@@ -22,6 +22,14 @@
   --brand-lime: oklch(0.911 0.073 117.9);
   --brand-mint: oklch(0.959 0.029 122);
   --brand-lavender: oklch(0.867 0.036 282.2);
+  /* Many mark (assets/many.svg). Stable in both themes: the disc stays light
+     and the ink stays darker than every face tint. */
+  --many-mark-disc: oklch(1 0 0);
+  --many-mark-ink: oklch(0.472 0.061 116.7);
+  --many-mark-lime: oklch(0.916 0.071 116.4);
+  --many-mark-mint: oklch(0.93 0.04 160);
+  --many-mark-gold: oklch(0.92 0.055 95);
+  --many-mark-lavender: oklch(0.9 0.04 282);
   --chart-1: oklch(0.370 0 0);
   --chart-2: oklch(0.552 0 0);
   --chart-3: oklch(0.705 0 0);
