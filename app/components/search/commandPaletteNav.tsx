@@ -1,6 +1,5 @@
 import type { IconSvgElement } from '@hugeicons/react';
 import {
-  Activity01Icon,
   BookOpen01Icon,
   BotIcon,
   Calendar03Icon,
@@ -16,8 +15,6 @@ import {
   Store01Icon,
   Upload04Icon,
   UserIcon,
-  WorkflowSquare01Icon,
-  ZapIcon,
 } from '@hugeicons/core-free-icons';
 import type { PaletteRow } from './commandPaletteTypes';
 
@@ -62,11 +59,8 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
     { key: 'social', row: wrap('social', opts.t('social.tab_title'), Share08Icon, opts.openSocialTab) },
     { key: 'calendar', row: wrap('calendar', opts.t('workspace.calendar'), Calendar03Icon, opts.openCalendarTab) },
     { key: 'github', row: wrap('github', opts.t('github.tab_title'), Task01Icon, opts.openGitHubTab) },
-    { key: 'agents', row: wrap('agents', opts.t('automationHub.tab_agents'), BotIcon, opts.openAgentsTab) },
+    { key: 'manys', row: wrap('manys', opts.t('manys.title'), BotIcon, opts.openAgentsTab) },
     { key: 'pipelines', row: wrap('pipelines', opts.t('tabs.pipelines'), FolderKanbanIcon, opts.openPipelinesTab) },
-    { key: 'workflows', row: wrap('workflows', opts.t('automationHub.tab_workflows'), WorkflowSquare01Icon, opts.openWorkflowsTab) },
-    { key: 'automations', row: wrap('automations', opts.t('automationHub.tab_automations'), ZapIcon, opts.openAutomationsTab) },
-    { key: 'runs', row: wrap('runs', opts.t('automationHub.tab_runs'), Activity01Icon, opts.openRunsTab) },
     { key: 'learn', row: wrap('learn', opts.t('workspace.learn'), BookOpen01Icon, opts.openLearnTab) },
     { key: 'marketplace', row: wrap('marketplace', opts.t('workspace.marketplace'), Store01Icon, opts.openMarketplaceTab) },
     { key: 'settings', row: wrap('settings', opts.t('settings.title'), Settings01Icon, opts.openSettingsTab) },

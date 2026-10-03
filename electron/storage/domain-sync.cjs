@@ -25,7 +25,6 @@ const VALID_DOMAINS = /** @type {const} */ ([
   'calendar',
   'settings',
   'library',
-  'agents',
   'learn',
   'files',
   'conversations',
@@ -483,9 +482,11 @@ function buildPushRows(db, domain, sinceMs) {
         : `SELECT * FROM ${table.name}`;
       raw = sinceMs > 0 ? db.prepare(sql).all(sinceMs) : db.prepare(sql).all();
     }
+    if(table.name==='resources')raw=raw.filter(r=>{const base=Number(db.prepare('SELECT value FROM settings WHERE key=?').get(`manys:base:${r.id}`)?.value??0);return !base||base!==Number(r.updated_at);});
     if (!raw.length) continue;
     rows[table.wire ?? table.name] = raw.map((r) => {
       const wire = sanitizeRowForWire(r, table.excludePush, deltaCol);
+      if(table.name==='resources')wire.expected_revision=Number(db.prepare('SELECT value FROM settings WHERE key=?').get(`manys:base:${r.id}`)?.value??0);
       return table.mapPushRow ? table.mapPushRow(wire) : wire;
     });
   }
@@ -573,7 +574,9 @@ function applyLocalRow(db, tableSpec, row) {
   const placeholders = keys.map(() => '?').join(',');
   const sql = appendOnly
     ? `INSERT OR IGNORE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`
-    : `INSERT OR REPLACE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`;
+    : ['resources','projects'].includes(table)
+      ? `INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET ${keys.filter(key=>key!=='id').map(key=>`${key}=excluded.${key}`).join(',')}`
+      : `INSERT OR REPLACE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`;
   db.prepare(sql).run(...keys.map((k) => filtered[k]));
 }
 
@@ -621,9 +624,12 @@ function applyPullPayload(db, domain, data, localDeviceId) {
     for (const remoteRow of remoteRows) {
       if (!remoteRow?.id) continue;
       const localRow = getLocal ? getLocal.get(remoteRow.id) : undefined;
-      if (getLocal && !shouldApplyRemoteRow(localRow, remoteRow, localDeviceId)) continue;
+      const conflict=tableSpec.name==='resources'&&db.prepare('SELECT value FROM settings WHERE key=?').get(`manys:conflict:${remoteRow.id}`);
+      const acknowledged=tableSpec.name==='resources'&&localRow&&Number(localRow.updated_at)===Number(db.prepare('SELECT value FROM settings WHERE key=?').get(`manys:base:${remoteRow.id}`)?.value??0)&&remoteRow.device_id===localDeviceId;
+      if (!conflict&&!acknowledged&&getLocal && !shouldApplyRemoteRow(localRow, remoteRow, localDeviceId)) continue;
       try {
         applyLocalRow(db, tableSpec, remoteRow);
+        if(tableSpec.name==='resources'){db.prepare('INSERT OR REPLACE INTO settings(key,value,updated_at) VALUES(?,?,?)').run(`manys:base:${remoteRow.id}`,String(remoteRow.updated_at),Date.now());db.prepare('DELETE FROM settings WHERE key=?').run(`manys:conflict:${remoteRow.id}`);}
       } catch (err) {
         orphans.push({ tableSpec, row: remoteRow });
         if (orphans.length <= 3) {
@@ -888,7 +894,9 @@ async function sendPushRequest(deps, db, domain, rows, tombstones) {
   const outboundTombstones = tombstones.filter((t) => pushable.has(t.table));
   const wireTombstones = outboundTombstones.map((t) => {
     const spec = DOMAIN_SPECS[domain]?.tables.find((tbl) => tbl.name === t.table);
-    return spec?.wire ? { ...t, table: spec.wire } : t;
+    const wire=spec?.wire ? { ...t, table: spec.wire } : {...t};
+    if(t.table==='resources')wire.expectedRevision=Number(db.prepare('SELECT value FROM settings WHERE key=?').get(`manys:base:${t.id}`)?.value??0);
+    return wire;
   });
   const body = JSON.stringify({ deviceId, rows, tombstones: wireTombstones });
   const url = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/data/${domain}/push`;
@@ -913,8 +921,13 @@ async function sendPushRequest(deps, db, domain, rows, tombstones) {
       return { success: false, error: `${res.status} ${t}` };
     }
     const data = await res.json();
+    if(domain==='library')for(const row of rows.resources??[])if(!(data.rejected??[]).some(r=>r.id===row.id)&&!(data.skipped??[]).some(r=>r.id===row.id))db.prepare('INSERT OR REPLACE INTO settings(key,value,updated_at) VALUES(?,?,?)').run(`manys:base:${row.id}`,String(row.updated_at),Date.now());
+    if(domain==='library')for(const rejected of data.rejected??[])if(rejected.table==='resources'&&rejected.reason==='revision_conflict'){
+      db.prepare('INSERT OR REPLACE INTO settings(key,value,updated_at) VALUES(?,?,?)').run(`manys:conflict:${rejected.id}`,'1',Date.now());
+      setDomainState(db,domain,{lastPullCursor:'0'});
+    }
     if (outboundTombstones.length) {
-      syncTombstone.markTombstonesSynced(db, outboundTombstones);
+      syncTombstone.markTombstonesSynced(db, outboundTombstones.filter(t=>!(data.rejected??[]).some(r=>r.reason!=='revision_conflict'&&r.id===t.id&&r.table===(DOMAIN_SPECS[domain]?.tables.find(tbl=>tbl.name===t.table)?.wire??t.table))));
     }
     return { success: true, data };
   }
@@ -1060,7 +1073,7 @@ async function pushDomain(deps, domain) {
   // drop them from every future delta push.
   setDomainState(db, domain, {
     ...(rejected === 0 ? { lastPushAt: pushStartedAt } : {}),
-    lastPullCursor: nextSince ?? state.lastPullCursor,
+    ...(domain==='library'?{}:{lastPullCursor: nextSince ?? state.lastPullCursor}),
   });
   return { success: true, applied, skipped, rejected, batches: batches.length };
 }
@@ -1072,6 +1085,11 @@ async function pushDomain(deps, domain) {
  * @param {DomainName} domain
  */
 async function syncDomain(deps, domain, options = {}) {
+  // Publish offline proposals before pulling cloud edits, so conflicts preserve both versions.
+  if(domain==='library') {
+    const pushed=await pushDomain(deps,domain);if(!pushed.success||options.skipPull)return pushed;
+    const pulled=await pullDomain(deps,domain);return pulled.success?pushed:pulled;
+  }
   if (!options.skipPull) {
     const pulled = await pullDomain(deps, domain);
     if (!pulled.success) return pulled;

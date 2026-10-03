@@ -1,8 +1,8 @@
-import { lazy, Suspense, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { Delete02Icon } from '@hugeicons/core-free-icons';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import ManyIcon from '@/components/many/ManyIcon';
 import { MANY_EXECUTOR_ID } from '@/lib/pipelines/types';
@@ -14,19 +14,16 @@ import {
 } from '@/lib/pipelines/templateMacros';
 import type { ExecutionPolicy, PipelineStage, StageDeliverable } from '@/lib/pipelines/types';
 import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
-import type { ManyAgent } from '@/types';
 
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ReactNode } from 'react';
-const AgentOnboarding = lazy(() => import('@/components/orchestration/AgentEditor'));
 
 interface Props {
   stage: PipelineStage;
@@ -42,18 +39,12 @@ interface Props {
   onCreateWorkflow?: () => void;
 }
 
-type ExecutorKind = 'agent' | 'workflow';
-
 export default function StageConfigModal({
   stage,
   agents,
-  workflows,
-  projectId = 'default',
   onClose,
   onSave,
   onDelete,
-  onExecutorsChanged,
-  onCreateWorkflow,
 }: Props) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(stage.title);
@@ -63,13 +54,7 @@ export default function StageConfigModal({
   const [deliverable, setDeliverable] = useState<StageDeliverable>(
     (stage.config?.deliverable as StageDeliverable | undefined) ?? 'auto',
   );
-  const [executorKind, setExecutorKind] = useState<ExecutorKind>(stage.assignedWorkflowId ? 'workflow' : 'agent');
-  // Agent stages default to Many; the user can switch to / create a custom agent.
-  const [agentId, setAgentId] = useState<string | null>(stage.assignedAgentId ?? MANY_EXECUTOR_ID);
-  const [workflowId, setWorkflowId] = useState<string | null>(stage.assignedWorkflowId ?? null);
-  // Agents created inline (via "+ New agent") that aren't yet in the board list.
-  const [extraAgents, setExtraAgents] = useState<ExecutorOption[]>([]);
-  const [creatingAgent, setCreatingAgent] = useState(false);
+  const [agentId, setAgentId] = useState<string | null>((stage.config?.cloudManyId as string | undefined) ?? MANY_EXECUTOR_ID);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
@@ -107,18 +92,11 @@ export default function StageConfigModal({
     }
   };
 
-  const handleAgentCreated = (agent: ManyAgent) => {
-    setExtraAgents((prev) => [{ id: agent.id, name: agent.name }, ...prev]);
-    setAgentId(agent.id);
-    setCreatingAgent(false);
-    onExecutorsChanged?.();
-  };
-
   const save = async () => {
     setSaving(true);
     try {
       const usesExecutor = policy !== 'manual_resolve';
-      const agentSelected = usesExecutor && executorKind === 'agent';
+      const agentSelected = usesExecutor;
       // "Use Many" is NOT a real agent row, so it must never be written to
       // assigned_agent_id (FK → many_agents). Persist it as a flag in config
       // and keep assigned_agent_id NULL.
@@ -129,9 +107,9 @@ export default function StageConfigModal({
         executionPolicy: policy,
         isTerminal,
         runInputTemplate: runInputTemplate.trim() || null,
-        assignedAgentId: realAgentId,
-        assignedWorkflowId: usesExecutor && executorKind === 'workflow' ? workflowId : null,
-        config: { ...(stage.config ?? {}), useMany, deliverable },
+        assignedAgentId: null,
+        assignedWorkflowId: null,
+        config: { ...(stage.config ?? {}), useMany, cloudManyId:realAgentId, deliverable },
       });
       onClose();
     } finally {
@@ -143,34 +121,9 @@ export default function StageConfigModal({
 
   const agentOptions: { value: string; label: string; icon?: ReactNode }[] = [
     { value: MANY_EXECUTOR_ID, label: t('pipelines.use_many'), icon: <ManyIcon size={14} /> },
-    // Inline-created agents first; the board list may already
-    // include them after a refresh, so dedupe by id.
-    ...extraAgents.map((a) => ({ value: a.id, label: a.name })),
-    ...agents
-      .filter((a) => !extraAgents.some((e) => e.id === a.id))
-      .map((a) => ({ value: a.id, label: a.name })),
+    ...agents.map(a=>({value:a.id,label:a.name})),
   ];
 
-  if (creatingAgent) {
-    return (
-      <InlineDetailCard
-        onClose={() => setCreatingAgent(false)}
-        title={t('agents.new_agent')}
-        containerName="pipeline-stage-agent"
-        bodyClassName="overflow-hidden"
-      >
-        <div className="h-full min-h-0">
-          <Suspense fallback={null}>
-            <AgentOnboarding
-              projectId={projectId}
-              onComplete={handleAgentCreated}
-              onCancel={() => setCreatingAgent(false)}
-            />
-          </Suspense>
-        </div>
-      </InlineDetailCard>
-    );
-  }
 
   return (
     <>
@@ -214,46 +167,7 @@ export default function StageConfigModal({
 
         {showTemplate && (
           <div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
-            <RadioGroup value={executorKind} onValueChange={(value) => setExecutorKind(value as 'agent' | 'workflow')} className="flex gap-3">
-              <Field orientation="horizontal">
-                <RadioGroupItem value="agent" id="executor-agent" />
-                <FieldLabel htmlFor="executor-agent">{t('pipelines.stage_agent')}</FieldLabel>
-              </Field>
-              <Field orientation="horizontal">
-                <RadioGroupItem value="workflow" id="executor-workflow" />
-                <FieldLabel htmlFor="executor-workflow">Workflow</FieldLabel>
-              </Field>
-            </RadioGroup>
-
-            {executorKind === 'agent' ? (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <Select value={agentId ?? MANY_EXECUTOR_ID} onValueChange={(next) => { if (next != null) ((v) => setAgentId(v || null))(next); }} items={agentOptions}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.select_agent')} /></SelectTrigger><SelectContent><SelectGroup>{agentOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span></span></SelectItem>))}</SelectGroup></SelectContent></Select>
-                </div>
-                <Button variant="outline" onClick={() => setCreatingAgent(true)} size="sm">
-                  <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
-                  {t('pipelines.new_agent')}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <Select value={workflowId ?? ''} onValueChange={(next) => { if (next != null) ((v) => setWorkflowId(v || null))(next); }} items={[
-                      { value: '', label: t('pipelines.select_workflow') },
-                      ...workflows.map((w) => ({ value: w.id, label: w.name })),
-                    ]}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.select_workflow')} /></SelectTrigger><SelectContent><SelectGroup>{([
-                      { value: '', label: t('pipelines.select_workflow') },
-                      ...workflows.map((w) => ({ value: w.id, label: w.name })),
-                    ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
-                </div>
-                {onCreateWorkflow && (
-                  <Button variant="outline" onClick={onCreateWorkflow} size="sm">
-                    <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
-                    {t('pipelines.new_workflow')}
-                  </Button>
-                )}
-              </div>
-            )}
+            <Field><FieldLabel>{t('manys.title')}</FieldLabel><Select value={agentId ?? MANY_EXECUTOR_ID} onValueChange={next=>{if(next)setAgentId(next);}} items={agentOptions}><SelectTrigger><SelectValue placeholder={t('manys.local')}>{agentOptions.find(option=>option.value===(agentId??MANY_EXECUTOR_ID))?.label??t('manys.local')}</SelectValue></SelectTrigger><SelectContent><SelectGroup>{agentOptions.map(option=><SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
           </div>
         )}
 

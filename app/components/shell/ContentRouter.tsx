@@ -35,12 +35,9 @@ const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
+const ManysView = lazy(() => import('@/components/manys/ManysView'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const PipelinesBoard = lazy(() => import('@/components/pipelines/PipelinesBoard'));
-const AgentsStudioView = lazy(() => import('@/components/orchestration/AgentsStudioView'));
-const WorkflowsStudioView = lazy(() => import('@/components/orchestration/WorkflowsStudioView'));
-const AutomationsStudioView = lazy(() => import('@/components/orchestration/AutomationsStudioView'));
-const RunsStudioView = lazy(() => import('@/components/orchestration/RunsStudioView'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
 const PluginRuntimeView = lazy(() => import('@/components/plugins/PluginRuntimeView'));
@@ -443,49 +440,12 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         </TabBoundary>
       );
 
+    case 'manys':
     case 'agents':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
-              <AgentsStudioView />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
-
     case 'workflows':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
-              <WorkflowsStudioView />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
-
     case 'automations':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
-              <AutomationsStudioView />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
-
     case 'runs':
-      return (
-        <TabBoundary tab={tab}>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
-              <RunsStudioView />
-            </div>
-          </Suspense>
-        </TabBoundary>
-      );
+      return <TabBoundary tab={tab}><Suspense fallback={<Loading />}><ManysView /></Suspense></TabBoundary>;
 
     case 'folder':
       return renderWithResource(tab, (resourceId) => (

@@ -36,7 +36,7 @@ describe('command palette destinations follow the edition catalog', () => {
       'people',
       'email',
       'social',
-      'agents',
+      'manys',
       'marketplace',
       'settings',
     ]);
@@ -58,7 +58,7 @@ describe('command palette destinations follow the edition catalog', () => {
       'library',
       'projects',
       'github',
-      'agents',
+      'manys',
       'marketplace',
       'settings',
     ]);

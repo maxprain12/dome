@@ -44,7 +44,7 @@ export function createUiPointToTool(): AnyAgentTool {
     name: 'ui_point_to',
     description:
       'Move an animated cursor to a specific Dome UI element (`data-ui-target` name or CSS selector). ' +
-      'Top-shell tabs use names like tab-home, tab-agents, tab-automations, tab-runs, tab-workflows. ' +
+      'Top-shell tabs use names like tab-home, tab-manys. ' +
       'Singleton tabs: if that destination is not open yet there is no tab button in the strip—Dome opens it automatically when you point_to that tab-* target. ' +
       'Automations creator: toolbar **automations-hub-new** or empty state **automations-empty-create**. ' +
       'Home sidebar Zap hub: **sidebar-nav-automations-hub**. Tooltip: one short factual line (language of the user). ' +
@@ -164,6 +164,7 @@ const NAV_MAP: Record<string, () => void> = {
   home: () => useTabStore.getState().activateTab('home'),
   settings: () => useTabStore.getState().openSettingsTab(),
   calendar: () => useTabStore.getState().openCalendarTab(),
+  manys: () => useTabStore.getState().openManysTab(),
   agents: () => useTabStore.getState().openAgentsTab(),
   learn: () => useTabStore.getState().openLearnTab(),
   flashcards: () => useTabStore.getState().openFlashcardsTab(),
@@ -180,7 +181,7 @@ export function createUiNavigateTool(): AnyAgentTool {
     name: 'ui_navigate',
     description:
       'Open or switch to a named Dome tab. ' +
-      'Valid destinations: home, settings, calendar, agents, learn, flashcards, marketplace, tags, workflows, automations, runs.',
+      'Valid destinations: home, settings, calendar, manys, learn, flashcards, marketplace, tags.',
     parameters: Type.Object({
       destination: Type.String({ description: 'Tab to open (e.g. "agents", "settings", "calendar").' }),
     }),

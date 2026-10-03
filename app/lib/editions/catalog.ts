@@ -23,11 +23,8 @@ export const NAV_ITEM_ORDER = [
   'social',
   'calendar',
   'github',
-  'agents',
+  'manys',
   'pipelines',
-  'workflows',
-  'automations',
-  'runs',
   'learn',
   'marketplace',
 ] as const;
@@ -55,9 +52,9 @@ export interface EditionPreset {
 }
 
 export const EDITION_PRESETS: EditionPreset[] = [
-  { id: 'pro', labelKey: 'roles.pro.label', descriptionKey: 'roles.pro.desc', modules: ['projects', 'people', 'email', 'social', 'agents', 'marketplace'] },
+  { id: 'pro', labelKey: 'roles.pro.label', descriptionKey: 'roles.pro.desc', modules: ['projects', 'people', 'email', 'social', 'manys', 'marketplace'] },
   { id: 'study', labelKey: 'roles.study.label', descriptionKey: 'roles.study.desc', modules: ['projects', 'calendar', 'learn', 'marketplace'] },
-  { id: 'dev', labelKey: 'roles.dev.label', descriptionKey: 'roles.dev.desc', modules: ['projects', 'github', 'agents', 'marketplace'] },
+  { id: 'dev', labelKey: 'roles.dev.label', descriptionKey: 'roles.dev.desc', modules: ['projects', 'github', 'manys', 'marketplace'] },
 ];
 
 export function getEdition(id: string | null | undefined): EditionPreset {

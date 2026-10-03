@@ -29,6 +29,7 @@ export * from "./harness/messages.js";
 export * from "./harness/prompt-templates.js";
 export * from "./harness/session/jsonl-repo.js";
 export * from "./harness/session/memory-repo.js";
+export * from "./harness/session/memory-storage.js";
 export * from "./harness/session/repo-utils.js";
 export * from "./harness/session/session.js";
 export { uuidv7 } from "./harness/session/uuid.js";

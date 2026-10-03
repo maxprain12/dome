@@ -151,7 +151,10 @@
     "visual-studio": "vite --config vite.visual-studio.config.ts",
     "visual-studio:build": "vite build --config vite.visual-studio.config.ts",
     "visual-studio:export": "node scripts/visual-studio/export-pack.mjs",
-    "check:complements-catalog": "node scripts/export-complements-catalog.mjs"
+    "check:complements-catalog": "node scripts/export-complements-catalog.mjs",
+    "build:manys-runtime": "pnpm --filter @dome/manys-runtime build",
+    "artifact:manys-runtime": "node scripts/manys/artifact.mjs",
+    "test:manys": "pnpm run build:manys-runtime && node --test scripts/manys/runtime.test.mjs && node --experimental-sqlite --test electron/__tests__/manys-retirement.test.mjs electron/__tests__/manys-vault-sync.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -38,6 +38,7 @@ steps:
       - pnpm run check:packaged-deps
       - pnpm run test:packaged-deps
       - pnpm run test:security
+      - pnpm run test:manys
       - pnpm run build:packages
       - pnpm --filter @dome/ai run test
       - node --test electron/__tests__/local-web-search.test.mjs electron/__tests__/native-browser-actions.test.mjs electron/__tests__/browser-workspace-performance.test.mjs electron/__tests__/window-renderer-recovery.test.mjs electron/__tests__/ai-capabilities.test.mjs

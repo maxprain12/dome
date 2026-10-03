@@ -9,21 +9,21 @@ export interface SectionGuide {
 /** One guide per user-facing destination, shared by first visit and contextual help. */
 export const SECTION_KEYS = [
   'home', 'library', 'projects', 'people', 'email', 'social', 'calendar', 'github',
-  'agents', 'pipelines', 'workflows', 'automations', 'runs', 'learn', 'marketplace',
+  'manys', 'agents', 'pipelines', 'workflows', 'automations', 'runs', 'learn', 'marketplace',
   'chat', 'settings', 'tags', 'editor',
 ] as const;
 
 export const SECTION_GUIDES: Record<string, SectionGuide> = Object.fromEntries(
   SECTION_KEYS.map((key) => [key, {
-    key, titleKey: `sectionGuide.${key}.title`,
-    stepKeys: [1, 2, 3].map((n) => `sectionGuide.${key}.step${n}`),
+    key, titleKey: key==='manys'?'manys.title':`sectionGuide.${key}.title`,
+    stepKeys: key==='manys'?['manys.intro','manys.permissionHint','manys.local']:[1, 2, 3].map((n) => `sectionGuide.${key}.step${n}`),
   }]),
 );
 
 const TAB_GUIDE: Partial<Record<TabType, string>> = {
   home: 'home', folder: 'library', projects: 'projects', people: 'people',
   email: 'email', social: 'social', calendar: 'calendar', github: 'github',
-  agents: 'agents', pipelines: 'pipelines', workflows: 'workflows', automations: 'automations',
+  manys:'manys', agents: 'manys', pipelines: 'pipelines', workflows: 'workflows', automations: 'automations',
   runs: 'runs', learn: 'learn', studio: 'learn', flashcards: 'learn', marketplace: 'marketplace',
   chat: 'chat',
   settings: 'settings', tags: 'tags',
