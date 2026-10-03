@@ -7,8 +7,6 @@
  * - Error handling with graceful degradation
  */
 
-import bundledPlugins from '../../../public/plugins.json';
-import bundledSkills from '../../../public/skills.json';
 import type { MarketplaceAgent } from '@/types';
 import {
   useMarketplaceStore,
@@ -60,7 +58,7 @@ export async function loadAvailablePlugins(): Promise<AvailablePlugin[]> {
   } catch (err) {
     console.warn('[MarketplaceLoader] Failed to load available plugins:', err);
   }
-  return bundledPlugins;
+  return [];
 }
 
 /**
@@ -76,7 +74,7 @@ export async function loadAvailableSkills(): Promise<AvailableSkill[]> {
   } catch (err) {
     console.warn('[MarketplaceLoader] Failed to load available skills:', err);
   }
-  return bundledSkills;
+  return [];
 }
 
 /**
