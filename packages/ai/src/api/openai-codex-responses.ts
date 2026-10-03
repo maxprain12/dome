@@ -563,9 +563,7 @@ function buildRequestBody(
 		parallel_tool_calls: true,
 	};
 
-	if (options?.temperature !== undefined) {
-		body.temperature = options.temperature;
-	}
+	// The ChatGPT Codex backend rejects `temperature` as an unsupported parameter.
 
 	if (options?.serviceTier !== undefined) {
 		body.service_tier = options.serviceTier;

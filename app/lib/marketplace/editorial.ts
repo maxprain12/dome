@@ -1,4 +1,4 @@
-import catalog from '../../../public/complements-catalog.json';
+import catalog from './complements-catalog.json';
 
 export type ComplementCategory = 'plugins' | 'agents' | 'workflows' | 'skills' | 'mcp';
 export function complementEditorial(category: ComplementCategory, id: string, language: string) {

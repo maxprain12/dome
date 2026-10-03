@@ -7,8 +7,8 @@
  * - Error handling with graceful degradation
  */
 
-import bundledPlugins from '../../../public/plugins.json';
-import bundledSkills from '../../../public/skills.json';
+import bundledPlugins from './data/plugins.json';
+import bundledSkills from './data/skills.json';
 import type { MarketplaceAgent } from '@/types';
 import {
   useMarketplaceStore,

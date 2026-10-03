@@ -31,7 +31,7 @@ export function validateCatalog(catalog, repoRoot = root) {
   return catalog;
 }
 if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
-  const catalog = validateCatalog(JSON.parse(fs.readFileSync(path.join(root, 'public/complements-catalog.json'), 'utf8')));
+  const catalog = validateCatalog(JSON.parse(fs.readFileSync(path.join(root, 'app/lib/marketplace/complements-catalog.json'), 'utf8')));
   const output = process.argv[2];
   if (output) fs.writeFileSync(path.resolve(output), `${JSON.stringify(catalog, null, 2)}\n`);
   console.log(`Complements catalog validated: ${catalog.items.length} entries`);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { validateCatalog } from '../../scripts/export-complements-catalog.mjs';
-const catalog = JSON.parse(fs.readFileSync(new URL('../../public/complements-catalog.json', import.meta.url), 'utf8'));
+const catalog = JSON.parse(fs.readFileSync(new URL('../../app/lib/marketplace/complements-catalog.json', import.meta.url), 'utf8'));
 
 test('editorial identities, versions and permissions match shipped definitions', () => {
   assert.equal(validateCatalog(catalog), catalog);

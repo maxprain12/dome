@@ -22,7 +22,7 @@ Fuentes GitHub de terceros siguen siendo opt-in en Settings. No se promete ecosi
 
 ## Catálogo editorial público
 
-`public/complements-catalog.json` contiene fichas en en/es/fr/pt vinculadas a los IDs instalables. `pnpm run check:complements-catalog` verifica versiones y permisos contra los manifiestos. `node scripts/export-complements-catalog.mjs /ruta/catalog.json` exporta el JSON validado; la web hermana lo importa con su script `catalog:import`.
+`app/lib/marketplace/complements-catalog.json` contiene fichas en en/es/fr/pt vinculadas a los IDs instalables. `pnpm run check:complements-catalog` verifica versiones y permisos contra los manifiestos. `node scripts/export-complements-catalog.mjs /ruta/catalog.json` exporta el JSON validado; la web hermana lo importa con su script `catalog:import`.
 
 El catálogo público destaca Dome CMS y las plantillas de Dome. La conexión Filesystem MCP se identifica con su autor externo y exige configurar carpetas autorizadas; no implica abrir publicación de paquetes de terceros. Las fuentes personales conservan su mecanismo actual.
 

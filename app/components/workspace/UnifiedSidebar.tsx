@@ -580,11 +580,11 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
             <SidebarGroup>
               {[
                 { id: 'connections', label: t('sidebar.group_connections'), icon: Share08Icon, keys: ['people', 'email', 'social', 'github'] },
-                { id: 'many', label: t('sidebar.group_many'), icon: BotIcon, keys: ['agents', 'pipelines', 'workflows', 'automations', 'runs'] },
+                { id: 'many', label: t('sidebar.group_many'), icon: BotIcon, keys: ['manys', 'pipelines'] },
               ].map((group) => {
                 const items = visiblePrimaryUnifiedNavItems.filter((item) => group.keys.includes(item.key));
                 if (!items.length) return null;
-                return <ShellNavSection key={group.id} forceOpen={group.id === 'connections'} tourGroup={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
+                return <ShellNavSection key={group.id} forceOpen={group.id === 'connections' || group.id === 'many'} tourGroup={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
                   {items.map((item) => <SidebarNavButton key={item.key} nested icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} count={item.kind === 'tab' ? item.count : undefined} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />)}
                 </ShellNavSection>;
               })}
