@@ -1978,6 +1978,12 @@ input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
   --color-brand-lime: var(--brand-lime);
   --color-brand-mint: var(--brand-mint);
   --color-brand-lavender: var(--brand-lavender);
+  --color-many-mark-disc: var(--many-mark-disc);
+  --color-many-mark-ink: var(--many-mark-ink);
+  --color-many-mark-lime: var(--many-mark-lime);
+  --color-many-mark-mint: var(--many-mark-mint);
+  --color-many-mark-gold: var(--many-mark-gold);
+  --color-many-mark-lavender: var(--many-mark-lavender);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
