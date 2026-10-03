@@ -82,7 +82,7 @@ steps:
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-native-browser.cjs
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-browser-workspace.cjs
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-browser-polish.cjs
-      - xvfb-run --auto-servernum pnpm exec electron --no-sandbox scripts/smoke-renderer-recovery.cjs
+      - DOME_RECOVERY_SKIP_CAPTURE=1 xvfb-run --auto-servernum pnpm exec electron --no-sandbox scripts/smoke-renderer-recovery.cjs
 
   - name: depcruise
     image: node:24-bookworm
