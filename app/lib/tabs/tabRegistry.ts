@@ -20,6 +20,7 @@ export type TabType =
   | 'tags'
   | 'marketplace'
   | 'pipelines'
+  | 'manys'
   | 'agents'
   | 'workflows'
   | 'automations'
@@ -61,6 +62,7 @@ const TAB_CONFIGS: TabConfig[] = [
   { type: 'tags', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'marketplace', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'pipelines', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
+  { type: 'manys', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'agents', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'workflows', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },
   { type: 'automations', projectScoped: false, sidebarNav: true, resourceSource: false, needsResourceId: false },

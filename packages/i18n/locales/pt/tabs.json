@@ -11,5 +11,6 @@
   "pipelines": "Pipelines",
   "workflows": "Workflows",
   "automations": "Automações",
-  "runs": "Execuções"
+  "runs": "Execuções",
+  "manys": "Many’s"
 }

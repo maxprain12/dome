@@ -120,7 +120,7 @@ async function triggerStageRunInner(itemId, { force = false } = {}) {
   const now = Date.now();
   // Mark running immediately so the board doesn't show a stale "ready" status
   // while buildRunInput / startAgentRun are still in progress.
-  markItemRunning(item, q, now);
+  if (!stageConfig.cloudManyId) markItemRunning(item, q, now);
   return launchStageRun(item, stage, useMany, now);
 }
 
@@ -132,11 +132,11 @@ function isActiveRun(run) {
 
 function itemHasActiveRunningItem(item, q) {
   if (item.exec_status !== 'running' || !item.current_run_id) return false;
-  return isActiveRun(q.getAutomationRunById.get(item.current_run_id));
+  return isActiveRun(q.getAutomationRunById.get(item.current_run_id)) || !q.getAutomationRunById.get(item.current_run_id);
 }
 
 function canRunStage(stage, useMany, force) {
-  const hasExecutor = stage.assigned_agent_id || stage.assigned_workflow_id || useMany;
+  const hasExecutor = parseJson(stage.config_json, {})?.cloudManyId || useMany;
   if (!hasExecutor) return false;
   if (stage.execution_policy === 'manual_resolve') return false;
   // auto vs manual: auto runs on drop; manual only when explicitly forced.
@@ -181,7 +181,7 @@ async function startRunOrFail(item, stage, useMany, runInput, q, now) {
     if (_logEvent) {
       _logEvent(item.id, 'run_started', {
         actor: 'system',
-        summary: (stage.assigned_workflow_id ? 'Workflow' : 'Agent') + ' run started',
+        summary: 'Many task started',
         runId: run?.id,
       });
     }
@@ -196,14 +196,8 @@ async function startRunOrFail(item, stage, useMany, runInput, q, now) {
 }
 
 async function dispatchStageRun(item, stage, useMany, runInput) {
-  if (stage.assigned_workflow_id) {
-    return _runEngine.startWorkflowRun({
-      workflowId: stage.assigned_workflow_id,
-      projectId: item.project_id,
-      title: item.title,
-      inputs: { prompt: runInput },
-    });
-  }
+  const cloudManyId = parseJson(stage.config_json, {})?.cloudManyId;
+  if (cloudManyId) return require('./manys-client.cjs').delegatePipeline(_database, item, cloudManyId, runInput);
   const q = queries();
   const messages = [{ role: 'user', content: runInput }];
   const toolOpts = buildPipelineRunToolOptions(stage, q);

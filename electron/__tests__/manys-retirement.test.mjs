@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {applyMigrations,SCHEMA_HEAD}=require('../core/db/migrations.cjs');
+test('retiring legacy operations preserves library, projects and local Many history',()=>{
+ const db=new DatabaseSync(':memory:');db.transaction=fn=>()=>{db.exec('BEGIN');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}};
+ db.exec(`CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT,updated_at INTEGER);INSERT INTO settings VALUES('schema_version','80',0);
+ CREATE TABLE projects(id TEXT);INSERT INTO projects VALUES('project');CREATE TABLE resources(id TEXT);INSERT INTO resources VALUES('note');
+ CREATE TABLE many_sessions(id TEXT);INSERT INTO many_sessions VALUES('local-chat');
+ CREATE TABLE automation_runs(id TEXT,owner_type TEXT);INSERT INTO automation_runs VALUES('local-run','many'),('legacy-run','agent');
+ CREATE TABLE many_agents(id TEXT);INSERT INTO many_agents VALUES('legacy-agent');CREATE TABLE canvas_workflows(id TEXT);INSERT INTO canvas_workflows VALUES('legacy-workflow');
+ CREATE TABLE domain_sync_state(domain TEXT);INSERT INTO domain_sync_state VALUES('agents'),('library');`);
+ applyMigrations(db,80);assert.equal(SCHEMA_HEAD,81);
+ for(const table of ['projects','resources','many_sessions'])assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,1);
+ assert.deepEqual(db.prepare('SELECT id FROM automation_runs').all().map(r=>r.id),['local-run']);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM many_agents').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM canvas_workflows').get().n,0);
+ assert.deepEqual(db.prepare('SELECT domain FROM domain_sync_state').all().map(r=>r.domain),['library']);db.close();
+});

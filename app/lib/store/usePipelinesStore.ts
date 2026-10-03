@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { pipelinesClient, pipelinesEvents } from '@/lib/pipelines/client';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { getManyAgents } from '@/lib/agents/api';
-import { getWorkflows } from '@/lib/agent-canvas/api';
+import {request,type CloudMany} from '@/lib/manys/api';
 import type {
   Pipeline,
   PipelineStage,
@@ -101,11 +100,10 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
 
   loadExecutors: async () => {
     try {
-      const projectId = activeProjectId();
-      const [agents, workflows] = await Promise.all([getManyAgents(projectId), getWorkflows(projectId)]);
+      const {manys:agents}=await request<{manys:CloudMany[]}>('');
       set({
         agents: agents.map((a) => ({ id: a.id, name: a.name })),
-        workflows: workflows.map((w) => ({ id: w.id, name: w.name })),
+        workflows: [],
       });
     } catch (e) {
       set({ error: (e as Error).message });

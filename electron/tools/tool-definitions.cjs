@@ -2632,8 +2632,8 @@ function getAllToolDefinitions() {
         parameters: { type: 'object', properties: {} },
       },
     },
-  ].filter((def) => !getPackageFamilyToolNames().has(def?.function?.name))
-    .concat(getPackageFamilyDefinitions(), cmsTools.getToolDefinitions());
+  ].filter((def) => !['agent_create','automation_create','workflow_create','marketplace_install'].includes(def?.function?.name) && !getPackageFamilyToolNames().has(def?.function?.name))
+    .concat(getPackageFamilyDefinitions(), cmsTools.getToolDefinitions(), require('../agents/manys-client.cjs').definitions);
 }
 
 function getToolDefinitionsByIds(toolIds) {

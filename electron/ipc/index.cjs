@@ -61,6 +61,7 @@ const openaiCodexOAuthHandlers = require('./integrations/openai-codex-oauth.cjs'
 const githubHandlers = require('./integrations/github.cjs');
 const peopleHandlers = require('./integrations/people.cjs');
 const browserExtensionHandlers = require('./integrations/browser-extension.cjs');
+const manysHandlers = require('./agents/manys.cjs');
 const remoteManyHandlers = require('./sync/remote-many.cjs');
 
 let _ipcRegistered = false;
@@ -145,6 +146,7 @@ function registerAll(deps) {
   calendarHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
   emailHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   domeAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  manysHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   chatHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   runsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });

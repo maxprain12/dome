@@ -48,7 +48,7 @@ describe('edition catalog', () => {
       'people',
       'email',
       'social',
-      'agents',
+      'manys',
       'marketplace',
     ]);
   });
@@ -68,7 +68,7 @@ describe('edition catalog', () => {
       'library',
       'projects',
       'github',
-      'agents',
+      'manys',
       'marketplace',
     ]);
   });
@@ -86,6 +86,6 @@ describe('edition catalog', () => {
     expect(NAV_ITEM_ORDER[0]).toBe('library');
     expect(NAV_ITEM_ORDER).toContain('people');
     expect(NAV_ITEM_ORDER).toContain('social');
-    expect(NAV_ITEM_ORDER).toContain('agents');
+    expect(NAV_ITEM_ORDER).toContain('manys');
   });
 });

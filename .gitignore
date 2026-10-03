@@ -105,3 +105,6 @@ test-results/
 # Local marketing studio builds and exports
 /dist-visual-studio/
 /visual-studio-exports/
+
+# Versioned runtime builds
+/artifacts/

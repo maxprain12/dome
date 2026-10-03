@@ -6,6 +6,10 @@ Serie de planes para unificar email, GitHub y social en Dome: persistencia, bús
 
 Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrario. Cada executor: leer el plan completo, honrar STOP conditions, actualizar la fila de estado al terminar.
 
+## Many’s cloud
+
+[Plan v1 y entrega multiusuario](active/2026-10-03-manys-v1.md). Implementación en Dome + Provider; validación de staging a cargo del usuario.
+
 ## Execution order & status
 
 | Plan | Title | Priority | Effort | Depends on | Status |

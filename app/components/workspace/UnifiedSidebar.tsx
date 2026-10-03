@@ -5,14 +5,12 @@ import { openMiniappDraft } from '@/lib/chat/miniappHandoff';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
-  Activity01Icon,
   BookOpen01Icon,
   BotIcon,
   Calendar03Icon,
   ChevronDownIcon,
   FolderAddIcon,
   FolderSymlinkIcon,
-  GitBranchIcon,
   Home01Icon,
   Layers01Icon,
   Login01Icon,
@@ -28,7 +26,6 @@ import {
   Task01Icon,
   UserIcon,
   WorkflowSquare01Icon,
-  ZapIcon,
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -110,9 +107,6 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     openLearnTab,
     openPipelinesTab,
     openAgentsTab,
-    openWorkflowsTab,
-    openAutomationsTab,
-    openRunsTab,
     openMarketplaceTab,
     openFolderTab,
     activeTabId,
@@ -129,9 +123,6 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
       openLearnTab: s.openLearnTab,
       openPipelinesTab: s.openPipelinesTab,
       openAgentsTab: s.openAgentsTab,
-      openWorkflowsTab: s.openWorkflowsTab,
-      openAutomationsTab: s.openAutomationsTab,
-      openRunsTab: s.openRunsTab,
       openMarketplaceTab: s.openMarketplaceTab,
       openFolderTab: s.openFolderTab,
       activeTabId: s.activeTabId,
@@ -481,10 +472,10 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         onOpen: openGitHubTab,
       },
       {
-        key: 'agents',
+        key: 'manys',
         kind: 'tab',
-        tabType: 'agents',
-        label: t('tabs.agents'),
+        tabType: 'manys',
+        label: t('manys.title'),
         icon: BotIcon,
         onOpen: openAgentsTab,
       },
@@ -495,30 +486,6 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         label: t('tabs.pipelines'),
         icon: WorkflowSquare01Icon,
         onOpen: openPipelinesTab,
-      },
-      {
-        key: 'workflows',
-        kind: 'tab',
-        tabType: 'workflows',
-        label: t('tabs.workflows'),
-        icon: GitBranchIcon,
-        onOpen: openWorkflowsTab,
-      },
-      {
-        key: 'automations',
-        kind: 'tab',
-        tabType: 'automations',
-        label: t('tabs.automations'),
-        icon: ZapIcon,
-        onOpen: openAutomationsTab,
-      },
-      {
-        key: 'runs',
-        kind: 'tab',
-        tabType: 'runs',
-        label: t('tabs.runs'),
-        icon: Activity01Icon,
-        onOpen: openRunsTab,
       },
     ];
   }, [
@@ -531,9 +498,6 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     openGitHubTab,
     openAgentsTab,
     openPipelinesTab,
-    openWorkflowsTab,
-    openAutomationsTab,
-    openRunsTab,
   ]);
 
   /** Menos uso típico: estudio, taxonomía, extensiones — encima de Ajustes. */

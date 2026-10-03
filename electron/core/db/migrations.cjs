@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 80;
+const SCHEMA_HEAD = 81;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1610,6 +1610,20 @@ const MIGRATION_STEPS = [
   migration61,
 ];
 
+function migration81(db,version) {
+  if(version>=81)return;
+  db.transaction(()=>{
+    // Preserve owner_type=many history, local conversations, projects and library.
+    if(tableExists(db,'automation_runs'))db.prepare("DELETE FROM automation_runs WHERE owner_type <> 'many'").run();
+    for(const table of ['workflow_executions','automation_definitions','canvas_workflows','many_agent_versions','many_agents','workflow_folders','agent_folders']) {
+      if(tableExists(db,table))db.prepare(`DELETE FROM ${table}`).run();
+    }
+    if(tableExists(db,'domain_sync_state'))db.prepare("DELETE FROM domain_sync_state WHERE domain='agents'").run();
+    db.prepare("DELETE FROM settings WHERE key IN ('many_agents','canvas_workflows','automations')").run();
+    setSchemaVersion(db,81);
+  })();
+}
+
 function applyMigrations(db, version, invalidateQueries = () => {}) {
   if (version >= SCHEMA_HEAD) return;
 
@@ -1659,6 +1673,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration78(db, version);
   migration79(db, version);
   migration80(db, version);
+  migration81(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }
