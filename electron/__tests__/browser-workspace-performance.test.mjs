@@ -71,3 +71,24 @@ test('idle saved pages hide, but visible and agent-active pages remain awake', (
   item.busy = true; service.updateThrottling(item); assert.deepEqual([visible, throttled], [true, false]);
   item.busy = false; item.visible = { view }; service.updateThrottling(item); assert.deepEqual([visible, throttled], [true, false]);
 });
+
+test('real attach/park lifecycle revokes host renderer attachments and retains the research session', async () => {
+  const { EventEmitter } = await import('node:events');
+  const service = new NativeBrowserService();
+  const window = new EventEmitter(); window.webContents = new EventEmitter(); window.isDestroyed = () => false;
+  const children = new Set(); window.contentView = { addChildView: v => children.add(v), removeChildView: v => children.delete(v) };
+  let bounds = { x: 0, y: 0, width: 800, height: 500 }, visible;
+  const view = { setBounds: v => { bounds = v; }, getBounds: () => bounds, setVisible: v => { visible = v; }, webContents: { isDestroyed: () => false, setBackgroundThrottling: () => {} } };
+  const tab = { id: 'page', view, ready: false };
+  const item = { id: 'research', options: { profile: 'research' }, tabs: new Map([[tab.id, tab]]), activeTabId: tab.id };
+  service.sessions.set(item.id, item); service.getHostWindow = () => window;
+  service.park(item, tab); service.attach(item.id, window, { x: 40, y: 100, width: 800, height: 500 });
+  assert.equal(window.webContents.listenerCount('render-process-gone'), 1);
+  window.webContents.emit('did-start-navigation', {}, '', true, true); assert.ok(item.visible);
+  window.webContents.emit('render-process-gone', {}, { reason: 'crashed', exitCode: 5 });
+  assert.equal(item.visible, null); assert.equal(visible, false); assert.ok(bounds.x < 0); assert.equal(service.sessions.get(item.id), item); assert.equal(item.tabs.size, 1); assert.ok(children.has(view));
+  service.attach(item.id, window, { x: 40, y: 100, width: 800, height: 500 });
+  window.webContents.emit('did-start-navigation', {}, '', false, true); assert.equal(item.visible, null);
+  service.attach(item.id, window, { x: 40, y: 100, width: 800, height: 500 }); window.emit('closed');
+  assert.equal(item.visible, null); assert.equal(tab.hostWindow, null); assert.equal(service.hostListeners.size, 0); assert.equal(window.webContents.listenerCount('render-process-gone'), 0);
+});

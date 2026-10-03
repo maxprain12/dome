@@ -23,12 +23,10 @@ const ControlSchema = z.discriminatedUnion('action', [
 function register({ ipcMain, windowManager }) {
   browser.getHostWindow = () => windowManager.get('main');
   workspace.onOpened = data => {
-    const window = windowManager.get('main');
-    if (window && !window.isDestroyed()) window.webContents.send('native-browser:opened', data);
+    windowManager.send('main', 'native-browser:opened', data);
   };
   workspace.onChanged = sessionId => {
-    const window = windowManager.get('main');
-    if (window && !window.isDestroyed()) window.webContents.send('native-browser:changed', { sessionId });
+    windowManager.send('main', 'native-browser:changed', { sessionId });
   };
   const handler = (schema, fn) => async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };

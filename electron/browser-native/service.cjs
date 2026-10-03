@@ -18,6 +18,7 @@ class NativeBrowserService {
     this.sessions = new Map();
     this.pending = new Map();
     this.recovery = new Map();
+    this.hostListeners = new Map();
     this.onChanged = () => {};
   }
 
@@ -276,6 +277,7 @@ class NativeBrowserService {
       this.unhost(tab);
       window.contentView.addChildView(view);
       tab.hostWindow = window;
+      this.watchHost(window);
       item.visible = { window, view };
     }
     view.setBounds(bounds);
@@ -304,6 +306,7 @@ class NativeBrowserService {
     tab.view.setBounds({ x: -width - 1, y: -height - 1, width, height });
     window.contentView.addChildView(tab.view);
     tab.hostWindow = window;
+    this.watchHost(window);
     // Do not attach a debugger to a newly created, unloaded WebContents.
     // Existing loaded tabs already have the CDP session used by navigation.
     // Retain metrics while parked; hiding the pane must not relayout the page.
@@ -326,8 +329,36 @@ class NativeBrowserService {
   }
 
   unhost(tab) {
-    if (tab.hostWindow && !tab.hostWindow.isDestroyed()) tab.hostWindow.contentView.removeChildView(tab.view);
+    const host = tab.hostWindow;
+    if (host && !host.isDestroyed()) host.contentView.removeChildView(tab.view);
     tab.hostWindow = null;
+    if (host && ![...this.sessions.values()].some(item => [...item.tabs.values()].some(entry => entry.hostWindow === host))) this.hostListeners.get(host)?.();
+  }
+
+  watchHost(window) {
+    if (this.hostListeners.has(window) || !window.on) return;
+    const revoke = () => {
+      for (const item of this.sessions.values()) if (item.visible?.window === window) this.detach(item.id);
+    };
+    const navigate = (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) revoke(); };
+    const closed = () => {
+      for (const item of this.sessions.values()) {
+        if (item.visible?.window === window) item.visible = null;
+        for (const tab of item.tabs.values()) if (tab.hostWindow === window) tab.hostWindow = null;
+        this.updateThrottling(item);
+      }
+      dispose();
+    };
+    const dispose = () => {
+      window.webContents?.removeListener('render-process-gone', revoke);
+      window.webContents?.removeListener('did-start-navigation', navigate);
+      window.removeListener('closed', closed);
+      this.hostListeners.delete(window);
+    };
+    this.hostListeners.set(window, dispose);
+    window.webContents?.on('render-process-gone', revoke);
+    window.webContents?.on('did-start-navigation', navigate);
+    window.on('closed', closed);
   }
 
   close(owner) {

@@ -3,5 +3,11 @@
   "close_sidebar": "Cerrar barra lateral",
   "open_right_panel": "Abrir panel Many",
   "close_right_panel": "Cerrar panel Many",
-  "new_chat": "Nueva conversación"
+  "new_chat": "Nueva conversación",
+  "renderer_recovery": {
+    "title": "Dome no pudo restaurar la ventana",
+    "message": "Intenta restaurar la ventana de nuevo o cierra y vuelve a abrir Dome. Tus conversaciones guardadas siguen disponibles.",
+    "retry": "Restaurar ventana",
+    "close": "Cerrar diálogo"
+  }
 }
