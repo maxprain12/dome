@@ -8,10 +8,10 @@ import ListState from '@/components/shared/ListState';
 import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore';
 import { getResourceTabType, TAB_REGISTRY } from '@/lib/tabs/tabRegistry';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { useManyStore } from '@/lib/store/useManyStore';
+import { useActiveChatSession } from '@/lib/many/useActiveChatSession';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
-import TabPaneShell, { TabContentReadyNotifier } from '@/components/shell/TabPaneShell';
+import TabPaneShell from '@/components/shell/TabPaneShell';
 
 const NativeBrowserPage = lazy(() => import('@/components/browser/NativeBrowserPage'));
 
@@ -164,12 +164,6 @@ function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () =>
     observer.observe(workspaceRef.current);
     return () => observer.disconnect();
   }, [ManyPanelComp]);
-
-  const prevSessionIdRef = useRef<string | null>(null);
-  if (sessionId && prevSessionIdRef.current !== sessionId) {
-    prevSessionIdRef.current = sessionId;
-    useManyStore.getState().switchSession(sessionId);
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -522,7 +516,6 @@ function TabContentWithSplit({ tab }: { tab: DomeTab }) {
     return (
       <>
         <TabContent tab={tab} />
-        <TabContentReadyNotifier />
       </>
     );
   }
@@ -544,7 +537,6 @@ function TabContentWithSplit({ tab }: { tab: DomeTab }) {
           <TabContent tab={referenceTab} referenceMode />
         </WorkspaceSplitView.Reference>
       </WorkspaceSplitView>
-      <TabContentReadyNotifier />
     </>
   );
 }
@@ -561,6 +553,7 @@ export default function ContentRouter() {
     useShallow((s) => ({ tabs: s.tabs, activeTabId: s.activeTabId })),
   );
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  useActiveChatSession(activeTab?.type === 'chat' ? activeTab.resourceId : undefined);
 
   // Defensive: activeTabId is orphaned (e.g. stale localStorage after a tab was removed).
   useLayoutEffect(() => {

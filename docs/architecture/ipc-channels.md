@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-02T23:31:12.637Z
+> Última generación: 2026-10-03T08:55:17.182Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -349,18 +349,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `migration:getStatus` | `electron/ipc/core/migration.cjs:9` |
 | `migration:migrateResources` | `electron/ipc/core/migration.cjs:4` |
 | `minimax:files:upload` | `electron/ipc/media/minimax-files.cjs:75` |
-| `native-browser:attach` | `electron/ipc/integrations/native-browser.cjs:48` |
-| `native-browser:close` | `electron/ipc/integrations/native-browser.cjs:58` |
-| `native-browser:control` | `electron/ipc/integrations/native-browser.cjs:44` |
-| `native-browser:detach` | `electron/ipc/integrations/native-browser.cjs:57` |
-| `native-browser:get-options` | `electron/ipc/integrations/native-browser.cjs:59` |
-| `native-browser:open` | `electron/ipc/integrations/native-browser.cjs:39` |
-| `native-browser:recover` | `electron/ipc/integrations/native-browser.cjs:47` |
-| `native-browser:search` | `electron/ipc/integrations/native-browser.cjs:38` |
-| `native-browser:set-options` | `electron/ipc/integrations/native-browser.cjs:64` |
-| `native-browser:share` | `electron/ipc/integrations/native-browser.cjs:45` |
-| `native-browser:state` | `electron/ipc/integrations/native-browser.cjs:40` |
-| `native-browser:unshare` | `electron/ipc/integrations/native-browser.cjs:46` |
+| `native-browser:attach` | `electron/ipc/integrations/native-browser.cjs:46` |
+| `native-browser:close` | `electron/ipc/integrations/native-browser.cjs:56` |
+| `native-browser:control` | `electron/ipc/integrations/native-browser.cjs:42` |
+| `native-browser:detach` | `electron/ipc/integrations/native-browser.cjs:55` |
+| `native-browser:get-options` | `electron/ipc/integrations/native-browser.cjs:57` |
+| `native-browser:open` | `electron/ipc/integrations/native-browser.cjs:37` |
+| `native-browser:recover` | `electron/ipc/integrations/native-browser.cjs:45` |
+| `native-browser:search` | `electron/ipc/integrations/native-browser.cjs:36` |
+| `native-browser:set-options` | `electron/ipc/integrations/native-browser.cjs:62` |
+| `native-browser:share` | `electron/ipc/integrations/native-browser.cjs:43` |
+| `native-browser:state` | `electron/ipc/integrations/native-browser.cjs:38` |
+| `native-browser:unshare` | `electron/ipc/integrations/native-browser.cjs:44` |
 | `notebook:checkPython` | `electron/ipc/media/notebook.cjs:101` |
 | `notebook:checkVenv` | `electron/ipc/media/notebook.cjs:157` |
 | `notebook:createVenv` | `electron/ipc/media/notebook.cjs:121` |

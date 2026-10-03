@@ -60,7 +60,7 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
 }
 
 function useNarrowShell(): boolean {
-  const [narrow, setNarrow] = useState(false);
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 900px)');
     const update = () => setNarrow(media.matches);

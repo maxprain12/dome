@@ -3,5 +3,11 @@
   "close_sidebar": "Close sidebar",
   "open_right_panel": "Open Many panel",
   "close_right_panel": "Close Many panel",
-  "new_chat": "New chat"
+  "new_chat": "New chat",
+  "renderer_recovery": {
+    "title": "Dome could not restore the window",
+    "message": "Try restoring the window again, or close and reopen Dome. Your saved conversations remain available.",
+    "retry": "Restore window",
+    "close": "Close dialog"
+  }
 }

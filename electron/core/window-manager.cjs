@@ -2,6 +2,7 @@ const { BrowserWindow, app } = require('electron');
 const fs = require('fs');
 const { useViteDevServer, distIndexPath } = require('./runtime-env.cjs');
 const { getPreloadPath } = require('../paths.cjs');
+const { trackRenderer } = require('./renderer-recovery.cjs');
 
 /**
  * Window Manager para gestión de múltiples ventanas
@@ -20,6 +21,9 @@ class WindowManager {
      * @type {Set<number>}
      */
     this.authorizedWindows = new Set();
+    this.renderers = new Map();
+    this.shuttingDown = false;
+    app.on('before-quit', () => { this.shuttingDown = true; });
 
     /**
      * Handler for dome:// deep links (set by main.cjs after init)
@@ -104,6 +108,11 @@ class WindowManager {
 
     // Tracking
     this.windows.set(id, window);
+    this.renderers.set(id, trackRenderer(window, {
+      recover: id === 'main',
+      isShuttingDown: () => this.shuttingDown,
+      onFailure: (_error, retry) => this.offerRendererRetry(window, retry),
+    }));
     // Guardar webContents.id antes de que la ventana pueda ser destruida
     const webContentsId = window.webContents.id;
     this.authorizedWindows.add(webContentsId);
@@ -157,6 +166,7 @@ class WindowManager {
     // Cleanup automático
     window.on('closed', () => {
       this.windows.delete(id);
+      this.renderers.delete(id);
       // Usar el ID guardado en lugar de acceder a window.webContents.id
       // que puede fallar si la ventana ya fue destruida
       this.authorizedWindows.delete(webContentsId);
@@ -281,11 +291,9 @@ class WindowManager {
    * @param {any} data - Datos a enviar
    */
   broadcast(channel, data) {
-    for (const window of this.windows.values()) {
-      if (!window.isDestroyed()) {
-        window.webContents.send(channel, data);
-      }
-    }
+    let delivered = false;
+    for (const id of this.windows.keys()) delivered = this.send(id, channel, data) || delivered;
+    return delivered;
   }
 
   /**
@@ -296,12 +304,20 @@ class WindowManager {
    * @returns {boolean} - true si se envió, false si no existe ventana
    */
   send(id, channel, data) {
-    const window = this.windows.get(id);
-    if (window && !window.isDestroyed()) {
-      window.webContents.send(channel, data);
-      return true;
-    }
-    return false;
+    return this.renderers.get(id)?.send(channel, data) ?? false;
+  }
+
+  async offerRendererRetry(window, retry) {
+    if (this.shuttingDown || window.isDestroyed() || this.recoveryDialogOpen) return;
+    this.recoveryDialogOpen = true;
+    try {
+      const { dialog } = require('electron');
+      const copy = require('./renderer-recovery-copy.cjs').recoveryCopy(app.getLocale());
+      const result = await dialog.showMessageBox(window, { type: 'error', title: copy.title, message: copy.message, buttons: [copy.retry, copy.close], defaultId: 0, cancelId: 1 });
+      if (!this.shuttingDown && !window.isDestroyed() && result.response === 0) retry();
+    } catch (error) {
+      console.error('[WindowManager] recovery dialog failed', error.name || 'Error');
+    } finally { this.recoveryDialogOpen = false; }
   }
 
   /**

@@ -190,17 +190,6 @@
       min-width: 200px !important;
     }
 
-    .dome-right-panel {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      z-index: var(--z-fixed);
-      width: min(380px, 86vw) !important;
-      min-width: min(380px, 86vw) !important;
-      border-left: 1px solid var(--sidebar-border);
-      background: var(--card);
-    }
   }
 }
 
@@ -399,11 +388,6 @@ body {
   .animate-pulse,
   .animate-spin {
     animation: none !important;
-  }
-
-  .tab-pane-reveal {
-    filter: none !important;
-    transition: opacity var(--duration-instant) linear !important;
   }
 
   .studio-view-enter {

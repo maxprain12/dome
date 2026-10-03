@@ -341,6 +341,7 @@
       "shared/**/*",
       "prompts/README.md",
       "packages/prompts/sections/**/*",
+      "packages/i18n/locales/*/shell.json",
       "packages/prompts/surfaces/**/*",
       "packages/tools/src/domains/**/*.txt",
       "package.json",
