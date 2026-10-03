@@ -53,5 +53,12 @@ async function run() {
   process.stdout.write(`${JSON.stringify({ inducedReason: details.reason, inducedExitCode: details.exitCode, restoredShell: true, viewportMatchesContent: true, nativeCaptureBeforeAndAfter: true, savedCookieRetained: true, repeatedCrashReloads: reloads })}\n`);
   await browser.close(item.id); lifecycle.dispose(); host.destroy();
 }
-const deadline = setTimeout(() => { console.error('Renderer recovery fixture deadline exceeded'); app.exit(1); }, 25000);
+// Linux CI can spend several seconds starting Electron under Xvfb before the
+// first renderer event. Keep this bounded, but fail the process explicitly so
+// a hung Electron child cannot leave the workflow running forever.
+const deadline = setTimeout(() => {
+  console.error('Renderer recovery fixture deadline exceeded');
+  process.exitCode = 1;
+  process.exit(1);
+}, 60000);
 run().then(() => { clearTimeout(deadline); server.close(); app.exit(0); }, error => { clearTimeout(deadline); console.error(error); server.close(); app.exit(1); });
