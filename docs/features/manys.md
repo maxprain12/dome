@@ -1,6 +1,6 @@
 # Many’s
 
-Many’s reúne colaboradores cloud en una pestaña de Dome. Cada colaborador tiene conversación, tareas, recurrencias, contexto y ordenador lateral; el Many local sigue disponible.
+Many’s reúne colaboradores cloud en una pestaña de Dome. Abrir uno es una conversación: el agente decide cómo trabajar. Contexto y recurrencias no son la pantalla principal; se abren desde el encabezado. Una pregunta o una aprobación pendiente aparece en el hilo. El ordenador se abre al lado y el Many local sigue disponible.
 
 Una tarea enviada se guarda en Provider antes de aparecer como aceptada. El request key se conserva si se pierde la respuesta, y los borradores sobreviven al cierre de la pestaña. Detener respuesta pausa la tarea y libera su intento; cancelar la tarea registra una cancelación durable. Esperar datos o aprobación también libera capacidad.
 

@@ -27,6 +27,7 @@ describe('Many’s durable interaction',()=>{
    expect(manyMarkVariant('')).toBe('lime');
    fireEvent.click(research);
    expect(await screen.findByText('Hello from Many')).toBeInTheDocument();
+   expect(screen.queryByRole('tab')).toBeNull();
    expect(screen.getByText('Hi').closest('[data-slot="bubble-content"]')).toBeTruthy();
    expect(screen.getByText('Hello from Many').closest('[data-slot="bubble-content"]')).toBeTruthy();
  });
