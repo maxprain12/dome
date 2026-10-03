@@ -1,9 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {createRequire} from 'node:module';
+import {createRequire,Module} from 'node:module';
 const require=createRequire(import.meta.url);
-const sync=require('../storage/domain-sync.cjs');
+// These SQLite tests never authenticate or start Electron. CI intentionally
+// installs without lifecycle scripts, so keep OAuth's native shell dependency out.
+const authPath=require.resolve('../auth/dome-oauth.cjs');
+const previousAuth=require.cache[authPath];
+const authStub=new Module(authPath);
+authStub.exports={fetchWithDomeAuth:()=>{throw new Error('Unexpected network access in vault sync test');}};
+require.cache[authPath]=authStub;
+let sync;
+try {sync=require('../storage/domain-sync.cjs');}
+finally {if(previousAuth)require.cache[authPath]=previousAuth;else delete require.cache[authPath];}
 test('conflict replay replaces the local draft only after it was preserved on the server',()=>{
  const db=new DatabaseSync(':memory:');db.exec(`CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT,updated_at INTEGER);PRAGMA foreign_keys=ON;CREATE TABLE resources(id TEXT PRIMARY KEY,title TEXT,content TEXT,updated_at INTEGER,file_path TEXT);CREATE TABLE resource_tags(resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,tag_id TEXT,created_at INTEGER,updated_at INTEGER);INSERT INTO resources VALUES('note','Offline','unsent draft',300,'/local/cached-file');INSERT INTO resource_tags VALUES('note','tag',0,0);INSERT INTO settings VALUES('manys:base:note','100',0),('manys:conflict:note','1',0);`);
  const cloud={id:'note',title:'Cloud',content:'new cloud text',updated_at:200,device_id:'many:00000000-0000-4000-8000-000000000001'};
