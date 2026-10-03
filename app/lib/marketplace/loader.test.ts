@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadAvailablePlugins, loadAvailableSkills } from './loader';
 import bundledPlugins from './data/plugins.json';
 import bundledSkills from './data/skills.json';
+import publicPlugins from '../../../public/plugins.json';
+import publicSkills from '../../../public/skills.json';
 
 afterEach(() => vi.unstubAllGlobals());
 describe('bundled add-ons when catalog transport is unavailable', () => {
@@ -13,7 +14,7 @@ describe('bundled add-ons when catalog transport is unavailable', () => {
   });
 
   it('matches the catalogs served from public', () => {
-    expect(JSON.parse(readFileSync(new URL('../../../public/plugins.json', import.meta.url), 'utf8'))).toEqual(bundledPlugins);
-    expect(JSON.parse(readFileSync(new URL('../../../public/skills.json', import.meta.url), 'utf8'))).toEqual(bundledSkills);
+    expect(publicPlugins).toEqual(bundledPlugins);
+    expect(publicSkills).toEqual(bundledSkills);
   });
 });
