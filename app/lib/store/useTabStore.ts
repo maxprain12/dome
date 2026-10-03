@@ -130,11 +130,14 @@ export function tabsFromParsedPayload(
   activeProjectId?: string | null,
 ): { tabs: DomeTab[]; activeTabId: string } {
   if (parsed.tabs.length === 0) return defaultTabsState();
-  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.filter(tab => tab.type !== 'browser').flatMap((tab) => {
+  const migratedTabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.filter(tab => tab.type !== 'browser').flatMap((tab) => {
+    if (['agents','workflows','automations','runs'].includes(tab.type)) return [{...tab,id:'manys',type:'manys' as const,title:i18n.t('manys.title')}];
     if (!['semantic-graph', 'transcriptions', 'transcription-detail'].includes(tab.type as string)) return [tab];
     return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('sectionGuide.library.title'), resourceId: tab.projectId || activeProjectId || 'default' }];
   }), activeProjectId));
-  return { tabs, activeTabId: resolveStoredActiveTabId(tabs, parsed.activeTabId) };
+  const tabs = migratedTabs.filter((tab,index,all)=>all.findIndex(other=>other.id===tab.id)===index);
+  const activeId=['agents','workflows','automations','runs'].includes(String(parsed.activeTabId))?'manys':parsed.activeTabId;
+  return { tabs, activeTabId: resolveStoredActiveTabId(tabs, activeId) };
 }
 
 function loadStoredTabs(activeProjectId?: string | null): { tabs: DomeTab[]; activeTabId: string } {
@@ -214,6 +217,7 @@ interface TabStore {
   openTagsTab: () => void;
   openMarketplaceTab: () => void;
   openPipelinesTab: () => void;
+  openManysTab: () => void;
   openAgentsTab: () => void;
   openWorkflowsTab: () => void;
   openAutomationsTab: () => void;
@@ -626,21 +630,17 @@ export const useTabStore = create<TabStore>((set, get) => {
       get().openTab({ id: PIPELINES_TAB_ID, type: 'pipelines', title: i18n.t('tabs.pipelines'), pinned: false });
     },
 
-    openAgentsTab: () => {
-      get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: i18n.t('tabs.agents'), pinned: false });
+    openManysTab: () => {
+      get().openTab({id:'manys',type:'manys',title:i18n.t('manys.title'),pinned:false});
     },
 
-    openWorkflowsTab: () => {
-      get().openTab({ id: WORKFLOWS_TAB_ID, type: 'workflows', title: i18n.t('tabs.workflows'), pinned: false });
-    },
+    openAgentsTab: () => get().openManysTab(),
 
-    openAutomationsTab: () => {
-      get().openTab({ id: AUTOMATIONS_TAB_ID, type: 'automations', title: i18n.t('tabs.automations'), pinned: false });
-    },
+    openWorkflowsTab: () => get().openManysTab(),
 
-    openRunsTab: () => {
-      get().openTab({ id: RUNS_TAB_ID, type: 'runs', title: i18n.t('tabs.runs'), pinned: false });
-    },
+    openAutomationsTab: () => get().openManysTab(),
+
+    openRunsTab: () => get().openManysTab(),
 
     openProjectsTab: () => {
       get().openTab({

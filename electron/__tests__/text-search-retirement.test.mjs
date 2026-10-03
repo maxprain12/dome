@@ -41,7 +41,7 @@ test('fresh installations use FTS without vector or relation tables and preserve
     assert.equal(searchResources(db, 'extracted', { projectId: 'a' }).length, 0);
   } finally { db.close(); }
 });
-test('upgrade retains note mentions and historical relations, disables their triggers and dependent automations', () => {
+test('upgrade retains note mentions and historical relations, disables their triggers and retires legacy operations', () => {
   const db = database();
   try {
     db.exec("INSERT INTO projects(id,name,created_at,updated_at) VALUES('a','A',1,1)");
@@ -59,9 +59,8 @@ test('upgrade retains note mentions and historical relations, disables their tri
     db.prepare('UPDATE resources SET content=? WHERE id=?').run('@[Target](target)', 'source');
     assert.equal(db.prepare('SELECT COUNT(*) AS count FROM semantic_relations').get().count, 1);
     assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name='legacy_note_link'").get(), undefined);
-    assert.deepEqual(JSON.parse(db.prepare("SELECT tool_ids FROM many_agents WHERE id='agent'").get().tool_ids), ['resource_search']);
-    const automation = db.prepare("SELECT * FROM automation_definitions WHERE id='schedule'").get();
-    assert.equal(automation.enabled, 0); assert.match(automation.description, /retired tools/);
+    assert.equal(db.prepare("SELECT id FROM many_agents WHERE id='agent'").get(), undefined);
+    assert.equal(db.prepare("SELECT id FROM automation_definitions WHERE id='schedule'").get(), undefined);
   } finally { db.close(); }
 });
 
@@ -94,7 +93,7 @@ test('text indexing persists PDF OCR and image extraction without altering origi
   } finally { db.close(); }
 });
 
-test('retirement disables KB and user search automations before scheduler while retaining historical media text', () => {
+test('retirement removes KB and user automations while retaining historical media text', () => {
   const db = database();
   try {
     db.exec("INSERT INTO projects(id,name,created_at,updated_at) VALUES('a','A',1,1)");
@@ -103,10 +102,8 @@ test('retirement disables KB and user search automations before scheduler while 
     db.prepare("INSERT INTO many_agents(id,name,tool_ids,created_at,updated_at,project_id) VALUES('agent','Search agent',?,1,1,'a')").run(JSON.stringify(['web_search','web_fetch','research_read']));
     db.exec("INSERT INTO automation_definitions(id,title,target_type,target_id,trigger_type,enabled,legacy_source,created_at,updated_at) VALUES('search','User search','agent','agent','schedule',1,NULL,1,1),('kbllm-a-compile','KB','agent','kb','schedule',1,'kb_llm',1,1),('keep','Keep','agent','other','schedule',1,NULL,1,1)");
     applyMigrations(db, 79);
-    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='search'").get().enabled, 0);
-    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='kbllm-a-compile'").get().enabled, 0);
-    assert.equal(db.prepare("SELECT enabled FROM automation_definitions WHERE id='keep'").get().enabled, 1);
-    assert.deepEqual(JSON.parse(db.prepare("SELECT tool_ids FROM many_agents WHERE id='agent'").get().tool_ids), ['web_fetch']);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM automation_definitions').get().count, 0);
+    assert.equal(db.prepare("SELECT id FROM many_agents WHERE id='agent'").get(), undefined);
     assert.equal(JSON.parse(db.prepare("SELECT metadata FROM resources WHERE id='audio'").get().metadata).transcription, 'Historical transcript');
     assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='transcription_sessions'").get(), undefined);
   } finally { db.close(); }

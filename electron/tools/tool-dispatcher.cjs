@@ -69,6 +69,10 @@ async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   if (toolContext?.agentMode === 'plan' && require('../agents/many-agent-mode.cjs').isModeWriteTool(normalizedToolName)) {
     return { success: false, error: 'Plan mode is read-only. Select Agent or Draft explicitly before executing changes.' };
   }
+  if (normalizedToolName.startsWith('manys_')) {
+    return require('../agents/manys-client.cjs').execute(require('../core/database.cjs'), normalizedToolName, rawArgs);
+  }
+  if (['agent_create','automation_create','workflow_create'].includes(normalizedToolName)) return {success:false,error:'legacy_retired_use_manys'};
   const nativeBrowser = require('../browser-native/actions.cjs');
   if (nativeBrowser.names.has(normalizedToolName)) {
     try {

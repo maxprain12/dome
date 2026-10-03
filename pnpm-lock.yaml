@@ -685,6 +685,18 @@ importers:
 
   packages/i18n: {}
 
+  packages/manys-runtime:
+    dependencies:
+      '@dome/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@dome/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@sinclair/typebox':
+        specifier: ^0.34.41
+        version: 0.34.49
+
   packages/prompts: {}
 
   packages/tools:

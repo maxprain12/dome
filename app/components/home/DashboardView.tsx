@@ -181,7 +181,7 @@ export default function DashboardView() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex items-baseline gap-2"><span className="text-4xl font-semibold tabular-nums">{loading ? '—' : gamification.weeklyRunsCompleted}</span><span className="text-xs text-muted-foreground">{t('dashboardPanels.runs_completed')}</span></div>
           <Button variant="outline" onClick={handleAskMany}><HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />{t('dashboard.ask_many')}</Button>
-          <div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => openAgentsTab()}>{t('dashboardPanels.agents')}</Button><Button variant="outline" onClick={() => openLearnTab()}>{t('dashboardPanels.learn')}</Button></div>
+          <div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => openAgentsTab()}>{t('manys.title')}</Button><Button variant="outline" onClick={() => openLearnTab()}>{t('dashboardPanels.learn')}</Button></div>
         </CardContent>
       </Card> },
     { id: 'projects', label: t('dashboard.tab_projects'), wide: true, content:

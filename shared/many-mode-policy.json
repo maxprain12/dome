@@ -91,7 +91,10 @@
     "browser_replace_file",
     "browser_import_state",
     "browser_export_state",
-    "image_generate"
+    "image_generate",
+    "manys_create",
+    "manys_delegate",
+    "manys_recur"
   ],
   "prompts": {
     "agent": [

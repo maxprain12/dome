@@ -247,7 +247,6 @@ const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const githubSyncService = require('./github/github-sync-service.cjs');
 const githubSyncScheduler = require('./github/github-sync-scheduler.cjs');
 const memoryMonitor = require('./core/memory-monitor.cjs');
-const automationService = require('./agents/automation-service.cjs');
 const runRetention = require('./agents/run-retention.cjs');
 const errorNotify = require('./core/error-notify.cjs');
 const runEngine = require('./agents/run-engine.cjs');
@@ -1103,7 +1102,6 @@ function initRuntimeServices() {
   // finished without calling releaseRunContext, or that have been paused on
   // human approval for too long. See T04-cleanup-run-contexts.md.
   runLifecycle.startRunContextSweep();
-  automationService.init(windowManager, database);
   runRetention.init();
   errorNotify.init(windowManager);
   domainSyncScheduler.init({ database, windowManager });
@@ -1224,7 +1222,6 @@ app.on('before-quit', async () => {
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
   domainSyncScheduler.stop();
-  automationService.stop();
   runRetention.stop();
   try {
     require('./workers/worker-pool.cjs').shutdownWorkers();

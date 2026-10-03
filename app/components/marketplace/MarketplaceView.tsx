@@ -12,17 +12,11 @@ import type { MarketplaceAgent } from '@/types';
 import type { WorkflowTemplate } from '@/types/canvas';
 import { useMarketplaceStore } from '@/lib/store/useMarketplaceStore';
 import {
-  getMarketplaceAgents,
-  getInstalledMarketplaceAgentIds,
-  getInstalledMarketplaceAgentRecords,
   installMarketplaceAgent,
-  getInstalledWorkflowTemplateIds,
-  getInstalledWorkflowRecords,
   installWorkflowTemplate,
   getWorkflowIdForTemplate,
 } from '@/lib/marketplace/api';
 import {
-  loadMarketplaceWorkflows,
   loadMarketplaceMcp,
   loadMarketplaceSkills,
   type MCPManifest,
@@ -82,13 +76,13 @@ const TYPE_CONFIG = {
   plugins: { icon: Plug02Icon, label: 'Plugin' },
 } satisfies Record<FilterType, { icon: IconSvgElement; label: string }>;
 
-const COMPLEMENT_TYPES: Exclude<FilterType, 'all'>[] = ['plugins', 'agents', 'workflows', 'skills', 'mcp'];
+const COMPLEMENT_TYPES: Exclude<FilterType, 'all'>[] = ['plugins', 'skills', 'mcp'];
 
 function buildComplementTypeOptions(
   t: (key: string) => string,
   totalByType: Record<string, number>,
 ): { value: FilterType; label: string }[] {
-  const types: FilterType[] = ['all', 'plugins', 'agents', 'workflows', 'skills', 'mcp'];
+  const types: FilterType[] = ['all', 'plugins', 'skills', 'mcp'];
   const labels: Record<FilterType, string> = {
     all: t('marketplace.type_all'),
     agents: t('marketplace.type_agents'),
@@ -525,7 +519,7 @@ export default function MarketplaceView() {
   );
 
   // ── Agents ────────────────────────────────────────────
-  const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
+  const [agents] = useState<MarketplaceAgent[]>([]);
   const [installedIds, setInstalledIds] = useState<string[]>([]);
   const [installedAgentRecords, setInstalledAgentRecords] = useState<Record<string, { version: string }>>({});
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -534,7 +528,7 @@ export default function MarketplaceView() {
   const [selectedAgent, setSelectedAgent] = useState<MarketplaceAgent | null>(null);
 
   // ── Workflows ─────────────────────────────────────────
-  const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
+  const [workflows] = useState<WorkflowTemplate[]>([]);
   const [installingWorkflowId, setInstallingWorkflowId] = useState<string | null>(null);
   const [installedWorkflowIds, setInstalledWorkflowIds] = useState<string[]>([]);
   const [installedWorkflowRecords, setInstalledWorkflowRecords] = useState<Record<string, { version: string }>>({});
@@ -593,22 +587,14 @@ export default function MarketplaceView() {
 
   // ── Sync installed state ──────────────────────────────
   const syncInstalledState = async () => {
-    const [servers, skillsResult, agentIds, agentRecords, workflowIds, workflowRecords] = await Promise.all([
+    const [servers, skillsResult] = await Promise.all([
       loadMcpServersSetting(),
       listSkills(),
-      getInstalledMarketplaceAgentIds(),
-      getInstalledMarketplaceAgentRecords(),
-      getInstalledWorkflowTemplateIds(),
-      getInstalledWorkflowRecords(),
     ]);
     setInstalledMcpNames(new Set(servers.map((s) => s.name.toLowerCase())));
     if (skillsResult.success && Array.isArray(skillsResult.data)) {
       setInstalledSkillIds(new Set(skillsResult.data.map((s) => s.id).filter(Boolean) as string[]));
     }
-    setInstalledIds(agentIds);
-    setInstalledAgentRecords(agentRecords);
-    setInstalledWorkflowIds(workflowIds);
-    setInstalledWorkflowRecords(workflowRecords);
     const pluginResult = await window.electron.plugins.list();
     if (pluginResult.success) setInstalledLocalPluginIds(new Set(pluginResult.data?.map((plugin) => plugin.id) || []));
   };
@@ -622,45 +608,15 @@ export default function MarketplaceView() {
 
   useEffect(() => {
     Promise.all([
-      getMarketplaceAgents(),
-      getInstalledMarketplaceAgentIds(),
-      getInstalledMarketplaceAgentRecords(),
-      loadMarketplaceWorkflows(),
-      getInstalledWorkflowTemplateIds(),
-      getInstalledWorkflowRecords(),
       loadMarketplaceMcp(),
       loadMarketplaceSkills(),
       loadAvailablePlugins(),
-    ]).then(([agentsList, installedList, agentRecords, workflowsList, workflowIds, workflowRecords, mcps, skills, pluginCatalog]) => {
-      setAgents(agentsList);
-      setInstalledIds(installedList);
-      setInstalledAgentRecords(agentRecords);
-      setWorkflows(workflowsList);
-      setInstalledWorkflowIds(workflowIds);
-      setInstalledWorkflowRecords(workflowRecords);
-      setMcpServers(mcps);
+    ]).then(([mcps, skills, pluginCatalog]) => {
+            setMcpServers(mcps);
       setCatalogSkills(skills);
       setAvailablePlugins(pluginCatalog);
       setInitialLoading(false);
     });
-  }, []);
-
-  useEffect(() => {
-    const handler = () => {
-      void getInstalledMarketplaceAgentIds().then(setInstalledIds);
-      void getInstalledMarketplaceAgentRecords().then(setInstalledAgentRecords);
-    };
-    window.addEventListener('dome:agents-changed', handler);
-    return () => window.removeEventListener('dome:agents-changed', handler);
-  }, []);
-
-  useEffect(() => {
-    const handler = () => {
-      void getInstalledWorkflowTemplateIds().then(setInstalledWorkflowIds);
-      void getInstalledWorkflowRecords().then(setInstalledWorkflowRecords);
-    };
-    window.addEventListener('dome:workflows-changed', handler);
-    return () => window.removeEventListener('dome:workflows-changed', handler);
   }, []);
 
   // ── Handlers ──────────────────────────────────────────
@@ -846,7 +802,7 @@ export default function MarketplaceView() {
   }), [agents, workflows, mcpServers, catalogSkills, availablePlugins, plugins, i18n.language]);
 
   const filteredItems = useMemo(() => {
-    let result = allItems;
+    let result = allItems.filter(item=>item.type!=='agents'&&item.type!=='workflows');
 
     if (mainTab === 'skills') {
       result = result.filter((i) => i.type === 'skills');
@@ -935,7 +891,7 @@ export default function MarketplaceView() {
       }
       return {
         label: isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install'),
-        onAction: () => void handleInstallAgent(agent),
+        onAction: () => { handleInstallAgent(agent); },
         disabled: !!installingId,
       };
     }
@@ -954,7 +910,7 @@ export default function MarketplaceView() {
             : isInstalled
               ? t('marketplace.open')
               : t('marketplace.install'),
-        onAction: () => void handleInstallWorkflow(workflow),
+        onAction: () => { handleInstallWorkflow(workflow); },
         disabled: !!installingWorkflowId,
       };
     }
@@ -965,7 +921,7 @@ export default function MarketplaceView() {
       if (plugin.bundled && installed && plugin.version && installed.version !== plugin.version) {
         return {
           label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.update_plugin'),
-          onAction: () => void handleInstallPlugin(plugin),
+          onAction: () => { handleInstallPlugin(plugin); },
           disabled: !!installingPlugin,
         };
       }
@@ -974,7 +930,7 @@ export default function MarketplaceView() {
       }
       return {
         label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin'),
-        onAction: () => void handleInstallPlugin(plugin),
+        onAction: () => { handleInstallPlugin(plugin); },
         disabled: !!installingPlugin,
       };
     }
@@ -987,7 +943,7 @@ export default function MarketplaceView() {
       const isInstalling = installingMcpId === server.id;
       return {
         label: isInstalling ? t('marketplace.adding') : t('marketplace.add'),
-        onAction: () => void handleInstallMcp(server),
+        onAction: () => { handleInstallMcp(server); },
         disabled: !!installingMcpId,
       };
     }
@@ -1000,7 +956,7 @@ export default function MarketplaceView() {
       const isInstalling = installingSkillId === skill.id;
       return {
         label: isInstalling ? t('marketplace.installing') : t('marketplace.activate'),
-        onAction: () => void handleInstallSkill(skill),
+        onAction: () => { handleInstallSkill(skill); },
         disabled: !!installingSkillId,
       };
     }
@@ -1050,7 +1006,7 @@ export default function MarketplaceView() {
           onScopeFilterChange={setScopeFilter}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          onRefresh={() => void handleRefresh()}
+          onRefresh={() => { handleRefresh(); }}
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">

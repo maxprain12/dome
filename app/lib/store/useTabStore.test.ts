@@ -102,3 +102,10 @@ it('opens historical transcription tabs as the saved resource or library', () =>
   expect(restored.tabs.find((tab) => tab.id === 'old-recordings')).toMatchObject({ type: 'folder', resourceId: 'project-a' });
   expect(restored.activeTabId).toBe('old-audio');
 });
+
+it('coalesces retired operational tabs into Manys and restores the active tab',()=>{
+  const tabs=['agents','workflows','automations','runs'].map(type=>({id:type,type:type as DomeTab['type'],title:type}));
+  const restored=tabsFromParsedPayload({tabs,activeTabId:'workflows'});
+  expect(restored.tabs.filter(tab=>tab.type==='manys')).toHaveLength(1);
+  expect(restored.activeTabId).toBe('manys');
+});
