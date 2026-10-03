@@ -1612,7 +1612,8 @@ const MIGRATION_STEPS = [
 
 function migration81(db,version) {
   if(version>=81)return;
-  db.transaction(()=>{
+  db.exec('SAVEPOINT manys_retirement');
+  try {
     // Preserve owner_type=many history, local conversations, projects and library.
     if(tableExists(db,'automation_runs'))db.prepare("DELETE FROM automation_runs WHERE owner_type <> 'many'").run();
     for(const table of ['workflow_executions','automation_definitions','canvas_workflows','many_agent_versions','many_agents','workflow_folders','agent_folders']) {
@@ -1621,7 +1622,12 @@ function migration81(db,version) {
     if(tableExists(db,'domain_sync_state'))db.prepare("DELETE FROM domain_sync_state WHERE domain='agents'").run();
     db.prepare("DELETE FROM settings WHERE key IN ('many_agents','canvas_workflows','automations')").run();
     setSchemaVersion(db,81);
-  })();
+    db.exec('RELEASE SAVEPOINT manys_retirement');
+  } catch(error) {
+    db.exec('ROLLBACK TO SAVEPOINT manys_retirement');
+    db.exec('RELEASE SAVEPOINT manys_retirement');
+    throw error;
+  }
 }
 
 function applyMigrations(db, version, invalidateQueries = () => {}) {
