@@ -1,9 +1,9 @@
 'use strict';
 const {z}=require('zod');
-const {fetchWithDomeAuth,getDomeProviderBaseUrl}=require('../auth/dome-oauth.cjs');
 const {randomUUID}=require('node:crypto');
 const IdSchema=z.string().uuid();
 async function request(database,path,method='GET',body) {
+  const {fetchWithDomeAuth,getDomeProviderBaseUrl}=require('../auth/dome-oauth.cjs');
   const response=await fetchWithDomeAuth(database,`${getDomeProviderBaseUrl()}/api/v1/manys${path}`,{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});
   const result=await response.json();if(!response.ok)throw new Error(result.error||'manys_unavailable');return result;
 }
