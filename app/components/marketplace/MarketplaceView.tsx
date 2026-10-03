@@ -891,7 +891,7 @@ export default function MarketplaceView() {
       }
       return {
         label: isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install'),
-        onAction: () => void handleInstallAgent(agent),
+        onAction: () => { handleInstallAgent(agent); },
         disabled: !!installingId,
       };
     }
@@ -910,7 +910,7 @@ export default function MarketplaceView() {
             : isInstalled
               ? t('marketplace.open')
               : t('marketplace.install'),
-        onAction: () => void handleInstallWorkflow(workflow),
+        onAction: () => { handleInstallWorkflow(workflow); },
         disabled: !!installingWorkflowId,
       };
     }
@@ -921,7 +921,7 @@ export default function MarketplaceView() {
       if (plugin.bundled && installed && plugin.version && installed.version !== plugin.version) {
         return {
           label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.update_plugin'),
-          onAction: () => void handleInstallPlugin(plugin),
+          onAction: () => { handleInstallPlugin(plugin); },
           disabled: !!installingPlugin,
         };
       }
@@ -930,7 +930,7 @@ export default function MarketplaceView() {
       }
       return {
         label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin'),
-        onAction: () => void handleInstallPlugin(plugin),
+        onAction: () => { handleInstallPlugin(plugin); },
         disabled: !!installingPlugin,
       };
     }
@@ -943,7 +943,7 @@ export default function MarketplaceView() {
       const isInstalling = installingMcpId === server.id;
       return {
         label: isInstalling ? t('marketplace.adding') : t('marketplace.add'),
-        onAction: () => void handleInstallMcp(server),
+        onAction: () => { handleInstallMcp(server); },
         disabled: !!installingMcpId,
       };
     }
@@ -956,7 +956,7 @@ export default function MarketplaceView() {
       const isInstalling = installingSkillId === skill.id;
       return {
         label: isInstalling ? t('marketplace.installing') : t('marketplace.activate'),
-        onAction: () => void handleInstallSkill(skill),
+        onAction: () => { handleInstallSkill(skill); },
         disabled: !!installingSkillId,
       };
     }
@@ -1006,7 +1006,7 @@ export default function MarketplaceView() {
           onScopeFilterChange={setScopeFilter}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          onRefresh={() => void handleRefresh()}
+          onRefresh={() => { handleRefresh(); }}
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
