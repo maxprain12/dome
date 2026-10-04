@@ -20,6 +20,7 @@
   "recurrences": "Recurrencias",
   "context": "Contexto",
   "computer": {
+    "title": "Ordenador",
     "agentTitle": "Many tiene el ordenador",
     "agentHint": "Mira su pantalla en vivo. Si tomas el control, su tarea se pausa para que puedas hacer clic, escribir y usar el terminal.",
     "humanTitle": "Tienes el control",
@@ -35,9 +36,6 @@
       "activity": "Actividad"
     },
     "screen": {
-      "idleTitle": "El ordenador está en reposo",
-      "idleHint": "Se enciende al conectar y se apaga solo tras 15 minutos sin uso.",
-      "connect": "Ver pantalla",
       "connecting": "Conectando con el ordenador…",
       "lost": "Se perdió la conexión con la pantalla.",
       "reconnect": "Reconectar",
@@ -55,7 +53,10 @@
     },
     "notice": {
       "take_control_first": "Toma el control para escribir en el ordenador.",
-      "control_released": "Devolviste el control."
+      "control_released": "Devolviste el control.",
+      "screen_starting": "La pantalla se está iniciando. Inténtalo en un momento.",
+      "screen_gone": "La pantalla ya no está en vivo. Pulsa reconectar.",
+      "generic": "La pantalla no pudo aplicar eso."
     },
     "terminal": {
       "needControl": "El terminal es tuyo cuando tomas el control",
@@ -107,7 +108,17 @@
       "unknown": "Estado desconocido",
       "start": "Encender ordenador",
       "stop": "Apagar ordenador",
-      "stopHint": "Apagarlo conserva los archivos y el perfil del navegador. Se enciende solo al usarlo y se apaga tras 15 minutos sin uso."
+      "stopHint": "Apagarlo conserva los archivos y el perfil del navegador. Se enciende solo al usarlo y se apaga tras 15 minutos sin uso.",
+      "offTitle": "El ordenador está apagado",
+      "offHint": "Enciéndelo para ver su pantalla y usarlo.",
+      "starting": "Encendiendo…",
+      "unreachable": "No se pudo comprobar el ordenador."
+    },
+    "expand": "Ampliar la pantalla",
+    "viewer": {
+      "hint": "Haz clic y escribe en la pantalla. Esc cierra la vista ampliada; el control sigue siendo tuyo hasta que lo devuelvas.",
+      "open": "Viendo la pantalla ampliada.",
+      "close": "Volver aquí"
     }
   },
   "message": "Mensaje",

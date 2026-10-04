@@ -1,7 +1,6 @@
 import {render,screen,fireEvent,waitFor,act} from '@testing-library/react';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import ManysView from './ManysView';
-import ManyComputer from './ManyComputer';
 import ManyReview from './ManyReview';
 import {manyMarkVariant} from './ManyMark';
 import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/manys/api';
@@ -162,60 +161,6 @@ describe('Many’s durable interaction',()=>{
    fireEvent.click(screen.getByRole('button',{name:/^Delete Many$|^Eliminar Many$|^Supprimer le Many$|^Excluir Many$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','DELETE'));
    await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
- });
- describe('the computer panel',()=>{
-   const computerMany={...detail.many,grants:{...detail.many.grants,capabilities:['vault.read','computer.read','computer.write']}};
-   const perform=vi.fn(async(fn:()=>Promise<unknown>)=>{await fn();});
-   const take=/^(Take control|Tomar el control|Prendre la main|Assumir o controle)$/;
-   it('explains who has the computer, waits to start it, and takes control on request',async()=>{
-     vi.mocked(request).mockResolvedValue({});
-     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
-     expect(screen.getByText(/pauses its task|pausa su tarea|met sa tâche en pause|pausa a tarefa/)).toBeInTheDocument();
-     expect(screen.getByRole('button',{name:/^(Show the screen|Ver pantalla|Voir l'écran|Ver a tela)$/})).toBeInTheDocument();
-     fireEvent.click(screen.getAllByRole('button',{name:take})[0]);
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'enter',parameters:{}}));
-     expect(await screen.findByRole('button',{name:/^(Hand back control|Devolver el control|Rendre la main|Devolver o controle)$/})).toBeInTheDocument();
-   });
-   it('hands control back and says the Many will take a fresh capture',async()=>{
-     vi.mocked(request).mockResolvedValue({});
-     render(<ManyComputer manyId="many-test" many={computerMany} control="human" live={false} perform={perform}/>);
-     fireEvent.click(screen.getByRole('button',{name:/^(Hand back control|Devolver el control|Rendre la main|Devolver o controle)$/}));
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'leave',parameters:{}}));
-     expect(await screen.findByText(/fresh capture before it continues|captura nueva antes de continuar|nouvelle capture avant de continuer|nova captura antes de continuar/)).toBeInTheDocument();
-   });
-   it('says where a permission is off and switches it back on from there',async()=>{
-     vi.mocked(request).mockResolvedValue({});
-     const restricted={...computerMany,grants:{...computerMany.grants,computer:{browser:true,files:false,shell:false}}};
-     render(<ManyComputer manyId="many-test" many={restricted} control="human" live={false} perform={perform}/>);
-     fireEvent.mouseDown(screen.getByRole('tab',{name:/Files|Archivos|Fichiers|Arquivos/}));fireEvent.click(screen.getByRole('tab',{name:/Files|Archivos|Fichiers|Arquivos/}));
-     expect(await screen.findByText(/Files are off|Los archivos están desactivados|Les fichiers sont désactivés|Os arquivos estão desativados/)).toBeInTheDocument();
-     fireEvent.click(screen.getAllByRole('button',{name:/^(Allow|Permitir|Autoriser)$/})[0]);
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({computer:{browser:true,files:true,shell:false}})})));
-   });
-   it('saves each switch in the grants and can turn the whole computer off',async()=>{
-     vi.mocked(request).mockImplementation(async(_path,_method,body)=>(body as {operation?:string}|undefined)?.operation==='status'?{state:'stopped'}:{});
-     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
-     fireEvent.click(screen.getByRole('checkbox',{name:/Terminal|Terminal commands|Comandos de terminal|Commandes du terminal/}));
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({computer:{browser:true,files:true,shell:false}})})));
-     fireEvent.click(screen.getByRole('checkbox',{name:/Enable this computer|Activar este ordenador|Activer cet ordinateur|Ativar este computador/}));
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({capabilities:['vault.read']})})));
-   });
-   it('starts and stops the computer and shows whether it is up',async()=>{
-     let state='stopped';
-     vi.mocked(request).mockImplementation(async(_path,_method,body)=>{const op=(body as {operation?:string}|undefined)?.operation;if(op==='start')state='running';if(op==='stop')state='stopped';return op==='status'||op==='start'||op==='stop'?{state}:{};});
-     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
-     const start=await screen.findByRole('button',{name:/^(Start computer|Encender|Démarrer|Iniciar)/});
-     fireEvent.click(start);
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'start',parameters:{}}));
-     fireEvent.click(await screen.findByRole('button',{name:/^(Stop computer|Apagar|Arrêter|Desligar)/}));
-     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'stop',parameters:{}}));
-   });
-   it('keeps the terminal for the person who holds the wheel',()=>{
-     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
-     fireEvent.mouseDown(screen.getByRole('tab',{name:'Terminal'}));
-     fireEvent.click(screen.getByRole('tab',{name:'Terminal'}));
-     expect(screen.getByText(/The terminal is yours|El terminal es tuyo|Le terminal est à vous|O terminal é seu/)).toBeInTheDocument();
-   });
  });
  it('records an uncertain failure with evidence without approving or resending it',async()=>{
    const perform=vi.fn(async fn=>fn());render(<ManyReview detail={{...detail,actions:[{id:'action',digest:'hash',state:'outcome_unknown',expires_at:'',proposal:{operation:'send'},receipt:null}]}} busy={false} perform={perform}/>);

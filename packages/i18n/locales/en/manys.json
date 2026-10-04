@@ -20,6 +20,7 @@
   "recurrences": "Recurrences",
   "context": "Context",
   "computer": {
+    "title": "Computer",
     "agentTitle": "Many has the computer",
     "agentHint": "Watch its screen live. Taking control pauses its task so you can click, type and use the terminal.",
     "humanTitle": "You have control",
@@ -35,9 +36,6 @@
       "activity": "Activity"
     },
     "screen": {
-      "idleTitle": "The computer is idle",
-      "idleHint": "It starts when you connect and stops by itself after 15 minutes unused.",
-      "connect": "Show the screen",
       "connecting": "Connecting to the computer…",
       "lost": "The connection to the screen was lost.",
       "reconnect": "Reconnect",
@@ -55,7 +53,10 @@
     },
     "notice": {
       "take_control_first": "Take control to type into the computer.",
-      "control_released": "You handed control back."
+      "control_released": "You handed control back.",
+      "screen_starting": "The screen is still starting. Try again in a moment.",
+      "screen_gone": "The screen is no longer live. Press reconnect.",
+      "generic": "The screen could not apply that."
     },
     "terminal": {
       "needControl": "The terminal is yours when you take control",
@@ -107,7 +108,17 @@
       "unknown": "State unknown",
       "start": "Start computer",
       "stop": "Stop computer",
-      "stopHint": "Stopping keeps the files and the browser profile. It starts by itself when used and stops after 15 minutes unused."
+      "stopHint": "Stopping keeps the files and the browser profile. It starts by itself when used and stops after 15 minutes unused.",
+      "offTitle": "The computer is off",
+      "offHint": "Turn it on to see its screen and use it.",
+      "starting": "Starting…",
+      "unreachable": "The computer could not be checked."
+    },
+    "expand": "Expand the screen",
+    "viewer": {
+      "hint": "Click and type on the screen. Esc closes the expanded view; the wheel stays yours until you hand it back.",
+      "open": "Watching the expanded screen.",
+      "close": "Back here"
     }
   },
   "message": "Message",

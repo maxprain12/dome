@@ -58,7 +58,7 @@ export default function ManyToolCard({ tool, manyId, live, latestComputer, onOpe
             <span aria-hidden="true" className="size-[7px] animate-pulse rounded-full bg-success motion-reduce:animate-none" />
             {t('manys.toolCard.liveView')}
           </span>
-          <ManyComputerScreen manyId={manyId} human={false} autoConnect busy={false} onTakeControl={onOpenComputer} compact />
+          <ManyComputerScreen manyId={manyId} human={false} compact />
         </div>
       )}
     </section>

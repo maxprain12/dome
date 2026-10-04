@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { request, type Grants } from '@/lib/manys/api';
+import type { Grants } from '@/lib/manys/api';
+import type { ComputerPower } from '@/lib/manys/useComputerPower';
 import { cn } from '@/lib/utils';
 import { COMPUTER_KINDS, computerAllows, computerEnabled, withComputerEnabled, withComputerKind, type ComputerKind } from './computerPermissions';
-
-const POWER_POLL_MS = 15000;
-type Power = 'running' | 'stopped';
 
 /** What the owner has switched off, said where they would have used it, with the way to switch it back on. */
 export function PermissionOff({ kind, busy, onAllow }: { kind: ComputerKind; busy: boolean; onAllow: (kind: ComputerKind) => void }) {
@@ -21,48 +18,21 @@ export function PermissionOff({ kind, busy, onAllow }: { kind: ComputerKind; bus
   );
 }
 
-/** Is the computer up, and a way to start or stop it. Looking at it never starts it. */
-export function useComputerPower(manyId: string, enabled: boolean) {
-  const [power, setPower] = useState<Power | null>(null);
-  const [working, setWorking] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const apply = useCallback(async (operation: 'status' | 'start' | 'stop') => {
-    setWorking(operation !== 'status');
-    try {
-      const result = await request<{ state?: Power }>(`/${manyId}/computer`, 'POST', { operation, parameters: {} });
-      if (result.state === 'running' || result.state === 'stopped') setPower(result.state);
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    } finally {
-      setWorking(false);
-    }
-  }, [manyId]);
-  useEffect(() => {
-    if (!enabled) return undefined;
-    void apply('status');
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') void apply('status'); }, POWER_POLL_MS);
-    return () => clearInterval(timer);
-  }, [apply, enabled]);
-  return { power, working, failed, start: () => apply('start'), stop: () => apply('stop') };
-}
-
 interface Props {
-  manyId: string;
   grants: Grants;
   busy: boolean;
+  power: ComputerPower;
   onChange: (next: Grants) => void;
 }
 
 /** Owner-only switches for the Many's computer, and its power. Every switch applies to the agent and to the person. */
-export default function ManyComputerPermission({ manyId, grants, busy, onChange }: Props) {
+export default function ManyComputerPermission({ grants, busy, power: computer, onChange }: Props) {
   const { t } = useTranslation();
   const enabled = computerEnabled(grants);
-  const { power, working, failed, start, stop } = useComputerPower(manyId, enabled);
+  const { power, working, failed, start, stop } = computer;
   return (
     <section aria-label={t('manys.computer.permissions.title')} className="dome-card dome-card-plain flex flex-col gap-3 p-3.5">
-      <header className="flex items-center gap-2">
-        <strong className="grow text-sm font-semibold">{t('manys.computer.permissions.title')}</strong>
+      <header className="flex items-center justify-end gap-2">
         {enabled && (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span aria-hidden="true" className={cn('size-[7px] rounded-full', power === 'running' ? 'bg-success' : 'bg-muted-foreground')} />
