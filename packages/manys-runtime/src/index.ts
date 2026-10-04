@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -55,11 +56,13 @@ export async function run(input:RuntimeInput):Promise<void> {
     const action=context.actions?.find(action=>action.operation_id===id||action.id===(call.arguments as Record<string,unknown>)?.actionId);
     await session.appendMessage({role:'toolResult',toolCallId:id,toolName:call.name,content:[{type:'text',text:JSON.stringify({interrupted:true,action:action??null,instruction:'Do not repeat an external write. Inspect the reviewed action and its receipt, or ask for reconciliation.'})}],isError:!action||action.state!=='succeeded',timestamp:Date.now()});
   }
+  let finished=false;
   const tools:AgentTool[]=Object.entries(schemas).map(([name,parameters])=>({
     name,label:name,description: name==='propose_action'?'Persist an exact action for human review. Computer writes use tool=computer and parameters={operation,parameters}; connectionId and accountId are the assigned computer ID, targetVersion is its generation.':name==='credentials_list'?'List saved sign-in credentials by id, label, username and the sites they work on. Values are never shown.':name==='skill_read'?'Load the instructions of a skill listed in your instructions.':name==='mcp_tools'?'List the connected services and the tools each offers, with whether it only reads.':name==='mcp_call'?'Call a connected service tool that only reads. Any other tool must go through propose_action.':name.replaceAll('_',' '),
     parameters,executionMode:'sequential',
     execute:async(id,args)=>{
       const result=await input.call(id,name,args as Record<string,unknown>);
+      if(terminal.has(name))finished=true;
       const value=result as Record<string,unknown>|null;
       if(name==='computer_read'&&value&&typeof value.base64==='string')return {content:[{type:'image',data:value.base64,mimeType:'image/png'},{type:'text',text:JSON.stringify({...value,base64:undefined})}],details:{},terminate:false};
       return {content:[{type:'text',text:JSON.stringify(result)}],details:{},terminate:terminal.has(name)};
@@ -69,7 +72,7 @@ export async function run(input:RuntimeInput):Promise<void> {
   const harness=new AgentHarness({
     env:new NodeExecutionEnv({cwd}),session,tools,model:{...model,maxTokens:2048},
     autoCompaction:false,shouldStopAfterTurn:({newMessages})=>newMessages.filter(m=>m.role==='assistant').length>=8,
-    systemPrompt:`You are a persistent Many collaborator. ${input.instructions}\nYour work is a task independent of this conversation. Save checkpoints, use ask_user when missing data and finish_task for an explicit result. Streaming ending does not complete a task. External sends, publishing, purchases, deletion, shell and browser writes require propose_action and human review. When using tool=computer, set capability=external.send, external.publish, external.purchase or external.delete for those respective intentions; the computer.write grant is also required. Use capability=computer.write for ordinary navigation and file edits. Read available approval proposals and execute only the exact approved action ID. Never retry outcome_unknown; pause for reconciliation. Never ask for or type a password yourself. To sign in, call credentials_list, then propose a type operation whose text is {{credential:ID}} (or {{credential:ID:username}}); the value is filled in only after approval and only on that credential's sites. Load a listed skill with skill_read before doing work it covers. Connected services: mcp_tools shows what exists; a tool marked readOnly can be called with mcp_call, every other tool needs propose_action with tool=mcp, parameters={server,tool,arguments}, connectionId and accountId equal to the server id, targetVersion equal to the server version and an external.* capability that matches the intent. Use unchanged=true only for a recurring check without new information. All vault accesses are grant limited. Context: ${JSON.stringify(input.resumeContext)}`,
+    systemPrompt:`You are a persistent Many collaborator. ${input.instructions}\nYour work is a task independent of this conversation. Save checkpoints, use ask_user when missing data and finish_task for an explicit result. Answer greetings and simple questions directly in plain text; for real work end with finish_task. External sends, publishing, purchases, deletion, shell and browser writes require propose_action and human review. When using tool=computer, set capability=external.send, external.publish, external.purchase or external.delete for those respective intentions; the computer.write grant is also required. Use capability=computer.write for ordinary navigation and file edits. Read available approval proposals and execute only the exact approved action ID. Never retry outcome_unknown; pause for reconciliation. Never ask for or type a password yourself. To sign in, call credentials_list, then propose a type operation whose text is {{credential:ID}} (or {{credential:ID:username}}); the value is filled in only after approval and only on that credential's sites. Load a listed skill with skill_read before doing work it covers. Connected services: mcp_tools shows what exists; a tool marked readOnly can be called with mcp_call, every other tool needs propose_action with tool=mcp, parameters={server,tool,arguments}, connectionId and accountId equal to the server id, targetVersion equal to the server version and an external.* capability that matches the intent. Use unchanged=true only for a recurring check without new information. All vault accesses are grant limited. Context: ${JSON.stringify(input.resumeContext)}`,
     getApiKeyAndHeaders:async()=>({apiKey:input.apiKey}),streamOptions:{maxRetries:0,timeoutMs:120000},
   });
   harness.on('before_provider_request',async()=>{input.signal.throwIfAborted();await input.beforeRequest();return undefined;});
@@ -83,14 +86,21 @@ export async function run(input:RuntimeInput):Promise<void> {
     if(Buffer.byteLength(textPayload)>32768)throw new Error('request_context_limit');
     const value=payload as Record<string,unknown>;return {payload:{...value,max_tokens:model.api==='openai-responses'||input.provider==='openai'?undefined:2048,max_completion_tokens:model.api!=='openai-responses'&&input.provider==='openai'?2048:undefined,max_output_tokens:model.api==='openai-responses'?2048:undefined}};
   });
+  let reply='';
   harness.subscribe(async event=>{
     if(event.type==='message_end'&&event.message.role==='assistant') {
       if(['error','aborted'].includes(event.message.stopReason))throw new Error('model_outcome_unknown');
       const usage=event.message.usage;
       await input.usage(usage.input+usage.cacheRead+usage.cacheWrite,usage.output);
+      reply=event.message.stopReason==='stop'?event.message.content.flatMap(part=>part.type==='text'?[part.text]:[]).join('').trim():'';
     }
   });
   const abort=()=>{void harness.abort();};input.signal.addEventListener('abort',abort,{once:true});
-  try {input.signal.throwIfAborted();await harness.prompt(input.entries.length?'Continue this task from the persisted checkpoints and reviewed actions.':input.prompt);}
+  try {
+    input.signal.throwIfAborted();await harness.prompt(input.entries.length?'Continue this task from the persisted checkpoints and reviewed actions.':input.prompt);
+    // A plain-text turn that ends on its own is the answer to the person: record it as the
+    // outcome instead of leaving the task paused with the reply unseen.
+    if(!finished&&reply)await input.call(randomUUID(),'finish_task',{text:reply});
+  }
   finally {input.signal.removeEventListener('abort',abort);await rm(cwd,{recursive:true,force:true});}
 }
