@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,16 +11,17 @@ type Drawer = 'terminal' | 'files' | 'activity';
 const DRAWERS: readonly Drawer[] = ['terminal', 'files', 'activity'];
 const labelClass = 'block text-xs leading-[1.3] font-semibold';
 
-export default function ManyComputer({ manyId, control }: { manyId: string; control: string }) {
+/** Seconds between automatic captures while someone is watching an active computer. */
+const LIVE_REFRESH_MS = 4000;
+
+export default function ManyComputer({ manyId, control, live }: { manyId: string; control: string; live: boolean }) {
   const { t } = useTranslation();
-  const [requestId, setRequestId] = useState('');
   const [result, setResult] = useState<Record<string, unknown>>({});
   const [screen, setScreen] = useState<{ base64: string; width: number; height: number } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [drawer, setDrawer] = useState<Drawer>('terminal');
   const [log, setLog] = useState<{ at: number; operation: string }[]>([]);
-  const human = control === 'human';
 
   const call = async (operation: string, parameters: Record<string, unknown> = {}) => {
     setBusy(true);
@@ -29,7 +30,6 @@ export default function ManyComputer({ manyId, control }: { manyId: string; cont
       setResult(response);
       setLog((current) => [{ at: Date.now(), operation }, ...current].slice(0, 50));
       if (typeof response.base64 === 'string') setScreen({ base64: response.base64, width: Number(response.width ?? 1280), height: Number(response.height ?? 800) });
-      if (response.request) setRequestId(String((response.request as { id: string }).id));
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');
@@ -37,22 +37,25 @@ export default function ManyComputer({ manyId, control }: { manyId: string; cont
       setBusy(false);
     }
   };
-  const release = async () => {
-    let id = requestId;
-    if (!id) {
-      const state = await request<{ request?: { id: string } }>(`/${manyId}/computer`, 'POST', { operation: 'control' });
-      id = state.request?.id ?? '';
-    }
-    await call('control/release', { requestId: id });
-  };
-  const take = async () => {
-    const pending = await request<Record<string, unknown>>(`/${manyId}/computer`, 'POST', { operation: 'control/request', parameters: { reason: t('manys.takeControl') } });
-    const id = String((pending.request as { id: string }).id);
-    setRequestId(id);
-    await call('control/take', { requestId: id });
-  };
+  const human = control === 'human';
+  const idle = useRef(true);
+  idle.current = !busy;
+  // While the agent is using the computer, or the person is driving it, the screen refreshes by
+  // itself. An idle computer is never polled: a capture would start its container.
+  useEffect(() => {
+    if (!live && !human) return undefined;
+    const timer = setInterval(() => {
+      if (!idle.current || document.visibilityState !== 'visible') return;
+      void request<Record<string, unknown>>(`/${manyId}/computer`, 'POST', { operation: 'screenshot', parameters: {} })
+        .then((response) => {
+          if (typeof response.base64 === 'string') setScreen({ base64: response.base64, width: Number(response.width ?? 1280), height: Number(response.height ?? 800) });
+        })
+        .catch(() => { /* the next tick tries again; a stale frame is better than an error flash */ });
+    }, LIVE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [live, human, manyId]);
   const toggleControl = () => {
-    void (human ? release() : take()).catch(() => setError('service_unavailable'));
+    void call(human ? 'leave' : 'enter');
   };
   const thenShot = (operation: string, parameters?: Record<string, unknown>) => {
     void call(operation, parameters).then(() => call('screenshot'));
@@ -61,7 +64,7 @@ export default function ManyComputer({ manyId, control }: { manyId: string; cont
 
   return (
     <section className="flex flex-col gap-3">
-      {error && <Alert variant="destructive"><AlertDescription>{t('manys.errors.service_unavailable')}</AlertDescription></Alert>}
+      {error && <Alert variant="destructive"><AlertDescription>{t(`manys.errors.${error}`, { defaultValue: t('manys.errors.service_unavailable') })}</AlertDescription></Alert>}
 
       <div className="flex items-center gap-2 rounded-[14px] bg-muted px-3 py-2.5">
         <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', human ? 'bg-warning' : 'bg-success')} />

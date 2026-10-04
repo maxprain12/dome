@@ -11,9 +11,36 @@ beforeEach(()=>{localStorage.clear();vi.mocked(request).mockImplementation(async
 describe('Many’s durable interaction',()=>{
  it('restores a draft after leaving the view and clears it only after acceptance',async()=>{
    const view=render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
-   const input=await screen.findByLabelText(/Message or task|Mensaje o tarea/);fireEvent.change(input,{target:{value:'Report'}});expect(localStorage.getItem('manys:draft:many-test')).toBe('Report');
-   view.unmount();render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));expect(await screen.findByLabelText(/Message or task|Mensaje o tarea/)).toHaveValue('Report');
-   fireEvent.click(screen.getByRole('button',{name:/Send task|Enviar tarea/}));await waitFor(()=>expect(delegateToMany).toHaveBeenCalledWith('many-test','Report'));await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
+   const input=await screen.findByLabelText(/^(Message|Mensaje)$/);fireEvent.change(input,{target:{value:'Report'}});expect(localStorage.getItem('manys:draft:many-test')).toBe('Report');
+   view.unmount();render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));expect(await screen.findByLabelText(/^(Message|Mensaje)$/)).toHaveValue('Report');
+   fireEvent.click(screen.getByRole('button',{name:/^(Send|Enviar)$/}));await waitFor(()=>expect(delegateToMany).toHaveBeenCalledWith('many-test','Report'));await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
+ });
+ it('answers the agent question from the same composer instead of starting another task',async()=>{
+   const asking={id:'task-q',prompt:'Plan',state:'waiting_input' as const,question:'Which client?',result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:{...detail,tasks:[asking]});
+   render(<ManysView/>);
+   // Detail load moves this row into the attention group and detaches the button found before that paint.
+   expect(await screen.findByText('Which client?')).toBeInTheDocument();
+   fireEvent.click(screen.getByRole('button',{name:'Research'}));
+   fireEvent.change(await screen.findByLabelText(/^(Message|Mensaje)$/),{target:{value:'Acme'}});
+   fireEvent.click(screen.getByRole('button',{name:/^(Send|Enviar)$/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-q','PATCH',{action:'answer',answer:'Acme'}));
+   expect(delegateToMany).not.toHaveBeenCalled();
+ });
+ it('shows work in progress as a chat bubble with one stop control and no task rows',async()=>{
+   const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};
+   vi.mocked(request).mockImplementation(async (path,method)=>path===''?{manys:[detail.many]}:method==='PATCH'?{}:{...detail,tasks:[running]});
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByRole('status')).toBeInTheDocument();
+   expect(screen.queryByRole('button',{name:/Cancel task|Cancelar tarea/})).toBeNull();
+   fireEvent.click(screen.getByRole('button',{name:/Stop response|Detener respuesta/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-r','PATCH',{action:'cancel'}));
+ });
+ it('names what the Many is doing right now while it works',async()=>{
+   const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[{sequence:1,task_id:'task-r',data:{tool:'vault_search',operation:null,host:null,phase:'start',ok:null}}]}:{...detail,tasks:[running]});
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByText(/Searching the library|Buscando en la biblioteca/)).toBeInTheDocument();
  });
  it('lists collaborators with the Many mark and renders the thread as bubbles',async()=>{
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many,{...detail.many,id:'many-writer',name:'Writer'}]}:{...detail,messages:[{id:'m-assistant',role:'assistant',content:'Hello from Many',task_id:''},{id:'m-user',role:'user',content:'Hi',task_id:''}]});
@@ -84,7 +111,7 @@ describe('Many’s durable interaction',()=>{
    await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
  });
  it('types into the computer as visible text',()=>{
-   render(<ManyComputer manyId="many-test" control="human"/>);
+   render(<ManyComputer manyId="many-test" control="human" live={false}/>);
    const field=screen.getByLabelText(/Type into the browser|Escribir en el navegador|Saisir dans le navigateur|Escrever no navegador/);
    expect(field).toHaveAttribute('type','text');
  });

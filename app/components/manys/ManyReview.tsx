@@ -7,32 +7,56 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { request, type Action, type ManyDetail } from '@/lib/manys/api';
 
-function proposalRows(proposal: unknown): Array<[string, string]> {
-  if (!proposal || typeof proposal !== 'object') return [];
-  return Object.entries(proposal as Record<string, unknown>)
-    .filter(([, value]) => typeof value === 'string' || typeof value === 'number')
-    .slice(0, 6)
-    .map(([key, value]) => [key, String(value)]);
+const CREDENTIAL_PLACEHOLDER = /\{\{credential:[0-9a-f-]{36}(?::(?:username|secret))?\}\}/gi;
+
+/** A saved credential is typed by Provider after approval, so the card shows a label, never a value. */
+function shown(value: unknown, credentialLabel: string): string {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value);
+  const text = raw.replace(CREDENTIAL_PLACEHOLDER, credentialLabel);
+  return text.length > 300 ? `${text.slice(0, 300)}…` : text;
 }
 
-function hoursLeft(expiresAt: string): number | null {
+/**
+ * What the person is approving: the operation and its arguments. Provider wraps them in
+ * `parameters` (and, for the computer, once more in `parameters.parameters`). Routing ids such as
+ * connectionId or targetVersion say nothing about the effect, so they stay in the full view.
+ */
+function proposalRows(proposal: unknown, credentialLabel: string): Array<[string, string]> {
+  if (!proposal || typeof proposal !== 'object') return [];
+  const outer = (proposal as { parameters?: unknown }).parameters;
+  if (!outer || typeof outer !== 'object') return [];
+  const { parameters: inner, ...rest } = outer as Record<string, unknown>;
+  const flat = { ...rest, ...(inner && typeof inner === 'object' ? inner as Record<string, unknown> : {}) };
+  return Object.entries(flat)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .slice(0, 8)
+    .map(([key, value]) => [key, shown(value, credentialLabel)]);
+}
+
+function minutesLeft(expiresAt: string): number | null {
   const time = Date.parse(expiresAt);
-  return Number.isNaN(time) ? null : Math.max(0, Math.round((time - Date.now()) / 3_600_000));
+  return Number.isNaN(time) ? null : Math.max(0, Math.ceil((time - Date.now()) / 60_000));
 }
 
 function ActionCard({ action, many, busy, perform }: { action: Action; many: string; busy: boolean; perform: (fn: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation();
   const [full, setFull] = useState(false);
-  const rows = proposalRows(action.proposal);
-  const hours = hoursLeft(action.expires_at);
+  const rows = proposalRows(action.proposal, t('manys.savedCredential'));
+  const minutes = minutesLeft(action.expires_at);
+  const expired = minutes === 0;
+  const capability = (action.proposal as { capability?: string } | null)?.capability;
+  const expiry = minutes === null ? t(`manys.actions.${action.state}`) : expired ? t('manys.expired') : minutes >= 60 ? t('manys.expiresIn', { hours: Math.round(minutes / 60) }) : t('manys.expiresInMinutes', { minutes });
   return (
     <article className="dome-card dome-card-warn flex flex-col p-3.5">
       <div className="mb-2.5 flex items-center gap-2">
         <HugeiconsIcon icon={Mail01Icon} className="size-4" aria-hidden />
-        <span className="grow text-sm font-semibold">{t('manys.pendingAction')}</span>
+        <span className="grow text-sm font-semibold">
+          {t('manys.pendingAction')}
+          {capability ? `: ${t(`manys.capabilities.${capability.replace('.', '_')}`, { defaultValue: capability })}` : ''}
+        </span>
         <Badge variant="outline">
-          {hours !== null && <HugeiconsIcon icon={Clock01Icon} className="size-3" aria-hidden />}
-          {hours !== null ? t('manys.expiresIn', { hours }) : t(`manys.actions.${action.state}`)}
+          {minutes !== null && <HugeiconsIcon icon={Clock01Icon} className="size-3" aria-hidden />}
+          {expiry}
         </Badge>
       </div>
       {rows.length > 0 && (
@@ -50,7 +74,7 @@ function ActionCard({ action, many, busy, perform }: { action: Action; many: str
           {[true, false].map((approve) => (
             <Button
               key={String(approve)}
-              disabled={busy}
+              disabled={busy || expired}
               variant={approve ? 'default' : 'outline'}
               onClick={() => { void perform(() => request(`/${many}/actions/${action.id}`, 'PATCH', { approve, digest: action.digest })); }}
             >
