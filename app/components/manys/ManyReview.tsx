@@ -7,8 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { request, type Action, type ManyDetail } from '@/lib/manys/api';
 
-function shown(value: unknown): string {
-  const text = typeof value === 'string' ? value : JSON.stringify(value);
+const CREDENTIAL_PLACEHOLDER = /\{\{credential:[0-9a-f-]{36}(?::(?:username|secret))?\}\}/gi;
+
+/** A saved credential is typed by Provider after approval, so the card shows a label, never a value. */
+function shown(value: unknown, credentialLabel: string): string {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value);
+  const text = raw.replace(CREDENTIAL_PLACEHOLDER, credentialLabel);
   return text.length > 300 ? `${text.slice(0, 300)}…` : text;
 }
 
@@ -17,7 +21,7 @@ function shown(value: unknown): string {
  * `parameters` (and, for the computer, once more in `parameters.parameters`). Routing ids such as
  * connectionId or targetVersion say nothing about the effect, so they stay in the full view.
  */
-function proposalRows(proposal: unknown): Array<[string, string]> {
+function proposalRows(proposal: unknown, credentialLabel: string): Array<[string, string]> {
   if (!proposal || typeof proposal !== 'object') return [];
   const outer = (proposal as { parameters?: unknown }).parameters;
   if (!outer || typeof outer !== 'object') return [];
@@ -26,7 +30,7 @@ function proposalRows(proposal: unknown): Array<[string, string]> {
   return Object.entries(flat)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .slice(0, 8)
-    .map(([key, value]) => [key, shown(value)]);
+    .map(([key, value]) => [key, shown(value, credentialLabel)]);
 }
 
 function minutesLeft(expiresAt: string): number | null {
@@ -37,7 +41,7 @@ function minutesLeft(expiresAt: string): number | null {
 function ActionCard({ action, many, busy, perform }: { action: Action; many: string; busy: boolean; perform: (fn: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation();
   const [full, setFull] = useState(false);
-  const rows = proposalRows(action.proposal);
+  const rows = proposalRows(action.proposal, t('manys.savedCredential'));
   const minutes = minutesLeft(action.expires_at);
   const expired = minutes === 0;
   const capability = (action.proposal as { capability?: string } | null)?.capability;
