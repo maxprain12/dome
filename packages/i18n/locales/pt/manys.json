@@ -20,6 +20,7 @@
   "recurrences": "Recorrências",
   "context": "Contexto",
   "computer": {
+    "title": "Computador",
     "agentTitle": "Many tem o computador",
     "agentHint": "Veja a tela dele ao vivo. Assumir o controle pausa a tarefa para você clicar, digitar e usar o terminal.",
     "humanTitle": "Você tem o controle",
@@ -35,9 +36,6 @@
       "activity": "Atividade"
     },
     "screen": {
-      "idleTitle": "O computador está em repouso",
-      "idleHint": "Liga ao conectar e desliga sozinho após 15 minutos sem uso.",
-      "connect": "Ver a tela",
       "connecting": "Conectando ao computador…",
       "lost": "A conexão com a tela foi perdida.",
       "reconnect": "Reconectar",
@@ -55,7 +53,10 @@
     },
     "notice": {
       "take_control_first": "Assuma o controle para digitar no computador.",
-      "control_released": "Você devolveu o controle."
+      "control_released": "Você devolveu o controle.",
+      "screen_starting": "A tela ainda está iniciando. Tente de novo em instantes.",
+      "screen_gone": "A tela não está mais ao vivo. Toque em reconectar.",
+      "generic": "A tela não conseguiu aplicar isso."
     },
     "terminal": {
       "needControl": "O terminal é seu quando você assume o controle",
@@ -107,7 +108,17 @@
       "unknown": "Estado desconhecido",
       "start": "Iniciar computador",
       "stop": "Desligar computador",
-      "stopHint": "Desligar mantém os arquivos e o perfil do navegador. Liga sozinho ao usar e desliga após 15 minutos sem uso."
+      "stopHint": "Desligar mantém os arquivos e o perfil do navegador. Liga sozinho ao usar e desliga após 15 minutos sem uso.",
+      "offTitle": "O computador está desligado",
+      "offHint": "Ligue-o para ver a tela e usá-lo.",
+      "starting": "Iniciando…",
+      "unreachable": "Não foi possível verificar o computador."
+    },
+    "expand": "Ampliar a tela",
+    "viewer": {
+      "hint": "Clique e digite na tela. Esc fecha a visão ampliada; o controle continua seu até você devolver.",
+      "open": "Vendo a tela ampliada.",
+      "close": "Voltar aqui"
     }
   },
   "message": "Mensagem",

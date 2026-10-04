@@ -202,8 +202,6 @@ export default function ManysView() {
   }) ?? [];
   const chatOnly = focus && !!selected;
   const controlNow = detail?.computer?.control;
-  const lastComputerUse = detail?.computer?.last_activity ? Date.parse(detail.computer.last_activity) : 0;
-  const computerActive = Date.now() - lastComputerUse < 120000;
   useEffect(() => {
     if (controlNow === 'human') setInspector((current) => current ?? 'computer');
   }, [controlNow]);
@@ -401,7 +399,7 @@ export default function ManysView() {
                   <DropdownMenuContent align="end" className="min-w-56">
                     <DropdownMenuItem onClick={() => openInspector('computer')}>
                       <HugeiconsIcon icon={ComputerIcon} aria-hidden />
-                      {t('manys.computer')}
+                      {t('manys.computer.title')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openInspector('context')}>
                       <HugeiconsIcon icon={Shield01Icon} aria-hidden />
@@ -671,7 +669,7 @@ export default function ManysView() {
               </footer>
             </div>
             {inspector && !chatOnly && (
-              <ManyInspector tab={inspector} onTab={setInspector} detail={detail} busy={busy} live={status === 'running' && computerActive} perform={perform} />
+              <ManyInspector tab={inspector} onTab={setInspector} detail={detail} busy={busy} perform={perform} />
             )}
           </div>
         )}

@@ -20,6 +20,7 @@
   "recurrences": "Récurrences",
   "context": "Contexte",
   "computer": {
+    "title": "Ordinateur",
     "agentTitle": "Many a l'ordinateur",
     "agentHint": "Regardez son écran en direct. Prendre la main met sa tâche en pause pour que vous puissiez cliquer, écrire et utiliser le terminal.",
     "humanTitle": "Vous avez la main",
@@ -35,9 +36,6 @@
       "activity": "Activité"
     },
     "screen": {
-      "idleTitle": "L'ordinateur est au repos",
-      "idleHint": "Il démarre à la connexion et s'arrête seul après 15 minutes d'inactivité.",
-      "connect": "Voir l'écran",
       "connecting": "Connexion à l'ordinateur…",
       "lost": "La connexion à l'écran a été perdue.",
       "reconnect": "Se reconnecter",
@@ -55,7 +53,10 @@
     },
     "notice": {
       "take_control_first": "Prenez la main pour écrire dans l'ordinateur.",
-      "control_released": "Vous avez rendu la main."
+      "control_released": "Vous avez rendu la main.",
+      "screen_starting": "L'écran démarre encore. Réessayez dans un instant.",
+      "screen_gone": "L'écran n'est plus en direct. Appuyez sur reconnecter.",
+      "generic": "L'écran n'a pas pu appliquer cela."
     },
     "terminal": {
       "needControl": "Le terminal est à vous quand vous prenez la main",
@@ -107,7 +108,17 @@
       "unknown": "État inconnu",
       "start": "Démarrer l'ordinateur",
       "stop": "Arrêter l'ordinateur",
-      "stopHint": "L'arrêter conserve les fichiers et le profil du navigateur. Il démarre seul à l'usage et s'arrête après 15 minutes d'inactivité."
+      "stopHint": "L'arrêter conserve les fichiers et le profil du navigateur. Il démarre seul à l'usage et s'arrête après 15 minutes d'inactivité.",
+      "offTitle": "L'ordinateur est éteint",
+      "offHint": "Allumez-le pour voir son écran et l'utiliser.",
+      "starting": "Démarrage…",
+      "unreachable": "L'ordinateur n'a pas pu être vérifié."
+    },
+    "expand": "Agrandir l'écran",
+    "viewer": {
+      "hint": "Cliquez et écrivez sur l'écran. Échap ferme la vue agrandie ; la main reste à vous jusqu'à ce que vous la rendiez.",
+      "open": "Vous regardez l'écran agrandi.",
+      "close": "Revenir ici"
     }
   },
   "message": "Message",

@@ -229,7 +229,7 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
                   {many.grants.projects.length > 0 && (
                     <Badge variant="outline"><HugeiconsIcon icon={Folder01Icon} className="size-3" aria-hidden />{t('manys.capProjects', { count: many.grants.projects.length })}</Badge>
                   )}
-                  {capabilities.some((id) => id.startsWith('computer.')) && <Badge variant="outline">{t('manys.computer')}</Badge>}
+                  {capabilities.some((id) => id.startsWith('computer.')) && <Badge variant="outline">{t('manys.computer.title')}</Badge>}
                   {capabilities.some((id) => id.startsWith('external.')) && (
                     <Badge variant="outline"><HugeiconsIcon icon={GlobalIcon} className="size-3" aria-hidden />{t('manys.capExternal')}</Badge>
                   )}

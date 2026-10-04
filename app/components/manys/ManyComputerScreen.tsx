@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowReloadHorizontalIcon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { ArrowReloadHorizontalIcon, Maximize02Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { request } from '@/lib/manys/api';
@@ -9,27 +9,39 @@ import { openComputerChannel, type ComputerChannel } from '@/lib/manys/computerC
 import { isPasteShortcut, keyMessage, mouseMessage, pagePoint, wheelMessage } from '@/lib/manys/screenInput';
 import { cn } from '@/lib/utils';
 
-type Link = 'off' | 'connecting' | 'live' | 'lost';
+type Link = 'connecting' | 'live' | 'lost';
 interface Frame { data: string; width: number; height: number }
 
 const MOVE_INTERVAL_MS = 33;
 const PAGE_POLL_MS = 5000;
 const BLANK_PAGE = 'about:blank';
+const HEAL_EVERY_MS = 10000;
+/** The computer words its refusals in English; the person reads them in their own language. */
+const KNOWN_REFUSALS: Record<string, string> = {
+  'Take control before driving the computer yourself.': 'take_control_first',
+  'This screen is still starting. Try that again in a moment.': 'screen_starting',
+  'This screen is no longer live. Reopen it to carry on watching.': 'screen_gone',
+};
+const refusalCode = (raw: unknown): string => {
+  const text = typeof raw === 'string' ? raw : '';
+  return KNOWN_REFUSALS[text] ?? (/^[a-z_]+$/.test(text) ? text : 'generic');
+};
 
 interface Props {
   manyId: string;
   /** The person holds the wheel: the screen takes clicks, keys and scrolling. */
   human: boolean;
-  /** The agent is working or the person is driving: connect by themselves instead of waiting for a click. */
-  autoConnect: boolean;
-  busy: boolean;
-  onTakeControl: () => void;
   /** A small read-only preview for inline use: no address bar, no controls. */
   compact?: boolean;
+  /** The full-size viewer: the screen takes all the width it is given. */
+  large?: boolean;
+  onExpand?: () => void;
+  /** Takes the wheel again when the computer has forgotten it. Resolves true when it was taken. */
+  onResync?: () => Promise<boolean>;
 }
 
 /** The computer's screen as it changes, with the mouse and keyboard going straight to it. */
-export default function ManyComputerScreen({ manyId, human, autoConnect, busy, onTakeControl, compact = false }: Props) {
+export default function ManyComputerScreen({ manyId, human, compact = false, large = false, onExpand, onResync }: Props) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const channel = useRef<ComputerChannel | null>(null);
@@ -37,18 +49,16 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
   const lastMove = useRef(0);
   const humanRef = useRef(human);
   humanRef.current = human;
-  const [wanted, setWanted] = useState(autoConnect);
   const [attempt, setAttempt] = useState(0);
-  const [link, setLink] = useState<Link>('off');
+  const [link, setLink] = useState<Link>('connecting');
   const [notice, setNotice] = useState('');
   const [focused, setFocused] = useState(false);
   const [page, setPage] = useState<{ url: string; title: string } | null>(null);
   const [address, setAddress] = useState('');
   const [navigating, setNavigating] = useState(false);
-
-  useEffect(() => {
-    if (autoConnect) setWanted(true);
-  }, [autoConnect]);
+  const lastHeal = useRef(0);
+  const resyncRef = useRef(onResync);
+  resyncRef.current = onResync;
 
   const paint = useRef<{ next: Frame | null; running: boolean }>({ next: null, running: false });
   const draw = useCallback(async () => {
@@ -78,7 +88,6 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
   }, []);
 
   useEffect(() => {
-    if (!wanted) return undefined;
     let cancelled = false;
     let opened: ComputerChannel | null = null;
     setLink('connecting');
@@ -86,7 +95,14 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
     void openComputerChannel(manyId, 'stream', {
       onMessage: (message) => {
         if (message.type === 'error') {
-          setNotice(typeof message.error === 'string' ? message.error : '');
+          const code = refusalCode(message.error);
+          setNotice(code);
+          // The server says this person holds the wheel but the computer does not (it restarted):
+          // ask for it again once, quietly, instead of leaving a screen that ignores every key.
+          if (code === 'take_control_first' && humanRef.current && resyncRef.current && Date.now() - lastHeal.current > HEAL_EVERY_MS) {
+            lastHeal.current = Date.now();
+            void resyncRef.current().then((taken) => { if (taken && !cancelled) setAttempt((value) => value + 1); });
+          }
           return;
         }
         if (message.type !== 'frame' || typeof message.data !== 'string') return;
@@ -114,7 +130,7 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
       opened?.close();
       channel.current = null;
     };
-  }, [manyId, wanted, attempt, draw]);
+  }, [manyId, attempt, draw]);
 
   // Where the browser is. Reading the page is only done while the person is driving, so it never
   // competes with the agent's own calls.
@@ -140,6 +156,11 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
       clearInterval(timer);
     };
   }, [human, link, manyId]);
+
+  const blankNow = human && link === 'live' && page?.url === BLANK_PAGE;
+  useEffect(() => {
+    if (blankNow && !compact) document.getElementById('many-address')?.focus();
+  }, [blankNow, compact]);
 
   const send = useCallback((message: Record<string, unknown>) => {
     if (humanRef.current) channel.current?.send(message);
@@ -219,19 +240,9 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
   const normalized = (value: string) => (/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`);
   const blank = human && link === 'live' && page?.url === BLANK_PAGE;
 
-  if (link === 'off') {
-    return (
-      <div className="dome-card dome-card-plain flex flex-col items-start gap-2 p-4">
-        <strong className="text-sm font-semibold">{t('manys.computer.screen.idleTitle')}</strong>
-        <p className="text-muted-foreground">{t('manys.computer.screen.idleHint')}</p>
-        <Button type="button" size="sm" onClick={() => setWanted(true)}>{t('manys.computer.screen.connect')}</Button>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-2">
-      {!compact && <form
+      {!compact && human && <form
         className="flex items-center gap-1.5"
         onSubmit={(event) => {
           event.preventDefault();
@@ -260,11 +271,16 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
           ref={canvas}
           tabIndex={human ? 0 : -1}
           aria-label={t(human ? 'manys.computer.screen.canvasHuman' : 'manys.computer.screen.canvasWatch')}
-          className={cn('block aspect-[1280/800] w-full bg-muted outline-none', human && 'cursor-crosshair', focused && human && 'ring-2 ring-ring ring-inset')}
+          className={cn('block aspect-[1280/800] w-full bg-muted outline-none', large && 'mx-auto max-w-[calc(68vh*1.6)]', human && 'cursor-crosshair', focused && human && 'ring-2 ring-ring ring-inset')}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           {...pointer}
         />
+        {onExpand && !compact && link === 'live' && (
+          <Button type="button" size="icon" variant="outline" className="absolute top-2 right-2 bg-background/85 backdrop-blur-sm" aria-label={t('manys.computer.expand')} title={t('manys.computer.expand')} onClick={onExpand}>
+            <HugeiconsIcon icon={Maximize02Icon} size={16} />
+          </Button>
+        )}
         {link !== 'live' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 p-4 text-center">
             {link === 'connecting' ? (
@@ -287,15 +303,14 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
         )}
         {link === 'live' && !compact && (
           <div className="absolute inset-x-0 bottom-3 flex justify-center px-2">
-            <div className="dome-glass-strong dome-glass-float inline-flex items-center gap-2 rounded-full py-1 pr-1 pl-3">
+            <div className="dome-glass-strong dome-glass-float inline-flex items-center gap-2 rounded-full px-3 py-1">
               <span aria-hidden="true" className={cn('size-[7px] rounded-full', human ? 'bg-warning' : 'bg-success')} />
               <span className="text-xs">{human ? (focused ? t('manys.computer.screen.typing') : t('manys.computer.screen.clickToType')) : t('manys.computer.screen.readOnly')}</span>
-              {!human && <Button type="button" size="sm" disabled={busy} onClick={onTakeControl}>{t('manys.computer.take')}</Button>}
             </div>
           </div>
         )}
       </div>
-      {notice && !compact && <p className="text-muted-foreground">{t(`manys.computer.notice.${notice}`, { defaultValue: notice })}</p>}
+      {notice && !compact && <p className="text-muted-foreground" role="status">{t(`manys.computer.notice.${notice}`, { defaultValue: t('manys.computer.notice.generic') })}</p>}
     </div>
   );
 }
