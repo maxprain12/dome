@@ -102,7 +102,15 @@
     "not_found": "Cet élément n’existe plus.",
     "policy_denied": "Une règle que vous avez définie a bloqué cette action.",
     "policy_unavailable": "Les règles n’ont pas pu être vérifiées, l’action n’a donc pas été faite.",
-    "policy_limit": "Vous avez atteint la limite de 100 règles."
+    "policy_limit": "Vous avez atteint la limite de 100 règles.",
+    "credentials_unconfigured": "L’enregistrement des connexions n’est pas encore configuré sur le serveur.",
+    "credential_limit": "Vous avez atteint la limite de 50 connexions enregistrées.",
+    "credential_host_mismatch": "Le navigateur est sur un autre site que celui autorisé pour cette connexion ; rien n’a été saisi.",
+    "host_unverified": "Le navigateur n’a pas indiqué sur quel site il se trouve ; rien n’a été saisi.",
+    "credential_not_found": "Cette connexion enregistrée n’existe plus.",
+    "credential_operation_denied": "Une connexion enregistrée ne peut être saisie que dans un champ.",
+    "credential_unreadable": "Cette connexion enregistrée n’a pas pu être ouverte. Enregistrez-la de nouveau.",
+    "credential_field_missing": "Cette connexion n’a pas d’identifiant."
   },
   "actions": {
     "pending": "À vérifier",
@@ -287,5 +295,25 @@
       "denied": "Bloqué",
       "observed_denied": "Aurait été bloqué"
     }
-  }
+  },
+  "access": {
+    "tab": "Accès",
+    "credentials": {
+      "title": "Connexions enregistrées",
+      "intro": "Identifiants que ce Many peut utiliser sans jamais les voir. Ils ne sont saisis qu’après votre approbation et seulement sur les sites indiqués.",
+      "none": "Aucune connexion enregistrée.",
+      "label": "Nom",
+      "labelPlaceholder": "p. ex. Messagerie pro",
+      "username": "Identifiant",
+      "secret": "Mot de passe ou clé",
+      "secretHint": "Envoyé une seule fois et jamais réaffiché. Pour le changer, supprimez la connexion et enregistrez-la de nouveau.",
+      "hosts": "Sites web concernés",
+      "hostsHint": "Séparez plusieurs valeurs par des virgules. Utilisez *. au début pour les sous-domaines.",
+      "save": "Enregistrer la connexion",
+      "delete": "Supprimer {{name}}",
+      "lastUsed": "Dernier usage {{when}}",
+      "neverUsed": "Pas encore utilisée"
+    }
+  },
+  "savedCredential": "une connexion enregistrée"
 }

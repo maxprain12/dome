@@ -102,7 +102,15 @@
     "not_found": "Esse item não existe mais.",
     "policy_denied": "Uma regra que definiste bloqueou essa ação.",
     "policy_unavailable": "Não foi possível verificar as regras, por isso a ação não foi feita.",
-    "policy_limit": "Atingiste o limite de 100 regras."
+    "policy_limit": "Atingiste o limite de 100 regras.",
+    "credentials_unconfigured": "Guardar acessos ainda não está configurado no servidor.",
+    "credential_limit": "Atingiste o limite de 50 acessos guardados.",
+    "credential_host_mismatch": "O navegador está num site diferente do que este acesso permite, por isso nada foi escrito.",
+    "host_unverified": "O navegador não indicou em que site está, por isso nada foi escrito.",
+    "credential_not_found": "Esse acesso guardado já não existe.",
+    "credential_operation_denied": "Um acesso guardado só pode ser escrito num campo.",
+    "credential_unreadable": "Não foi possível abrir esse acesso guardado. Guarda-o de novo.",
+    "credential_field_missing": "Esse acesso não tem utilizador."
   },
   "actions": {
     "pending": "Precisa de revisão",
@@ -287,5 +295,25 @@
       "denied": "Bloqueada",
       "observed_denied": "Bloquearia"
     }
-  }
+  },
+  "access": {
+    "tab": "Acesso",
+    "credentials": {
+      "title": "Acessos guardados",
+      "intro": "Dados de acesso que este Many pode usar sem nunca os ver. São escritos só depois de aprovares e apenas nos sites que indicares.",
+      "none": "Não há acessos guardados.",
+      "label": "Nome",
+      "labelPlaceholder": "p. ex. Email do trabalho",
+      "username": "Utilizador",
+      "secret": "Palavra-passe ou chave",
+      "secretHint": "É enviada uma vez e não volta a ser mostrada. Para a mudar, elimina o acesso e guarda-o de novo.",
+      "hosts": "Sites onde serve",
+      "hostsHint": "Separa vários com vírgulas. Usa *. no início para subdomínios.",
+      "save": "Guardar acesso",
+      "delete": "Eliminar {{name}}",
+      "lastUsed": "Última utilização {{when}}",
+      "neverUsed": "Ainda não utilizado"
+    }
+  },
+  "savedCredential": "um acesso guardado"
 }
