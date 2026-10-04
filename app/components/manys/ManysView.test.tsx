@@ -18,8 +18,10 @@ describe('Many’s durable interaction',()=>{
  it('answers the agent question from the same composer instead of starting another task',async()=>{
    const asking={id:'task-q',prompt:'Plan',state:'waiting_input' as const,question:'Which client?',result:null};
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:{...detail,tasks:[asking]});
-   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   render(<ManysView/>);
+   // Detail load moves this row into the attention group and detaches the button found before that paint.
    expect(await screen.findByText('Which client?')).toBeInTheDocument();
+   fireEvent.click(screen.getByRole('button',{name:'Research'}));
    fireEvent.change(await screen.findByLabelText(/^(Message|Mensaje)$/),{target:{value:'Acme'}});
    fireEvent.click(screen.getByRole('button',{name:/^(Send|Enviar)$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-q','PATCH',{action:'answer',answer:'Acme'}));
