@@ -402,7 +402,6 @@
   },
   "savedCredential": "um acesso guardado",
   "steps": {
-    "recent": "Passos recentes",
     "failed": "não funcionou",
     "searchLibrary": "Pesquisando na biblioteca",
     "readLibrary": "Lendo a biblioteca",
@@ -418,5 +417,12 @@
     "mcpTools": "Consultando um serviço conectado",
     "mcpCall": "Consultando um serviço conectado: {{detail}}",
     "generic": "Trabalhando nisso…"
+  },
+  "toolCard": {
+    "working": "Em andamento",
+    "finished": "Concluído",
+    "failed": "Não funcionou",
+    "openComputer": "Abrir o computador",
+    "liveView": "Visão ao vivo do computador"
   }
 }

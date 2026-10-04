@@ -402,7 +402,6 @@
   },
   "savedCredential": "a saved sign-in",
   "steps": {
-    "recent": "Recent steps",
     "failed": "didn't work",
     "searchLibrary": "Searching the library",
     "readLibrary": "Reading from the library",
@@ -418,5 +417,12 @@
     "mcpTools": "Checking a connected service",
     "mcpCall": "Asking a connected service: {{detail}}",
     "generic": "Working on it…"
+  },
+  "toolCard": {
+    "working": "Working",
+    "finished": "Done",
+    "failed": "Didn't work",
+    "openComputer": "Open the computer",
+    "liveView": "Live view of the computer"
   }
 }

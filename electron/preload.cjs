@@ -740,6 +740,8 @@ const ALLOWED_CHANNELS = {
     'manys:channel:open',
     'manys:channel:send',
     'manys:channel:close',
+    'manys:events:subscribe',
+    'manys:events:unsubscribe',
     'remote-many:status',
     'remote-many:set-enabled',
     'remote-many:pair-start',
@@ -750,6 +752,7 @@ const ALLOWED_CHANNELS = {
   // Canales para on/once (main → renderer)
   on: [
     'manys:channel:event',
+    'manys:events:event',
     'native-browser:opened',
     'native-browser:changed',
     // GitHub project sync (main → renderer broadcasts)

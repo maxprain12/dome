@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-04T13:29:13.656Z
+> Última generación: 2026-10-04T18:33:33.662Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -331,6 +331,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `manys:channel:open` | `electron/ipc/agents/manys-channel.cjs:46` |
 | `manys:channel:send` | `electron/ipc/agents/manys-channel.cjs:110` |
 | `manys:cloud-providers` | `electron/ipc/agents/manys.cjs:22` |
+| `manys:events:subscribe` | `electron/ipc/agents/manys-events.cjs:96` |
+| `manys:events:unsubscribe` | `electron/ipc/agents/manys-events.cjs:110` |
 | `manys:request` | `electron/ipc/agents/manys.cjs:32` |
 | `marketplace:browse-skill-repo` | `electron/ipc/integrations/marketplace.cjs:815` |
 | `marketplace:fetch-agents` | `electron/ipc/integrations/marketplace.cjs:497` |

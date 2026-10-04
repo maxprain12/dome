@@ -1,38 +1,32 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
 import { request } from './api';
-import { foldSteps, stepDetail, stepKey, useManySteps, type ManyStepRow } from './steps';
+import { useLiveRuns, applyEvent, type LiveRuns } from './liveRuns';
+import { stepDetail, stepKey, stepsOf, useManySteps } from './steps';
 
 vi.mock('./api', () => ({ request: vi.fn() }));
 
-const row = (sequence: number, tool: string, phase: 'start' | 'end', ok: boolean | null = null, operation: string | null = null): ManyStepRow => ({
-  sequence, task_id: 't', data: { tool, operation, host: null, phase, ok },
+const step = (sequence: number, task: string, tool: string, phase: 'start' | 'end', ok: boolean | null = null) => ({
+  sequence, kind: 'task_step', task_id: task, many_id: 'm1', data: { callId: `${task}-${sequence}`, tool, operation: null, host: null, phase, ok },
 });
 
-describe('foldSteps', () => {
-  it('joins a start and its end into one step', () => {
-    const steps = foldSteps([], [row(1, 'vault_search', 'start'), row(2, 'vault_search', 'end', true)]);
-    expect(steps).toEqual([{ id: '1', tool: 'vault_search', operation: null, host: null, done: true, ok: true }]);
-  });
-
-  it('keeps a call open until its end arrives and marks failures', () => {
-    const open = foldSteps([], [row(1, 'computer_read', 'start')]);
-    expect(open[0].done).toBe(false);
-    const closed = foldSteps(open, [row(2, 'computer_read', 'end', false)]);
-    expect(closed[0]).toMatchObject({ done: true, ok: false });
-  });
-
-  it('keeps an end whose start was missed and caps the list', () => {
-    expect(foldSteps([], [row(5, 'mcp_call', 'end', true)])).toHaveLength(1);
-    const many = foldSteps([], Array.from({ length: 30 }, (_, i) => row(i + 1, 'vault_read', 'start')));
-    expect(many).toHaveLength(12);
-    expect(many.at(-1)?.id).toBe('30');
+describe('stepsOf', () => {
+  it('lists the tool calls of one Many across its turns, oldest first, capped', () => {
+    let runs: LiveRuns = {};
+    runs = applyEvent(runs, step(1, 'a', 'vault_search', 'start'), 1);
+    runs = applyEvent(runs, { ...step(2, 'b', 'web_research', 'start'), many_id: 'other' }, 2);
+    for (let i = 0; i < 20; i += 1) runs = applyEvent(runs, step(10 + i, 'c', 'vault_read', 'start'), 3 + i);
+    const steps = stepsOf(runs, 'm1');
+    expect(steps).toHaveLength(12);
+    expect(steps.every((item) => item.tool === 'vault_read')).toBe(true);
+    expect(stepsOf(runs, 'other')).toEqual([{ id: 'b-2', tool: 'web_research', operation: null, host: null, done: false, ok: null }]);
   });
 });
 
 describe('step labels', () => {
   it('maps known tools and falls back for new ones', () => {
     expect(stepKey('computer_read')).toBe('lookComputer');
+    expect(stepKey('web_research')).toBe('webResearch');
     expect(stepKey('something_new')).toBe('generic');
   });
 
@@ -44,31 +38,34 @@ describe('step labels', () => {
 });
 
 describe('useManySteps', () => {
-  beforeEach(() => { vi.useFakeTimers(); vi.mocked(request).mockReset(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => { vi.mocked(request).mockReset(); useLiveRuns.getState().reset(); });
 
-  it('loads the latest steps, then only what is new, and stops when idle', async () => {
-    vi.mocked(request)
-      .mockResolvedValueOnce({ steps: [row(1, 'vault_search', 'start')] })
-      .mockResolvedValue({ steps: [row(2, 'vault_search', 'end', true)] });
-    const { result, rerender } = renderHook(({ active }) => useManySteps('many-a', active), { initialProps: { active: true } });
-    await act(async () => { await Promise.resolve(); });
-    expect(request).toHaveBeenCalledWith('/many-a/steps');
-    expect(result.current[0].done).toBe(false);
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    expect(request).toHaveBeenLastCalledWith('/many-a/steps?after=1');
-    expect(result.current[0]).toMatchObject({ done: true, ok: true });
-    rerender({ active: false });
-    expect(result.current).toEqual([]);
-    const calls = vi.mocked(request).mock.calls.length;
-    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-    expect(vi.mocked(request).mock.calls.length).toBe(calls);
+  it('reads the recent history once and then follows the live feed', async () => {
+    vi.mocked(request).mockResolvedValue({ steps: [
+      { sequence: 1, task_id: 'old', data: { callId: 'c1', tool: 'vault_search', operation: null, host: null, phase: 'start', ok: null } },
+      { sequence: 2, task_id: 'old', data: { callId: 'c1', tool: 'vault_search', operation: null, host: null, phase: 'end', ok: true } },
+    ] });
+    const { result } = renderHook(() => useManySteps('m1'));
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current[0]).toMatchObject({ tool: 'vault_search', done: true, ok: true });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith('/m1/steps');
+    useLiveRuns.getState().apply(step(50, 'new', 'web_research', 'start'));
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current[1]).toMatchObject({ tool: 'web_research', done: false });
   });
 
-  it('ignores errors and malformed answers', async () => {
-    vi.mocked(request).mockRejectedValueOnce(new Error('service_unavailable')).mockResolvedValue({});
-    const { result } = renderHook(() => useManySteps('many-a', true));
-    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  it('does not close a task the server says is still running', async () => {
+    vi.mocked(request).mockResolvedValue({ steps: [{ sequence: 1, task_id: 'busy', data: { callId: 'c', tool: 'computer_read', operation: null, host: null, phase: 'start', ok: null } }] });
+    const { result } = renderHook(() => useManySteps('m1', ['busy']));
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current[0].done).toBe(false);
+  });
+
+  it('survives an unreachable steps endpoint', async () => {
+    vi.mocked(request).mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useManySteps('m1'));
+    await waitFor(() => expect(request).toHaveBeenCalled());
     expect(result.current).toEqual([]);
   });
 });

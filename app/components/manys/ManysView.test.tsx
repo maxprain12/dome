@@ -1,10 +1,11 @@
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,act} from '@testing-library/react';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import ManysView from './ManysView';
 import ManyComputer from './ManyComputer';
 import ManyReview from './ManyReview';
 import {manyMarkVariant} from './ManyMark';
 import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/manys/api';
+import {useLiveRuns} from '@/lib/manys/liveRuns';
 vi.mock('@/lib/manys/api',()=>({request:vi.fn(),delegateToMany:vi.fn(),listCloudProviders:vi.fn()}));
 const detail:ManyDetail={many:{id:'many-test',name:'Research',instructions:'',grant_revision:1,grants:{projects:[],resources:[],capabilities:['vault.read']}},conversations:[{id:'conversation'}],tasks:[],messages:[],actions:[],recurrences:[],conflicts:[],computer:null};
 beforeEach(()=>{localStorage.clear();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
@@ -35,6 +36,24 @@ describe('Many’s durable interaction',()=>{
    expect(screen.queryByRole('button',{name:/Cancel task|Cancelar tarea/})).toBeNull();
    fireEvent.click(screen.getByRole('button',{name:/Stop response|Detener respuesta/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-r','PATCH',{action:'cancel'}));
+ });
+ it('shows the turn as it happens: the text as it is written and each tool as a card in the thread',async()=>{
+   const running={id:'task-live',prompt:'Research',state:'running' as const,question:null,result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[]}:{...detail,tasks:[running],messages:[{id:'u1',role:'user',content:'Research the market',task_id:'task-live'}]});
+   useLiveRuns.getState().reset();
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByText('Research the market')).toBeInTheDocument();
+   act(()=>{
+     useLiveRuns.getState().apply({sequence:1,kind:'task_queued',task_id:'task-live',many_id:'many-test',data:{}});
+     useLiveRuns.getState().apply({sequence:2,kind:'run_text',task_id:'task-live',many_id:'many-test',data:{messageId:'a',text:'Let me look that up.',end:false}});
+     useLiveRuns.getState().apply({sequence:3,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'start',ok:null}});
+   });
+   expect(await screen.findByText('Let me look that up.')).toBeInTheDocument();
+   const card=screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/});
+   expect(card).toBeInTheDocument();
+   expect(card).toHaveTextContent(/Working|En curso|En cours|Em andamento/);
+   act(()=>{useLiveRuns.getState().apply({sequence:4,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'end',ok:true}});});
+   await waitFor(()=>expect(screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/})).toHaveTextContent(/Done|Hecho|Terminé|Concluído/));
  });
  it('names what the Many is doing right now while it works',async()=>{
    const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};

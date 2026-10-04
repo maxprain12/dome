@@ -1,76 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { request } from './api';
-
-export interface ManyStepRow {
-  sequence: number;
-  task_id: string | null;
-  data: { tool: string; operation: string | null; host: string | null; phase: 'start' | 'end'; ok: boolean | null };
-}
+import { useLiveRuns, type LiveRuns } from './liveRuns';
 
 /** One tool call as a person follows it: started, then finished well or not. */
 export interface ManyStep { id: string; tool: string; operation: string | null; host: string | null; done: boolean; ok: boolean | null }
 
 const KEEP = 12;
-const POLL_MS = 2000;
 
-/** Folds start/end events into one entry per call. Ends are matched to the latest open start of the same tool. */
-export function foldSteps(current: ManyStep[], rows: ManyStepRow[]): ManyStep[] {
-  const next = [...current];
-  for (const row of rows) {
-    const { tool, operation, host, phase, ok } = row.data;
-    if (phase === 'start') {
-      next.push({ id: String(row.sequence), tool, operation, host, done: false, ok: null });
-      continue;
-    }
-    let index = -1;
-    for (let i = next.length - 1; i >= 0; i -= 1) {
-      if (!next[i].done && next[i].tool === tool) { index = i; break; }
-    }
-    if (index >= 0) next[index] = { ...next[index], done: true, ok };
-    else next.push({ id: String(row.sequence), tool, operation, host, done: true, ok });
-  }
-  return next.slice(-KEEP);
+/** The most recent tool calls of one Many across its turns, oldest first. */
+export function stepsOf(runs: LiveRuns, manyId: string): ManyStep[] {
+  return Object.values(runs)
+    .filter((run) => run.manyId === manyId)
+    .sort((a, b) => a.touched - b.touched)
+    .flatMap((run) => run.items.flatMap((item) => (item.kind === 'tool'
+      ? [{ id: item.callId, tool: item.tool, operation: item.operation, host: item.host, done: item.done, ok: item.ok }]
+      : [])))
+    .slice(-KEEP);
 }
 
-/** Follows what a Many is doing while it works. Progress is optional: errors are ignored. */
-export function useManySteps(manyId: string, active: boolean): ManyStep[] {
-  const [steps, setSteps] = useState<ManyStep[]>([]);
-  const cursor = useRef<number | null>(null);
-
+/**
+ * What a Many is doing, from the live feed. The feed only knows what happens while the window is
+ * open, so the recent history is read once; tasks in flight stay open for the feed to continue.
+ */
+export function useManySteps(manyId: string, inFlight: string[] = []): ManyStep[] {
+  const runs = useLiveRuns((state) => state.runs);
+  const flight = useRef(inFlight);
+  flight.current = inFlight;
   useEffect(() => {
-    cursor.current = null;
-    setSteps([]);
-  }, [manyId]);
-
-  useEffect(() => {
-    if (!active || !manyId) {
-      cursor.current = null;
-      setSteps([]);
-      return undefined;
-    }
+    if (!manyId) return undefined;
     let stopped = false;
-    const poll = async () => {
-      try {
-        const after = cursor.current;
-        const path = `/${manyId}/steps${after === null ? '' : `?after=${after}`}`;
-        const result = await request<{ steps?: ManyStepRow[] }>(path);
-        if (stopped || !Array.isArray(result?.steps) || result.steps.length === 0) return;
-        const rows = result.steps;
-        cursor.current = rows[rows.length - 1].sequence;
-        setSteps((current) => foldSteps(after === null ? [] : current, rows));
-      } catch {
-        /* progress is optional */
-      }
-    };
-    void poll();
-    const timer = setInterval(() => { void poll(); }, POLL_MS);
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-    };
-  }, [manyId, active]);
-
-  return steps;
+    void request<{ steps?: { sequence: number; task_id: string | null; data: Record<string, unknown> }[] }>(`/${manyId}/steps`)
+      .then((result) => {
+        if (!stopped && Array.isArray(result?.steps)) useLiveRuns.getState().hydrate(result.steps, manyId, flight.current);
+      })
+      .catch(() => { /* progress is optional */ });
+    return () => { stopped = true; };
+  }, [manyId]);
+  return useMemo(() => stepsOf(runs, manyId), [runs, manyId]);
 }
 
 const LABELS: Record<string, string> = {

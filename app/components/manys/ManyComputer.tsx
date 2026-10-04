@@ -23,7 +23,7 @@ export default function ManyComputer({ manyId, control, live }: { manyId: string
   const [held, setHeld] = useState(control);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const steps = useManySteps(manyId, view === 'activity');
+  const steps = useManySteps(manyId);
 
   useEffect(() => {
     setHeld(control);
