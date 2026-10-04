@@ -36,7 +36,7 @@ export function DashboardWorkspace({ scope, title, description, eyebrow, panels,
     setLayout(scope, next);
   };
   return (
-    <div className="dashboard-workspace mx-auto flex w-full max-w-[1440px] flex-col gap-6 p-5 lg:p-8">
+    <div className="dashboard-workspace mx-auto flex w-full max-w-[1440px] flex-col gap-8 p-5 lg:p-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-xs font-medium text-muted-foreground">{eyebrow}</p>

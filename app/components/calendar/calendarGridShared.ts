@@ -42,3 +42,8 @@ export function navigateDate(date: Date, mode: CalendarViewMode, dir: 1 | -1): D
     case 'year':  return dir === 1 ? addYears(date, 1)  : subYears(date, 1);
   }
 }
+
+/** Soft tinted surface for an event chip: the calendar colour blended into the card. */
+export function eventSurface(color?: string | null): string {
+  return color ? `color-mix(in oklab, ${color} 34%, var(--card))` : 'var(--brand-lime)';
+}

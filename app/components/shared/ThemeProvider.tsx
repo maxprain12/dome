@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useAppearanceStore } from '@/lib/store/useAppearanceStore';
 
 /**
  * ThemeProvider - Applies theme (light/dark/auto) to <html> element
@@ -28,6 +29,16 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
       applyTheme(theme);
     }
   }, [theme]);
+
+  // Reduce transparency: html[data-reduce-transparency] swaps glass tokens for solid ones.
+  // Unset keeps following the OS preference (prefers-reduced-transparency).
+  const reduceTransparency = useAppearanceStore((s) => s.reduceTransparency);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const root = document.documentElement;
+    if (reduceTransparency) root.setAttribute('data-reduce-transparency', 'true');
+    else root.removeAttribute('data-reduce-transparency');
+  }, [reduceTransparency]);
 
   // Listen for Electron nativeTheme updates (relevant in auto mode)
   useEffect(() => {

@@ -21,9 +21,9 @@
   --typeset-font-body: var(--font-inter);
   --typeset-font-heading: var(--font-inter);
   --typeset-font-mono: var(--font-inter);
-  --typeset-size: 15px;
-  --typeset-leading: 1.75;
-  --typeset-flow: 1em;
+  --typeset-size: 14px;
+  --typeset-leading: 1.6;
+  --typeset-flow: 0.85em;
 }
 
 /* Compact scale for modals, detail panels, description fields.
@@ -338,6 +338,56 @@
   --shadow-xl: none;
 
   --logo-filter: invert(1) brightness(1.2);
+}
+
+/* ============================================
+   Dome Liquid — tokens de escritorio
+   Solo escritorio (la extensión del navegador comparte theme-tokens.css y no
+   hereda esto). El vidrio vive únicamente en el chrome: barra lateral,
+   pestañas, panel Many, menús, diálogos y barras flotantes. El contenido
+   (paneles, tarjetas, campos, visores) sigue siendo sólido.
+   ============================================ */
+
+:root {
+  /* Más redondo en todo: 12px base (antes 6px). sm/md/lg/xl/2xl derivan de aquí. */
+  --radius: 0.75rem;
+
+  --tint-strong: oklch(0.74 0.14 125);
+
+  --glass: oklch(1 0 0 / 0.56);
+  --glass-strong: oklch(1 0 0 / 0.8);
+  --glass-edge: oklch(1 0 0 / 0.65);
+  --glass-spec: oklch(1 0 0 / 0.95);
+  --glass-blur: blur(28px) saturate(1.8);
+  --glass-float: 0 10px 34px oklch(0.3 0.04 125 / 0.14), 0 1px 3px oklch(0.3 0.04 125 / 0.1);
+  --lift: 0 1px 2px oklch(0 0 0 / 0.07), 0 0 0 0.5px oklch(0 0 0 / 0.05);
+  --hairline: oklch(0.274 0 0 / 0.08);
+  --scrim: oklch(0.2 0.02 125 / 0.28);
+
+  --shell-wallpaper:
+    radial-gradient(60% 55% at 6% 8%, oklch(0.93 0.09 118) 0%, transparent 70%),
+    radial-gradient(55% 55% at 96% 96%, oklch(0.9 0.05 282) 0%, transparent 70%),
+    radial-gradient(45% 40% at 92% 6%, oklch(0.95 0.05 160) 0%, transparent 70%),
+    oklch(0.962 0.02 122);
+}
+
+.dark {
+  --tint-strong: oklch(0.72 0.14 125);
+
+  --glass: oklch(0.3 0.012 125 / 0.52);
+  --glass-strong: oklch(0.33 0.012 125 / 0.78);
+  --glass-edge: oklch(1 0 0 / 0.1);
+  --glass-spec: oklch(1 0 0 / 0.18);
+  --glass-float: 0 12px 40px oklch(0 0 0 / 0.45), 0 1px 3px oklch(0 0 0 / 0.4);
+  --lift: 0 1px 2px oklch(0 0 0 / 0.4), 0 0 0 0.5px oklch(1 0 0 / 0.08);
+  --hairline: oklch(1 0 0 / 0.08);
+  --scrim: oklch(0 0 0 / 0.45);
+
+  --shell-wallpaper:
+    radial-gradient(60% 55% at 6% 8%, oklch(0.36 0.07 122) 0%, transparent 70%),
+    radial-gradient(55% 55% at 96% 96%, oklch(0.3 0.05 282) 0%, transparent 70%),
+    radial-gradient(45% 40% at 92% 6%, oklch(0.3 0.04 165) 0%, transparent 70%),
+    oklch(0.19 0.012 125);
 }
 
 /* ============================================
@@ -1966,6 +2016,10 @@ input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-success-bg: var(--success-bg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
+  --color-info-bg: var(--info-bg);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -2031,4 +2085,246 @@ input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
 .many-composer-settings { display: block; }
 @container many-composer (max-width: 620px) {
   .many-composer-model { max-width: 11rem; }
+}
+
+/* ============================================
+   Dome Liquid — utilidades de vidrio
+   .dome-wallpaper     fondo degradado detrás del chrome
+   .dome-glass         chrome en reposo (barra lateral, pestañas)
+   .dome-glass-strong  superficies flotantes y paneles (Many, menús, diálogos)
+   Reducir transparencia: html[data-reduce-transparency="true"] o la
+   preferencia del sistema → sólidos, sin blur y sin degradado.
+   ============================================ */
+@layer components {
+  .dome-wallpaper {
+    background: var(--shell-wallpaper);
+  }
+
+  .dome-glass,
+  .dome-glass-strong {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow:
+      inset 0 1px 0 var(--glass-spec),
+      inset 0 0 0 1px var(--glass-edge);
+  }
+
+  .dome-glass {
+    background: var(--glass);
+  }
+
+  .dome-glass-strong {
+    background: var(--glass-strong);
+  }
+
+  .dome-glass-float {
+    box-shadow:
+      inset 0 1px 0 var(--glass-spec),
+      inset 0 0 0 1px var(--glass-edge),
+      var(--glass-float);
+  }
+
+  /* Contenido: sólido con un hilo de 1px y una sombra mínima. */
+  .dome-solid-panel {
+    box-shadow:
+      0 0 0 1px var(--hairline),
+      0 1px 2px oklch(0.3 0.04 125 / 0.05);
+  }
+
+  /* Seleccionado en el chrome: píldora de vidrio elevada. */
+  .dome-glass-active {
+    background: var(--glass-strong);
+    box-shadow:
+      inset 0 1px 0 var(--glass-spec),
+      var(--lift);
+  }
+}
+
+/* ============================================
+   Dome Liquid — piezas de contenido de los lienzos (Many's A–D, Calendario)
+   Medidas copiadas del CSS de diseño: tarjeta 16px con hilo, fila de lista
+   14px con seleccionado mint, terminal y estados cálido/error.
+   ============================================ */
+@layer components {
+  .dome-card {
+    background: var(--card);
+    color: var(--card-foreground);
+    border-radius: 16px;
+    box-shadow: 0 0 0 1px var(--hairline);
+  }
+
+  .dome-card-plain {
+    background: var(--background);
+  }
+
+  .dome-card-warn {
+    background: color-mix(in oklab, var(--warning-bg) 75%, var(--card));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--warning) 70%, transparent);
+  }
+
+  .dome-card-err {
+    background: color-mix(in oklab, var(--destructive) 6%, var(--card));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--destructive) 35%, transparent);
+  }
+
+  .dome-rowbtn {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    text-align: left;
+    color: inherit;
+    transition: background-color 0.18s var(--ease-out);
+  }
+
+  .dome-rowbtn:hover {
+    background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  }
+
+  .dome-rowbtn[aria-pressed="true"],
+  .dome-rowbtn[aria-current="true"] {
+    background: var(--brand-mint);
+    box-shadow:
+      inset 0 1px 0 var(--glass-spec),
+      inset 0 0 0 1px color-mix(in oklab, var(--tint-strong) 35%, transparent);
+  }
+
+  .dome-rowbtn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--tint-strong) 55%, transparent);
+  }
+
+  .dome-term {
+    background: oklch(0.2 0 0);
+    color: oklch(0.92 0 0);
+    border-radius: 14px;
+    font: 400 11.5px/1.6 ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+    padding: 11px 13px;
+  }
+
+  .dome-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 6px 7px 6px 12px;
+    border-radius: 26px;
+    box-shadow:
+      inset 0 1px 0 var(--glass-spec),
+      0 0 0 1px var(--hairline),
+      0 8px 28px oklch(0.3 0.04 125 / 0.12);
+  }
+}
+
+html[data-reduce-transparency="true"] {
+  --shell-wallpaper: var(--sidebar);
+  --glass: var(--sidebar);
+  --glass-strong: var(--popover);
+  --glass-blur: none;
+  --glass-edge: var(--border);
+  --glass-spec: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-reduce-transparency="false"]) {
+    --shell-wallpaper: var(--sidebar);
+    --glass: var(--sidebar);
+    --glass-strong: var(--popover);
+    --glass-blur: none;
+    --glass-edge: var(--border);
+    --glass-spec: transparent;
+  }
+}
+
+/* ============================================
+   Dome Liquid — escala de texto y scroll
+   ============================================ */
+
+/* Base de 13px para la UI (antes 14px). xs (12px) se mantiene para metadatos. */
+@theme {
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+}
+
+/* Desvanecido en los bordes de una lista con scroll: aparece arriba al
+   desplazarse y abajo mientras quede contenido. Sin overflow no hay efecto. */
+@property --dome-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --dome-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes dome-fade-top-in {
+  from { --dome-fade-top: 0px; }
+  to { --dome-fade-top: 22px; }
+}
+
+@keyframes dome-fade-bottom-out {
+  from { --dome-fade-bottom: 22px; }
+  to { --dome-fade-bottom: 0px; }
+}
+
+@utility scroll-fade {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--dome-fade-top),
+    #000 calc(100% - var(--dome-fade-bottom)),
+    transparent 100%
+  );
+  animation: dome-fade-top-in linear both, dome-fade-bottom-out linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range: 0px 36px, calc(100% - 36px) 100%;
+}
+
+@utility scroll-fade-b {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--dome-fade-top),
+    #000 calc(100% - var(--dome-fade-bottom)),
+    transparent 100%
+  );
+  animation: dome-fade-top-in linear both, dome-fade-bottom-out linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range: 0px 36px, calc(100% - 36px) 100%;
+}
+
+/* Barra fina que solo aparece al pasar el cursor por la lista. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+
+  &:hover {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  }
+}
+
+@utility scrollbar-thumb-transparent {
+  scrollbar-color: transparent transparent;
+}
+
+@utility scrollbar-track-transparent {
+  scrollbar-color: transparent transparent;
+}
+
+/* Barra lateral: el árbol de archivos desvanece sus bordes al hacer scroll. */
+.dome-left-sidebar [data-slot='scroll-area-viewport'] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--dome-fade-top),
+    #000 calc(100% - var(--dome-fade-bottom)),
+    transparent 100%
+  );
+  animation: dome-fade-top-in linear both, dome-fade-bottom-out linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range: 0px 36px, calc(100% - 36px) 100%;
 }

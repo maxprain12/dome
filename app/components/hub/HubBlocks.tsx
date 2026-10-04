@@ -26,7 +26,7 @@ export function HubSurface({
     <section className={cn('flex w-full min-w-0 flex-col gap-6', className)}>
       <header className="flex items-start gap-3">
         {icon ? (
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
             <HugeiconsIcon icon={icon} className="size-5" />
           </span>
         ) : null}
@@ -83,7 +83,7 @@ export function HubGroup({
       {bare ? (
         children
       ) : (
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">{children}</div>
+        <div className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-card">{children}</div>
       )}
     </section>
   );

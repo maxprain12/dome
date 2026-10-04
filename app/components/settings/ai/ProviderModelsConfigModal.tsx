@@ -349,7 +349,7 @@ export default function ProviderModelsConfigModal({
             {error && !loading ? <p className="text-xs text-warning">{error}</p> : null}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <section className="min-h-[240px] rounded-xl border bg-card">
+              <section className="min-h-[240px] rounded-2xl border border-border/70 bg-card">
                 <header className="border-b px-3 py-2">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('settings.ai.visible_models.catalog')}
@@ -369,7 +369,7 @@ export default function ProviderModelsConfigModal({
                 </ul>
               </section>
 
-              <section className="min-h-[240px] rounded-xl border bg-card">
+              <section className="min-h-[240px] rounded-2xl border border-border/70 bg-card">
                 <header className="border-b px-3 py-2">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('settings.ai.visible_models.in_selector')}

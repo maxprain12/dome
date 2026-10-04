@@ -39,7 +39,7 @@ export function HubShell({
       {hasRail ? (
         <aside
           className={cn(
-            'min-h-0 flex-col border-r bg-card/40',
+            'min-h-0 flex-col border-r border-border/60 bg-card/40',
             railFromMd ? 'hidden md:flex' : 'flex',
           )}
         >

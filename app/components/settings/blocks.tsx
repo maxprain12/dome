@@ -7,8 +7,8 @@ import type { SettingsSection } from './registry';
 export function SettingsSurface({ section, title, description, icon, actions, children, className }: HubSurfaceProps & { section?: SettingsSection }) {
   const { t } = useTranslation();
   return <section className={cn('flex min-w-0 flex-col gap-6', className)}>
-    <header className="flex flex-wrap items-start gap-4 border-b pb-5">
-      {icon && <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground"><HugeiconsIcon icon={icon} className="size-5" aria-hidden /></span>}
+    <header className="flex flex-wrap items-start gap-4 border-b border-border/60 pb-5">
+      {icon && <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground"><HugeiconsIcon icon={icon} className="size-5" aria-hidden /></span>}
       <div className="min-w-0 flex-1">
         <h1 tabIndex={-1} className="text-balance text-2xl font-semibold tracking-tight outline-none">{section ? t(`settings.tabs.${section}`) : title}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{section ? t(`settingsGuide.sections.${section}.description`) : description}</p>
@@ -26,7 +26,7 @@ export function SettingsGroup({ title, description, actions, children, bare = fa
       <div className="min-w-0 flex-1">{title && <h2 className="text-sm font-semibold">{title}</h2>}{description && <p className="mt-1 max-w-prose text-sm leading-relaxed text-muted-foreground">{description}</p>}</div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>}
-    {bare ? children : <div className="divide-y rounded-xl border bg-card">{children}</div>}
+    {bare ? children : <div className="divide-y divide-border/60 rounded-2xl border border-border/70 bg-card">{children}</div>}
   </section>;
 }
 

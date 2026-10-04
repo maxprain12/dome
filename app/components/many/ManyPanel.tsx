@@ -452,7 +452,7 @@ export default function ManyPanel({
     <>
       <UICursorOverlay />
       <div
-        className={cn('relative flex h-full w-full min-w-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
+        className={cn('relative flex h-full w-full min-w-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-transparent')}
         style={{ ['--many-panel-width' as string]: `${width}px` }}
       >
         <ManyHeader
@@ -598,7 +598,7 @@ export default function ManyPanel({
           <ManyPlanPanel />
 
           {isFullscreen && fullscreenHistoryOpen && !browserOpen ? (
-            <aside className="flex w-[clamp(13rem,24%,18rem)] max-w-[42%] shrink-0 flex-col border-l border-sidebar-border bg-sidebar">
+            <aside className="flex w-[clamp(13rem,24%,18rem)] max-w-[42%] shrink-0 flex-col border-l border-sidebar-border bg-transparent">
               <ManyHistoryView
                 onSelectSession={handleSelectSession}
                 onNewChat={handleStartNewChat}

@@ -12,7 +12,7 @@ export function HubToolbar({
   return (
     <div
       className={cn(
-        'flex min-w-0 w-full shrink-0 flex-nowrap items-center gap-2 overflow-x-auto border-b bg-background px-4 py-2',
+        'flex min-w-0 w-full shrink-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-border/60 bg-background px-4 py-2',
         className,
       )}
     >

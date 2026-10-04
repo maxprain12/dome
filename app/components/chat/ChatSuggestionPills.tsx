@@ -51,7 +51,7 @@ export function ChatSuggestionPills({
               {item.label}
             </Button>
             {expanded ? (
-              <div className="flex max-w-xs flex-col items-center gap-1.5 rounded-xl border bg-card px-3 py-2 text-center">
+              <div className="flex max-w-xs flex-col items-center gap-1.5 rounded-2xl border border-border/70 bg-card px-3 py-2 text-center">
                 {item.skillRecommend ? (
                   <p className="text-xs text-muted-foreground">{item.skillRecommend}</p>
                 ) : null}

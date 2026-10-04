@@ -361,7 +361,7 @@ export default function McpSection() {
               const testStatus = serverTestStatus[rowId] ?? 'idle';
               const testResult = serverTestResult[rowId];
               return (
-                <div key={rowId} className="rounded-xl border bg-card p-4">
+                <div key={rowId} className="rounded-2xl border border-border/70 bg-card p-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
                       <div className="flex flex-wrap items-center gap-2">

@@ -16,7 +16,7 @@ export function HubPageHeader({ children, className, compact }: HubPageHeaderPro
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-col border-b bg-muted',
+        'flex shrink-0 flex-col border-b border-border/60 bg-muted',
         compact ? 'gap-2 px-3 py-2' : 'gap-3 px-4 py-3 sm:px-6',
         className,
       )}

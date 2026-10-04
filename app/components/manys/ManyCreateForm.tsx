@@ -22,13 +22,16 @@ function providerName(provider: CloudProviderOption, unknown: string): string {
 
 export default function ManyCreateForm({
   busy,
+  presetName = '',
   onCreate,
 }: {
   busy: boolean;
+  /** Name suggested by a template; the person can still change it. */
+  presetName?: string;
   onCreate: (input: { name: string; runtime: ManyCloudRuntime }) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(presetName);
   const [providers, setProviders] = useState<CloudProviderOption[] | null>(null);
   const [runtime, setRuntime] = useState<RuntimeChoice>('');
   const [providerId, setProviderId] = useState('');
@@ -36,6 +39,10 @@ export default function ManyCreateForm({
   const saved = providers ?? [];
   const selected = saved.find((provider) => provider.id === providerId) ?? null;
   const canUseSavedKey = saved.length > 0;
+
+  useEffect(() => {
+    setName(presetName);
+  }, [presetName]);
 
   useEffect(() => {
     let active = true;
@@ -81,7 +88,7 @@ export default function ManyCreateForm({
 
   return (
     <form
-      className="flex flex-col gap-2 border-t border-border p-3"
+      className="flex flex-col gap-2 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (!choice || !name.trim()) return;

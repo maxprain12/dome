@@ -85,7 +85,7 @@ export function DashboardDataTable<T extends { id: string }>({
         <div className="flex justify-end pb-2">{toolbarEnd}</div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
+      <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-border/70 bg-card">
         {loading ? (
           <div className="flex flex-col gap-2 p-4">
             <Skeleton className="h-10" />

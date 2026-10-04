@@ -1,57 +1,106 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Add01Icon,
+  Alert02Icon,
+  ArrowDown01Icon,
+  ComputerIcon,
+  Delete02Icon,
+  Folder01Icon,
+  Maximize02Icon,
+  Minimize02Icon,
+  MoreHorizontalIcon,
+  PanelRightIcon,
+  Refresh01Icon,
+  RepeatIcon,
+  SentIcon,
+  Shield01Icon,
+} from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import { MessageScroller, MessageScrollerProvider, MessageScrollerViewport, MessageScrollerContent } from '@/components/ui/message-scroller';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
-import { request, delegateToMany, type CloudMany, type ManyDetail } from '@/lib/manys/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { request, delegateToMany, type CloudMany, type ManyCloudRuntime, type ManyDetail, type Task } from '@/lib/manys/api';
+import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/types';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
-import ManySettings from './ManySettings';
-import ManyComputer from './ManyComputer';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import ManyReview from './ManyReview';
+import ManyInspector, { type InspectorTab } from './ManyInspector';
+import ManyRoster, { pendingCount } from './ManyRoster';
 import ManyMark, { manyMarkVariant } from './ManyMark';
-import ManyCreateForm from './ManyCreateForm';
+import ManysOverview, { type ManyTemplate } from './ManysOverview';
+import { STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+
+const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
+const TASK_BADGE: Partial<Record<Task['state'], 'ok' | 'warn' | 'outline'>> = {
+  running: 'ok',
+  paused: 'warn',
+  waiting_approval: 'warn',
+  waiting_input: 'warn',
+  queued: 'outline',
+};
 
 export default function ManysView() {
   const { t } = useTranslation();
   const [manys, setManys] = useState<CloudMany[]>([]);
   const [selected, setSelected] = useState('');
-  const [detail, setDetail] = useState<ManyDetail | null>(null);
+  const [details, setDetails] = useState<Record<string, ManyDetail>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const currentSelected = useRef(selected);
-  currentSelected.current = selected;
+  const [newOpen, setNewOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<CloudMany | null>(null);
+  const [template, setTemplate] = useState<ManyTemplate | null>(null);
   const [draft, setDraft] = useState('');
-  const [computerOpen, setComputerOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
+  const [inspector, setInspector] = useState<InspectorTab | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [focus, setFocusState] = useState(() => localStorage.getItem('manys:focus') === '1');
+  const currentSelected = useRef(selected);
+  const pendingCreate = useRef<CloudMany | null>(null);
+  currentSelected.current = selected;
+  const setFocus = (value: boolean) => {
+    setFocusState(value);
+    localStorage.setItem('manys:focus', value ? '1' : '0');
+  };
 
   const refresh = useCallback(async () => {
     try {
       const result = await request<{ manys: CloudMany[] }>('');
       setManys(result.manys);
       setLoaded(true);
-      if (selected) {
-        const value = await request<ManyDetail>(`/${selected}`);
-        if (currentSelected.current === selected) setDetail(value);
-      }
+      const next: Record<string, ManyDetail> = {};
+      await Promise.all(result.manys.slice(0, 24).map(async (many) => {
+        try {
+          next[many.id] = await request<ManyDetail>(`/${many.id}`);
+        } catch {
+          /* one unreachable Many must not blank the roster or the team view */
+        }
+      }));
+      setDetails(next);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');
       setLoaded(true);
     }
-  }, [selected]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -59,12 +108,11 @@ export default function ManysView() {
       void refresh();
     }, 5000);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, selected]);
 
   useEffect(() => {
-    setDetail(null);
-    setContextOpen(false);
     setDraft(localStorage.getItem(`manys:draft:${selected}`) ?? '');
+    setDetailsOpen(false);
   }, [selected]);
 
   const run = async (fn: () => Promise<unknown>): Promise<boolean> => {
@@ -105,145 +153,278 @@ export default function ManysView() {
     void perform(() => request(`/${selected}/tasks/${taskId}`, 'PATCH', body));
   };
 
+  const detail = selected ? (details[selected] ?? null) : null;
   const selectedVariant = detail ? manyMarkVariant(detail.many.id) : 'lime';
-  const decisions = detail?.actions.filter((action) => action.state === 'pending' || action.state === 'outcome_unknown') ?? [];
-  const conflicts = detail?.conflicts ?? [];
+  const summary = detail ? summarizeMany(detail) : null;
+  const status = summary?.status ?? 'idle';
+  const decisions = summary?.decisions ?? [];
+  const conflicts = summary?.conflicts ?? [];
+  const activeTasks = summary?.activeTasks ?? [];
+  const questions = summary?.questions ?? [];
+  const lastFailed = summary?.lastFailed ?? null;
   const composerTasks = detail?.tasks.filter((task) => (
     task.state === 'running' || task.state === 'paused' || task.state === 'waiting_approval'
   )) ?? [];
-  const questions = detail?.tasks.filter((task) => task.question) ?? [];
   const spokenResults = detail?.tasks.filter((task) => {
     const text = task.result?.text;
     return !!text && !detail.messages.some((message) => message.content === text);
   }) ?? [];
+  const chatOnly = focus && !!selected;
+  const controlNow = detail?.computer?.control;
+  useEffect(() => {
+    if (controlNow === 'human') setInspector((current) => current ?? 'computer');
+  }, [controlNow]);
+
+  const openInspector = (tab: InspectorTab) => {
+    setFocus(false);
+    setInspector(tab);
+  };
+
+  const createMany = (input: { name: string; runtime: ManyCloudRuntime }) => run(async () => {
+    const existing = pendingCreate.current;
+    const many = existing ?? await request<CloudMany>('', 'POST', input);
+    if (!existing) pendingCreate.current = many;
+    if (template) {
+      await request(`/${many.id}`, 'PATCH', {
+        name: input.name,
+        instructions: t(`manys.templates.${template}.instructions`),
+        grants: many.grants,
+      });
+    }
+    pendingCreate.current = null;
+    setTemplate(null);
+    setSelected(many.id);
+  });
+  const deleteMany = async () => {
+    if (!toDelete) return;
+    const target = toDelete;
+    const deleted = await run(() => request(`/${target.id}`, 'DELETE'));
+    if (!deleted) return;
+    localStorage.removeItem(`manys:draft:${target.id}`);
+    if (currentSelected.current === target.id) {
+      setInspector(null);
+      setSelected('');
+    }
+    setToDelete(null);
+  };
+  const chooseTemplate = (value: ManyTemplate) => {
+    setTemplate(value);
+    setNewOpen(true);
+  };
+  const changeNewOpen = (open: boolean) => {
+    setNewOpen(open);
+    if (!open) {
+      if (pendingCreate.current) {
+        setSelected(pendingCreate.current.id);
+        pendingCreate.current = null;
+      }
+      setTemplate(null);
+    }
+  };
+  const fillSuggestion = (text: string) => {
+    setDraft(text);
+    localStorage.setItem(`manys:draft:${selected}`, text);
+  };
+
+  const showSuggestions = !!detail && detail.messages.length < 3 && composerTasks.length === 0 && !draft && !lastFailed;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background md:flex-row">
-      <aside className="flex max-h-[42vh] min-h-0 w-full shrink-0 flex-col border-b border-border md:max-h-none md:h-full md:w-72 md:border-r md:border-b-0">
-        <div className="flex items-center justify-between gap-2 px-3 pt-4 pb-2">
-          <h1 className="px-1 text-base font-semibold">{t('manys.title')}</h1>
-          <Button variant="ghost" size="sm" onClick={() => useManyStore.getState().setOpen(true)}>
-            {t('manys.local')}
-          </Button>
-        </div>
-        <nav aria-label={t('manys.title')} className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2 pb-2">
-          {!loaded && (
-            <div className="flex flex-col gap-2 px-1">
-              <Skeleton className="h-11 rounded-xl" />
-              <Skeleton className="h-11 rounded-xl" />
-            </div>
-          )}
-          {manys.map((many) => (
-            <Button
-              key={many.id}
-              type="button"
-              variant="ghost"
-              aria-pressed={selected === many.id}
-              onClick={() => setSelected(many.id)}
-              className={selectionSurfaceClass(selected === many.id, 'h-auto w-full justify-start gap-2.5 px-2 py-1.5 font-normal')}
-            >
-              <ManyMark variant={manyMarkVariant(many.id)} />
-              <span className="min-w-0 truncate text-left text-sm">{many.name}</span>
-            </Button>
-          ))}
-        </nav>
-        <ManyCreateForm
+      {!chatOnly && (
+        <ManyRoster
+          manys={manys}
+          details={details}
+          loaded={loaded}
+          selected={selected}
           busy={busy}
-          onCreate={(input) => run(async () => {
-            const many = await request<CloudMany>('', 'POST', input);
-            setSelected(many.id);
-          })}
+          newOpen={newOpen}
+          presetName={template ? t(`manys.templates.${template}.name`) : ''}
+          onNewOpenChange={changeNewOpen}
+          onSelect={setSelected}
+          onOpenLocal={() => useManyStore.getState().setOpen(true)}
+          onDelete={setToDelete}
+          onCreate={createMany}
         />
-      </aside>
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-3 px-4 py-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                <span>{t(`manys.errors.${error}`, { defaultValue: t('manys.errors.request_failed') })}</span>
-                {draft.trim() ? <span> {t('manys.errors.draft_saved')}</span> : null}{' '}
-                <Button size="sm" variant="outline" onClick={() => { void refresh(); }}>{t('manys.retry')}</Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          {!selected && (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-              <ManyMark className="size-16" />
-              <div className="max-w-sm">
-                <h2 className="text-base font-semibold">{t('manys.title')}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">{t('manys.intro')}</p>
-              </div>
-            </div>
-          )}
-          {selected && !detail && !error && (
-            <div className="flex flex-1 flex-col justify-end gap-3 pb-4">
-              <Skeleton className="h-16 w-2/3 rounded-2xl" />
-              <Skeleton className="ml-auto h-12 w-1/2 rounded-2xl" />
-            </div>
-          )}
-          {detail && (
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <header className="flex items-center gap-3">
-                <ManyMark variant={selectedVariant} className="size-10" />
-                <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{detail.many.name}</h2>
-                <Button variant="ghost" onClick={() => setContextOpen(true)}>{t('manys.context')}</Button>
-                <Button variant="outline" onClick={() => setComputerOpen((value) => !value)}>{t('manys.computer')}</Button>
+      )}
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+        {error && (
+          <div className="dome-card dome-card-err mx-5 mt-3 flex items-center gap-2 px-3 py-2 text-sm">
+            <HugeiconsIcon icon={Alert02Icon} className="size-4 shrink-0 text-destructive" aria-hidden />
+            <span className="min-w-0 grow">
+              {t(`manys.errors.${error}`, { defaultValue: t('manys.errors.request_failed') })}
+              {draft.trim() ? ` ${t('manys.errors.draft_saved')}` : ''}
+            </span>
+            <Button size="sm" variant="outline" onClick={() => { void refresh(); }}>{t('manys.retry')}</Button>
+          </div>
+        )}
+        {!selected && !loaded && (
+          <div className="flex flex-col gap-3 px-8 py-8">
+            <Skeleton className="h-10 w-1/3 rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+          </div>
+        )}
+        {!selected && loaded && (
+          <div className="min-h-0 flex-1 overflow-auto">
+            <ManysOverview
+              manys={manys}
+              details={details}
+              busy={busy}
+              onOpen={setSelected}
+              onNew={() => setNewOpen(true)}
+              onOpenLocal={() => useManyStore.getState().setOpen(true)}
+              onDelete={setToDelete}
+              onTemplate={chooseTemplate}
+              perform={perform}
+            />
+          </div>
+        )}
+        {selected && !detail && !error && (
+          <div className="flex flex-1 flex-col justify-end gap-3 px-5 pb-4">
+            <Skeleton className="h-16 w-2/3 rounded-[20px]" />
+            <Skeleton className="ml-auto h-12 w-1/2 rounded-[20px]" />
+          </div>
+        )}
+        {detail && (
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <header className="flex items-center gap-3 border-b border-border px-5 py-3">
+                {chatOnly ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button type="button" variant="ghost" className="h-11 gap-2.5 pr-2.5 pl-1.5" />}>
+                      <ManyMark variant={selectedVariant} />
+                      <span className="flex flex-col items-start leading-[1.3]">
+                        <span className="text-sm font-semibold">{detail.many.name}</span>
+                        <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                          <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', STATUS_DOT[status])} />
+                          {t(statusLabelKey(status))}
+                        </span>
+                      </span>
+                      <HugeiconsIcon icon={ArrowDown01Icon} className="text-muted-foreground" aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-80">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>{t('manys.switchMany')}</DropdownMenuLabel>
+                        {manys.map((item) => {
+                          const itemSummary = details[item.id] ? summarizeMany(details[item.id]) : null;
+                          const itemStatus = itemSummary?.status ?? 'idle';
+                          const pending = itemSummary ? pendingCount(itemSummary) : 0;
+                          return (
+                            <DropdownMenuItem key={item.id} className="h-auto gap-2.5 py-1.5" onClick={() => setSelected(item.id)}>
+                              <ManyMark variant={manyMarkVariant(item.id)} className="size-6" />
+                              <span className="flex min-w-0 grow flex-col">
+                                <span className="truncate text-sm font-medium">{item.name}</span>
+                                <span className="truncate text-xs text-muted-foreground">{t(statusLabelKey(itemStatus))}</span>
+                              </span>
+                              {pending > 0
+                                ? <Badge variant="warn">{pending}</Badge>
+                                : <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', STATUS_DOT[itemStatus])} />}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => { setFocus(false); setSelected(''); setTemplate(null); setNewOpen(true); }}>
+                        <HugeiconsIcon icon={Add01Icon} aria-hidden />
+                        {t('manys.newMany')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <>
+                    <ManyMark variant={selectedVariant} className="size-10" />
+                    <div className="flex min-w-0 grow flex-col">
+                      <h2 className="truncate text-base font-semibold tracking-tight">{detail.many.name}</h2>
+                      <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                        <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', STATUS_DOT[status])} />
+                        {t(statusLabelKey(status))}
+                        {activeTasks.length > 0 && <span> · {t('manys.activeTasks', { count: activeTasks.length })}</span>}
+                      </p>
+                    </div>
+                  </>
+                )}
+                {chatOnly && <span className="grow" />}
+                {chatOnly ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setFocus(false)}>
+                    <HugeiconsIcon icon={Minimize02Icon} aria-hidden />
+                    {t('manys.exitChatOnly')}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-pressed={inspector !== null}
+                    aria-label={t('manys.panel')}
+                    title={t('manys.panel')}
+                    onClick={() => setInspector((current) => (current ? null : 'context'))}
+                  >
+                    <HugeiconsIcon icon={PanelRightIcon} />
+                  </Button>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button type="button" size="icon" variant="ghost" aria-label={t('manys.more')} title={t('manys.more')} />}>
+                    <HugeiconsIcon icon={MoreHorizontalIcon} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-56">
+                    <DropdownMenuItem onClick={() => openInspector('computer')}>
+                      <HugeiconsIcon icon={ComputerIcon} aria-hidden />
+                      {t('manys.computer')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInspector('context')}>
+                      <HugeiconsIcon icon={Shield01Icon} aria-hidden />
+                      {t('manys.context')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInspector('routines')}>
+                      <HugeiconsIcon icon={RepeatIcon} aria-hidden />
+                      {t('manys.recurrences')}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {!chatOnly && (
+                      <DropdownMenuItem onClick={() => { setInspector(null); setFocus(true); }}>
+                        <HugeiconsIcon icon={Maximize02Icon} aria-hidden />
+                        {t('manys.chatOnly')}
+                      </DropdownMenuItem>
+                    )}
+                    {chatOnly && (
+                      <DropdownMenuItem onClick={() => useManyStore.getState().setOpen(true)}>
+                        {t('manys.local')}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={() => setToDelete(detail.many)}>
+                      <HugeiconsIcon icon={Delete02Icon} aria-hidden />
+                      {t('manys.delete')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </header>
-              <Dialog open={contextOpen} onOpenChange={setContextOpen}>
-                <DialogContent className="max-h-[min(80vh,40rem)] overflow-auto sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>{t('manys.context')}</DialogTitle>
-                    <DialogDescription>{t('manys.permissionHint')}</DialogDescription>
-                  </DialogHeader>
-                  <ManySettings key={selected} many={detail.many} onSave={(value) => perform(() => request(`/${selected}`, 'PATCH', value))} />
-                  <div className="flex flex-col gap-3 border-t border-border pt-4">
-                    <h3 className="text-sm font-medium">{t('manys.recurrences')}</h3>
-                    <form
-                      className="flex flex-col gap-3"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = new FormData(event.currentTarget);
-                        void perform(() => request(`/${selected}/recurrences`, 'POST', {
-                          conversationId: detail.conversations[0].id,
-                          prompt: form.get('prompt'),
-                          intervalSeconds: Number(form.get('interval')),
-                          nextAt: new Date(Date.now() + 300000).toISOString(),
-                        }));
-                      }}
-                    >
-                      <Field>
-                        <FieldLabel>{t('manys.message')}</FieldLabel>
-                        <Textarea name="prompt" required />
-                      </Field>
-                      <Field>
-                        <FieldLabel>{t('manys.interval')}</FieldLabel>
-                        <Input name="interval" type="number" min={300} max={31536000} defaultValue={86400} />
-                      </Field>
-                      <Button type="submit" disabled={busy}>{t('manys.create')}</Button>
-                    </form>
-                    {detail.recurrences.map((recurrence) => (
-                      <article key={recurrence.id} className="flex items-center gap-2">
-                        <p className="min-w-0 flex-1">{recurrence.prompt} · {new Date(recurrence.next_at).toLocaleString()}</p>
-                        <Button
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => {
-                            void perform(() => request(`/${selected}/recurrences/${recurrence.id}`, 'DELETE'));
-                          }}
-                        >
-                          {t('manys.remove')}
-                        </Button>
-                      </article>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
+
+              {!chatOnly && !inspector && (
+                <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted px-5 py-2 text-xs">
+                  <span className="text-muted-foreground">{t('manys.canDo')}</span>
+                  <Button type="button" size="xs" variant="outline" className="h-6 bg-background" onClick={() => setInspector('context')}>
+                    <HugeiconsIcon icon={Folder01Icon} aria-hidden />
+                    {t('manys.capReads', { projects: detail.many.grants.projects.length, resources: detail.many.grants.resources.length })}
+                  </Button>
+                  <Button type="button" size="xs" variant="outline" className="h-6 bg-background" onClick={() => setInspector('context')}>
+                    <HugeiconsIcon icon={Shield01Icon} aria-hidden />
+                    {t('manys.capPermissions', { granted: detail.many.grants.capabilities.length, total: 8 })}
+                  </Button>
+                  <Button type="button" size="xs" variant="outline" className="h-6 bg-background" onClick={() => setInspector('routines')}>
+                    <HugeiconsIcon icon={RepeatIcon} aria-hidden />
+                    {t('manys.capRoutines', { count: detail.recurrences.length })}
+                  </Button>
+                  <span className="grow" />
+                  <span className="hidden text-muted-foreground md:inline">{t('manys.worksClosed')}</span>
+                </div>
+              )}
+
               <MessageScrollerProvider>
                 <MessageScroller className="min-h-0 flex-1">
                   <MessageScrollerViewport>
-                    <MessageScrollerContent className="gap-4 px-1 py-2">
-                      {detail.messages.length === 0 && spokenResults.length === 0 && (
-                        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
+                    <MessageScrollerContent className="mx-auto w-full max-w-[680px] gap-4 px-5 py-6">
+                      {detail.messages.length === 0 && spokenResults.length === 0 && !lastFailed && (
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center">
                           <ManyMark variant={selectedVariant} className="size-14" />
                           <p className="text-sm text-muted-foreground">{detail.many.name}</p>
                         </div>
@@ -256,135 +437,207 @@ export default function ManysView() {
                         const isLastForTask = related[related.length - 1]?.id === message.id;
                         const resources = isLastForTask ? (task?.result?.resources ?? []) : [];
                         return (
-                          <Message key={message.id} align={isUser ? 'end' : 'start'} className="text-sm/relaxed">
+                          <Message key={message.id} align={isUser ? 'end' : 'start'} className="gap-2.5 text-sm/relaxed">
                             {!isUser && (
-                              <MessageAvatar className="size-8 bg-transparent">
-                                <ManyMark variant={selectedVariant} className="size-8 ring-0" />
+                              <MessageAvatar className="mt-0.5 size-6 min-w-6 self-start bg-transparent">
+                                <ManyMark variant={selectedVariant} className="size-6 ring-0" />
                               </MessageAvatar>
                             )}
                             <MessageContent>
-                              <Bubble variant={isUser ? 'default' : 'secondary'} align={isUser ? 'end' : 'start'}>
-                                <BubbleContent className="rounded-2xl px-3.5 py-2 text-sm/relaxed whitespace-pre-wrap">
+                              <Bubble variant={isUser ? 'default' : 'muted'} align={isUser ? 'end' : 'start'}>
+                                <BubbleContent className="whitespace-pre-wrap">
                                   {message.content}
                                 </BubbleContent>
                               </Bubble>
-                              {queued && <Badge variant="outline">{t('manys.states.queued')}</Badge>}
+                              {queued && <Badge variant="outline" className="self-start">{t('manys.states.queued')}</Badge>}
                               {isLastForTask && task?.checkpoint?.reason && (
                                 <p className="text-sm text-muted-foreground">
                                   {t(`manys.errors.${task.checkpoint.reason}`, { defaultValue: task.checkpoint.reason })}
                                 </p>
                               )}
                               {resources.map((id) => (
-                                <Button key={id} variant="link" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
+                                <Button key={id} variant="link" className="self-start" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
                               ))}
                             </MessageContent>
                           </Message>
                         );
                       })}
                       {spokenResults.map((task) => (
-                        <Message key={task.id} align="start" className="text-sm/relaxed">
-                          <MessageAvatar className="size-8 bg-transparent">
-                            <ManyMark variant={selectedVariant} className="size-8 ring-0" />
+                        <Message key={task.id} align="start" className="gap-2.5 text-sm/relaxed">
+                          <MessageAvatar className="mt-0.5 size-6 min-w-6 self-start bg-transparent">
+                            <ManyMark variant={selectedVariant} className="size-6 ring-0" />
                           </MessageAvatar>
                           <MessageContent>
-                            <Bubble variant="secondary" align="start">
-                              <BubbleContent className="rounded-2xl px-3.5 py-2 text-sm/relaxed whitespace-pre-wrap">
+                            <Bubble variant="muted" align="start">
+                              <BubbleContent className="whitespace-pre-wrap">
                                 {task.result?.text}
                               </BubbleContent>
                             </Bubble>
                             {!detail.messages.some((message) => message.task_id === task.id) && task.result?.resources?.map((id) => (
-                              <Button key={id} variant="link" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
+                              <Button key={id} variant="link" className="self-start" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
                             ))}
                           </MessageContent>
                         </Message>
                       ))}
+                      {lastFailed && (
+                        <Message align="start" className="gap-2.5 text-sm/relaxed">
+                          <MessageAvatar className="mt-0.5 size-6 min-w-6 self-start bg-transparent">
+                            <ManyMark variant={selectedVariant} className="size-6 ring-0" />
+                          </MessageAvatar>
+                          <MessageContent>
+                            <div className="dome-card dome-card-err px-4 py-3.5">
+                              <div className="mb-1.5 flex items-center gap-2">
+                                <HugeiconsIcon icon={Alert02Icon} className="size-[18px] shrink-0 text-destructive" aria-hidden />
+                                <span className="text-sm font-semibold tracking-[-0.01em]">{t('manys.failedTitle')}</span>
+                              </div>
+                              <p className="mb-3 text-muted-foreground">{t('manys.failedBody')}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button type="button" disabled={busy} onClick={() => { void perform(() => delegateToMany(selected, lastFailed.prompt)); }}>
+                                  <HugeiconsIcon icon={Refresh01Icon} aria-hidden />
+                                  {t('manys.retry')}
+                                </Button>
+                                <span className="grow" />
+                                <Button type="button" size="sm" variant="ghost" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((value) => !value)}>
+                                  {t('manys.technicalDetails')}
+                                  <HugeiconsIcon icon={ArrowDown01Icon} className={cn(detailsOpen && 'rotate-180')} aria-hidden />
+                                </Button>
+                              </div>
+                              {detailsOpen && (
+                                <pre className="dome-term mt-3 overflow-auto whitespace-pre-wrap">
+                                  {lastFailed.checkpoint?.reason ?? lastFailed.result?.text ?? lastFailed.id}
+                                </pre>
+                              )}
+                            </div>
+                          </MessageContent>
+                        </Message>
+                      )}
+                      {questions.map((task) => (
+                        <form
+                          key={task.id}
+                          className="dome-card flex flex-col gap-2.5 p-3.5 sm:ml-[34px]"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const form = new FormData(event.currentTarget);
+                            patchTask(task.id, { action: 'answer', answer: form.get('answer') });
+                          }}
+                        >
+                          <Field>
+                            <FieldLabel>{task.question}</FieldLabel>
+                            <Input name="answer" required />
+                          </Field>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="submit" disabled={busy}>{t('manys.answer')}</Button>
+                            <Button type="button" variant="outline" disabled={busy} onClick={() => patchTask(task.id, { action: 'cancel' })}>
+                              {t('manys.cancelTask')}
+                            </Button>
+                          </div>
+                        </form>
+                      ))}
+                      {(decisions.length > 0 || conflicts.length > 0) && (
+                        <div className="sm:ml-[34px]">
+                          <ManyReview detail={{ ...detail, actions: decisions }} busy={busy} perform={perform} />
+                        </div>
+                      )}
                     </MessageScrollerContent>
                   </MessageScrollerViewport>
                 </MessageScroller>
               </MessageScrollerProvider>
-              {questions.map((task) => (
-                <form
-                  key={task.id}
-                  className="flex flex-col gap-2 rounded-2xl bg-muted px-3.5 py-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
-                    patchTask(task.id, { action: 'answer', answer: form.get('answer') });
-                  }}
-                >
-                  <Field>
-                    <FieldLabel>{task.question}</FieldLabel>
-                    <Input name="answer" required />
-                  </Field>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="submit" disabled={busy}>{t('manys.answer')}</Button>
-                    <Button type="button" variant="outline" disabled={busy} onClick={() => patchTask(task.id, { action: 'cancel' })}>
-                      {t('manys.cancelTask')}
-                    </Button>
-                  </div>
-                </form>
-              ))}
-              {(decisions.length > 0 || conflicts.length > 0) && (
-                <ManyReview detail={{ ...detail, actions: decisions }} busy={busy} perform={perform} />
-              )}
-              <div className="flex flex-col gap-2 border-t border-border pt-3">
-                {composerTasks.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {composerTasks.map((task) => (
-                      <span key={task.id} className="flex flex-wrap gap-2">
-                        {task.state === 'running' && (
-                          <Button type="button" variant="outline" onClick={() => patchTask(task.id, { action: 'pause' })}>
-                            {t('manys.stopReply')}
-                          </Button>
-                        )}
-                        {task.state === 'paused' && (
-                          <Button type="button" disabled={busy} onClick={() => patchTask(task.id, { action: 'resume' })}>
-                            {t('manys.resume')}
-                          </Button>
-                        )}
-                        <Button type="button" variant="outline" disabled={busy} onClick={() => patchTask(task.id, { action: 'cancel' })}>
-                          {t('manys.cancelTask')}
+
+              <footer className="px-5 pb-4">
+                <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2.5">
+                  {composerTasks.map((task) => (
+                    <div key={task.id} className="flex flex-wrap items-center gap-2">
+                      <Badge variant={TASK_BADGE[task.state] ?? 'outline'}>
+                        <span aria-hidden="true" className={cn('size-[7px] rounded-full', STATUS_DOT[task.state === 'running' ? 'running' : 'paused'])} />
+                        {t(`manys.states.${task.state}`)}
+                      </Badge>
+                      <span className="min-w-0 grow truncate text-xs text-muted-foreground">{task.prompt}</span>
+                      {task.state === 'running' && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => patchTask(task.id, { action: 'pause' })}>
+                          {t('manys.stopReply')}
                         </Button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <form
-                  className="flex items-end gap-2 rounded-2xl border border-border bg-card px-2 py-1.5"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void send();
-                  }}
-                >
-                  <Field className="min-w-0 flex-1">
-                    <FieldLabel htmlFor="many-message" className="sr-only">{t('manys.message')}</FieldLabel>
-                    <Textarea
-                      id="many-message"
-                      value={draft}
-                      maxLength={50000}
-                      rows={1}
-                      placeholder={t('manys.message')}
-                      className="max-h-36 min-h-10 border-0 bg-transparent px-1 py-2 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0 md:text-sm"
-                      onChange={(event) => {
-                        setDraft(event.target.value);
-                        localStorage.setItem(`manys:draft:${selected}`, event.target.value);
-                      }}
-                    />
-                  </Field>
-                  <Button type="submit" disabled={busy || !draft.trim()} className="mb-0.5 rounded-full">
-                    {t('manys.send')}
-                  </Button>
-                </form>
-              </div>
+                      )}
+                      {task.state === 'paused' && (
+                        <Button type="button" size="sm" disabled={busy} onClick={() => patchTask(task.id, { action: 'resume' })}>
+                          {t('manys.resume')}
+                        </Button>
+                      )}
+                      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => patchTask(task.id, { action: 'cancel' })}>
+                        {t('manys.cancelTask')}
+                      </Button>
+                    </div>
+                  ))}
+                  {showSuggestions && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">{t('manys.tryWith')}</span>
+                      {SUGGESTIONS.map((key) => (
+                        <Button key={key} type="button" size="sm" variant="outline" onClick={() => fillSuggestion(t(`manys.${key}`))}>
+                          {t(`manys.${key}`)}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {detail.computer && !chatOnly && !inspector && (
+                    <div className="dome-card flex items-center gap-3 px-2.5 py-2">
+                      <div aria-hidden="true" className="aspect-[1280/800] w-[72px] shrink-0 overflow-hidden rounded-[10px] bg-muted ring-1 ring-border">
+                        <div className="h-[14%] bg-foreground/10" />
+                      </div>
+                      <div className="flex min-w-0 grow flex-col">
+                        <span className="text-sm font-semibold tracking-[-0.01em]">
+                          {detail.computer.control === 'human' ? t('manys.youControl') : t('manys.computerIdle')}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">{t('manys.computerHint')}</span>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setInspector('computer')}>
+                        {t('manys.viewComputer')}
+                      </Button>
+                    </div>
+                  )}
+                  <form
+                    className="dome-glass-strong dome-composer"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void send();
+                    }}
+                  >
+                    <Field className="min-w-0 flex-1">
+                      <FieldLabel htmlFor="many-message" className="sr-only">{t('manys.message')}</FieldLabel>
+                      <Textarea
+                        id="many-message"
+                        value={draft}
+                        maxLength={50000}
+                        rows={1}
+                        placeholder={t('manys.message')}
+                        className="max-h-36 min-h-8 border-0 bg-transparent px-0 py-1.5 text-sm shadow-none hover:bg-transparent focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 md:text-sm"
+                        onChange={(event) => {
+                          setDraft(event.target.value);
+                          localStorage.setItem(`manys:draft:${selected}`, event.target.value);
+                        }}
+                      />
+                    </Field>
+                    <Button type="submit" size="icon" disabled={busy || !draft.trim()} aria-label={t('manys.send')} title={t('manys.send')}>
+                      <HugeiconsIcon icon={SentIcon} />
+                    </Button>
+                  </form>
+                </div>
+              </footer>
             </div>
-          )}
-        </div>
+            {inspector && !chatOnly && (
+              <ManyInspector tab={inspector} onTab={setInspector} detail={detail} busy={busy} perform={perform} />
+            )}
+          </div>
+        )}
       </main>
-      {detail && computerOpen && (
-        <aside className="w-full overflow-auto border-l border-border p-4 lg:w-96 lg:shrink-0">
-          <ManyComputer key={selected} manyId={selected} control={detail.computer?.control ?? 'agent'} />
-        </aside>
-      )}
+      <ConfirmDialog
+        isOpen={toDelete !== null}
+        variant="danger"
+        busy={busy}
+        title={t('manys.deleteTitle', { name: toDelete?.name ?? '' })}
+        message={t('manys.deleteBody')}
+        confirmLabel={t('manys.delete')}
+        onConfirm={() => { void deleteMany(); }}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }

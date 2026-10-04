@@ -30,7 +30,7 @@ export function InstallCard({
   return (
     <article
       className={cn(
-        'flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-none',
+        'flex flex-col gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-none',
         className,
       )}
     >

@@ -79,7 +79,9 @@
     "custom_desc": "Bientôt disponible — polices, densité, couleurs d'accentuation",
     "reset_layout_label": "Réinitialiser la disposition",
     "reset_layout_desc": "Restaure les largeurs par défaut du panneau Many et des barres latérales.",
-    "reset_layout_action": "Réinitialiser"
+    "reset_layout_action": "Réinitialiser",
+    "reduce_transparency_label": "Réduire la transparence",
+    "reduce_transparency_desc": "Rend la barre latérale, les onglets, le panneau Many et les menus opaques au lieu du verre dépoli."
   },
   "advanced": {
     "title": "Avancé",

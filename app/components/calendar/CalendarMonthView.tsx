@@ -11,7 +11,7 @@ import {
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { getEventSpanDays } from '@/lib/calendar/dayEvents';
 import { cn } from '@/lib/utils';
-import type { EventDateChangePayload } from './calendarGridShared';
+import { eventSurface, type EventDateChangePayload } from './calendarGridShared';
 
 function EventChip({
   event,
@@ -25,7 +25,7 @@ function EventChip({
   onDragStart?: (e: React.DragEvent) => void;
 }) {
   const { t } = useTranslation();
-  const bg = event.calendar_color ?? 'var(--primary)';
+  const bg = eventSurface(event.calendar_color);
   const start = new Date(event.start_at);
   return (
     <Button
@@ -35,7 +35,7 @@ function EventChip({
       draggable={draggable}
       onDragStart={onDragStart}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-      className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-[18px] text-primary-foreground transition-opacity hover:opacity-80"
+      className="w-full truncate rounded-md px-1.5 py-0.5 text-left text-[11px] leading-[18px] text-foreground shadow-[inset_0_0_0_1px_oklch(0_0_0/0.05)] transition-opacity hover:opacity-80"
       style={{ backgroundColor: bg }}
       title={event.title}
     >
@@ -88,7 +88,7 @@ export function MonthView({
   return (
     <div className="size-full flex flex-col">
       {/* Weekday header */}
-      <div className="grid shrink-0 grid-cols-7 border-b">
+      <div className="grid shrink-0 grid-cols-7 border-b border-border/60">
         {weekdayShortLabels.map((wd) => (
           <div key={wd} className="py-2 text-center text-xs font-medium text-muted-foreground">
             {wd}
@@ -115,7 +115,7 @@ export function MonthView({
               tabIndex={0}
               aria-label={format(day, 'PPPP')}
               className={cn(
-                'cursor-pointer overflow-hidden border-b border-r p-1 transition-colors',
+                'cursor-pointer overflow-hidden border-b border-r border-border/50 p-1 transition-colors',
                 !inMonth && 'opacity-35',
                 isDragTarget ? 'bg-primary/10' : today && 'bg-primary/5',
               )}

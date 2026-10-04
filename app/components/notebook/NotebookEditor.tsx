@@ -295,7 +295,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
   return (
     <div className="notebook-editor flex flex-col gap-8 p-6 pb-24 mx-auto w-full max-w-[900px]">
       {/* Toolbar */}
-      <div className="-mx-1 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
+      <div className="-mx-1 flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-card p-3 shadow-sm">
         <Button
           type="button"
           onClick={handleRunCell}

@@ -79,7 +79,9 @@
     "custom_desc": "Em breve — fontes, densidade, cores de destaque",
     "reset_layout_label": "Redefinir layout",
     "reset_layout_desc": "Restaura as larguras padrão do painel Many e das barras laterais.",
-    "reset_layout_action": "Redefinir"
+    "reset_layout_action": "Redefinir",
+    "reduce_transparency_label": "Reduzir transparência",
+    "reduce_transparency_desc": "Torna sólidos a barra lateral, as abas, o painel Many e os menus em vez de vidro translúcido."
   },
   "advanced": {
     "title": "Avançado",

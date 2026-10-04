@@ -305,8 +305,8 @@ function TabItem({
       <ContextMenuTrigger className="flex shrink-0 items-center [-webkit-app-region:no-drag]">
         <div
           className={cn(
-            'group/tab flex h-8 max-w-52 items-center rounded-2xl border border-transparent',
-            active ? 'border-border bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            'group/tab flex h-8 max-w-52 items-center rounded-full border border-transparent',
+            active ? 'bg-background text-foreground shadow-[var(--lift)]' : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground',
           )}
         >
           <Button
@@ -320,7 +320,7 @@ function TabItem({
             tabIndex={active ? 0 : -1}
             onClick={onActivate}
             data-ui-target={`tab-${tab.type}`}
-            className={cn('h-7 min-w-0 rounded-2xl px-2 hover:bg-transparent', !iconOnly && 'max-w-44')}
+            className={cn('h-7 min-w-0 rounded-full px-2 hover:bg-transparent', !iconOnly && 'max-w-44')}
           >
             <TabIcon tab={tab} />
             {!iconOnly ? <span className="truncate">{title}</span> : null}
@@ -506,7 +506,7 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="h-full shrink-0 rounded-none border-l [-webkit-app-region:no-drag]"
+                      className="h-full shrink-0 rounded-full [-webkit-app-region:no-drag]"
                       aria-label={t('workspace.tab_menu_all_tabs')}
                     />
                   }
@@ -546,7 +546,7 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
               type="button"
               variant="outline"
               size="icon-sm"
-              className="m-1 shrink-0 self-center border-dashed [-webkit-app-region:no-drag]"
+              className="m-1 shrink-0 self-center border-dashed bg-transparent shadow-none [-webkit-app-region:no-drag]"
               onClick={onNewChat}
               aria-label={t('workspace.new_conversation')}
             />

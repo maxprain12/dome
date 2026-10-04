@@ -652,7 +652,7 @@ export default function CardDetailModal({
   const renderField = (f: CardField): ReactNode => (
     <div
       key={f.id}
-      className="mb-2 flex flex-col gap-1.5 rounded-xl border bg-card p-3"
+      className="mb-2 flex flex-col gap-1.5 rounded-2xl border border-border/70 bg-card p-3"
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">
@@ -771,7 +771,7 @@ export default function CardDetailModal({
     return (
       <div
         key={ev.id}
-        className="flex items-start gap-2 rounded-xl border bg-card px-2 py-1.5"
+        className="flex items-start gap-2 rounded-2xl border border-border/70 bg-card px-2 py-1.5"
       >
         <HugeiconsIcon icon={eventIcon} size={16} className={cn('mt-0.5 shrink-0', colorClass)} />
         <div className="min-w-0 flex-1 flex-col gap-0.5">
@@ -817,7 +817,7 @@ export default function CardDetailModal({
         <Button
           type="button"
           onClick={() => { openCalendarTab(); onClose(); }}
-          className="flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-2 py-1.5 text-left"
+          className="flex cursor-pointer items-center gap-2 rounded-2xl border border-border/70 bg-card px-2 py-1.5 text-left"
         >
           <HugeiconsIcon icon={CalendarClockIcon} size={16} className="shrink-0 text-primary" />
           <span className="flex-1 text-sm text-foreground">

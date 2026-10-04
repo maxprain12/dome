@@ -59,7 +59,7 @@
   align-items: center;
   min-height: 40px;
   padding: 4px 10px 4px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   background: var(--brand-mint);
 }
 
@@ -78,7 +78,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   border: none;
   background: transparent;
   color: var(--muted-foreground);
@@ -159,10 +159,10 @@
   gap: 6px;
   width: min(240px, 42vw);
   min-width: 140px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--background);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 
@@ -227,7 +227,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   border: none;
   background: var(--primary);
   color: var(--primary-foreground);
@@ -259,8 +259,8 @@
   display: inline-flex;
   align-items: center;
   padding: 2px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--muted-foreground) 8%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
   gap: 1px;
   flex-shrink: 0;
 }
@@ -269,11 +269,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  width: 26px;
   height: 22px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted-foreground);
   cursor: pointer;
@@ -399,8 +399,8 @@
   font-size: 10px;
   font-weight: 500;
   line-height: 1.2;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
   letter-spacing: 0.01em;
   background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
   color: var(--muted-foreground);
@@ -492,7 +492,7 @@
 .dome-folder-view__row-menu {
   z-index: var(--z-popover);
   width: auto;
-  border-radius: 8px;
+  border-radius: 14px;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 12%, transparent);
   padding: 4px 0;
   min-width: 156px;
@@ -701,11 +701,11 @@
   height: 100%;
   min-width: 0;
   background: var(--card);
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   container-type: inline-size;
   container-name: fs-card;
@@ -1378,7 +1378,7 @@
 .dome-fs-card--icon {
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: 14px;
   box-shadow: none;
   overflow: visible;
 }

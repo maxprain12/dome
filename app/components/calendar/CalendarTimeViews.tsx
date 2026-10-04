@@ -10,7 +10,7 @@ import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import type { Locale } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
-  HOUR_HEIGHT, DAY_START_HOUR, DAY_END_HOUR,
+  HOUR_HEIGHT, DAY_START_HOUR, DAY_END_HOUR, eventSurface,
   type EventDateChangePayload,
 } from './calendarGridShared';
 
@@ -89,7 +89,7 @@ export function DraggableTimeEvent({
       role="button"
       tabIndex={0}
       className={cn(
-        'absolute left-0.5 right-0.5 z-[2] select-none overflow-hidden rounded-md px-1.5 text-[12px] text-primary-foreground transition-[top,height] duration-100',
+        'absolute left-0.5 right-0.5 z-[2] select-none overflow-hidden rounded-[10px] px-1.5 text-[12px] text-foreground shadow-[inset_0_0_0_1px_oklch(0_0_0/0.05)] transition-[top,height] duration-100',
         dragging && 'z-20 opacity-85 transition-none',
         onEventDateChange && (dragging === 'move' ? 'cursor-grabbing' : 'cursor-grab'),
         !onEventDateChange && 'cursor-pointer',
@@ -97,7 +97,7 @@ export function DraggableTimeEvent({
       style={{
         top: renderTop,
         height: renderHeight,
-        backgroundColor: event.calendar_color ?? 'var(--primary)',
+        backgroundColor: eventSurface(event.calendar_color),
       }}
       aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}
@@ -141,8 +141,8 @@ export function CurrentTimeLine({ hourHeight }: { hourHeight: number }) {
   return (
     <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: minuteOffset }}>
       <div className="flex items-center">
-        <div className="size-2 rounded-full shrink-0 -ml-1 bg-primary" />
-        <div className="flex-1 h-px bg-primary" />
+        <div className="size-2 rounded-full shrink-0 -ml-1 bg-[var(--tint-strong)]" />
+        <div className="flex-1 h-px bg-[var(--tint-strong)]" />
       </div>
     </div>
   );
@@ -194,7 +194,7 @@ export function WeekView({
         {days.map((day) => (
           <div
             key={day.toISOString()}
-            className="sticky top-0 z-10 border-b border-l bg-background py-2 text-center"
+            className="sticky top-0 z-10 border-b border-l border-border/60 bg-background py-2 text-center"
           >
             <div className="text-[11px] text-muted-foreground">{format(day, 'EEE', { locale: dfLocale })}</div>
             <div
@@ -225,7 +225,7 @@ export function WeekView({
               return (
                 <div
                   key={key}
-                  className="relative border-b border-l"
+                  className="relative border-b border-l border-border/50"
                   style={{ height: HOUR_HEIGHT }}
                 >
                   {hour === currentHour && isToday(day) && (
@@ -292,7 +292,7 @@ export function DayView({
                 {hour > 0 ? `${hour}:00` : ''}
               </div>
               <div
-                className="relative border-b border-l"
+                className="relative border-b border-l border-border/50"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {hour === currentHour && isToday(date) && (

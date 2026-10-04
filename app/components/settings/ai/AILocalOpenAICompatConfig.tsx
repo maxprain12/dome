@@ -138,7 +138,7 @@ export default function AILocalOpenAICompatConfig({
   }, [model, models, provider]);
 
   return (
-    <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-xl border bg-card p-4')}>
+    <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-2xl border border-border/70 bg-card p-4')}>
       <LocalOpenAIStatusRow
         checking={checking}
         available={available}

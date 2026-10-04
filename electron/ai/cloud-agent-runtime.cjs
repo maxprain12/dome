@@ -187,6 +187,12 @@ function rememberRuntime(queries, id, runtime) {
   queries.setSetting.run(runtimeSettingKey(id), JSON.stringify(publicRuntime(runtime)), Date.now());
 }
 
+/** Drops the runtime choice remembered for a Many that no longer exists. */
+function forgetRuntime(db, id) {
+  if (!id) return;
+  db.prepare('DELETE FROM settings WHERE key=?').run(runtimeSettingKey(id));
+}
+
 function readRuntime(queries, id) {
   if (!id) return null;
   const raw = queries.getSetting.get(runtimeSettingKey(id))?.value;
@@ -318,6 +324,7 @@ module.exports = {
   prepareCloudManyCreate,
   publicManyError,
   rememberRuntime,
+  forgetRuntime,
   readRuntime,
   attachRememberedRuntime,
   acceptCreatedMany,

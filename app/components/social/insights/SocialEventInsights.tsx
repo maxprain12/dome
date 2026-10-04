@@ -236,7 +236,7 @@ export function SocialEventInsights({ onOpenPeople, onOpenEvents }: SocialEventI
             <>
               <div className="grid gap-3 sm:grid-cols-2 @3xl/event-metrics:grid-cols-4">
                 {METRIC_KEYS.map((key: MetricKey) => (
-                  <div key={key} className="rounded-xl border bg-card p-4">
+                  <div key={key} className="rounded-2xl border border-border/70 bg-card p-4">
                     <p className="text-xs text-muted-foreground">
                       {t(`social.events.metrics.${key}`)}
                     </p>

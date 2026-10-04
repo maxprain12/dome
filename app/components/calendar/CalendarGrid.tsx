@@ -79,7 +79,7 @@ export default function CalendarGrid({
 
   return (
     <div className="flex size-full flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-3">
         <div className="flex min-w-0 items-center gap-1">
           <Button
             type="button"
@@ -102,7 +102,7 @@ export default function CalendarGrid({
           <Button type="button" variant="outline" size="sm" onClick={handleToday}>
             {t('calendarPage.today')}
           </Button>
-          <span className="ml-2 truncate text-[15px] font-medium capitalize tracking-tight">
+          <span className="ml-2 truncate text-lg font-semibold capitalize tracking-tight">
             {headerTitle}
           </span>
         </div>
