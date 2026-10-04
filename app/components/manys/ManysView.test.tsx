@@ -8,7 +8,7 @@ import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/m
 import {useLiveRuns} from '@/lib/manys/liveRuns';
 vi.mock('@/lib/manys/api',()=>({request:vi.fn(),delegateToMany:vi.fn(),listCloudProviders:vi.fn()}));
 const detail:ManyDetail={many:{id:'many-test',name:'Research',instructions:'',grant_revision:1,grants:{projects:[],resources:[],capabilities:['vault.read']}},conversations:[{id:'conversation'}],tasks:[],messages:[],actions:[],recurrences:[],conflicts:[],computer:null};
-beforeEach(()=>{localStorage.clear();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
+beforeEach(()=>{localStorage.clear();useLiveRuns.getState().reset();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
 describe('Many’s durable interaction',()=>{
  it('restores a draft after leaving the view and clears it only after acceptance',async()=>{
    const view=render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
@@ -54,6 +54,20 @@ describe('Many’s durable interaction',()=>{
    expect(card).toHaveTextContent(/Working|En curso|En cours|Em andamento/);
    act(()=>{useLiveRuns.getState().apply({sequence:4,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'end',ok:true}});});
    await waitFor(()=>expect(screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/})).toHaveTextContent(/Done|Hecho|Terminé|Concluído/));
+ });
+ it('puts a proposal in the thread where it was asked and lists it only once',async()=>{
+   const waiting={id:'task-p',prompt:'Send it',state:'waiting_approval' as const,question:null,result:null};
+   const proposal={id:'act-9',digest:'e'.repeat(64),state:'pending',expires_at:new Date(Date.now()+3600_000).toISOString(),receipt:null,operation_id:'call-9',task_id:'task-p',proposal:{capability:'external.send',tool:'computer',parameters:{operation:'type',parameters:{text:'ping'}}}};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[]}:{...detail,tasks:[waiting],actions:[proposal],messages:[{id:'u9',role:'user',content:'Send it',task_id:'task-p'}]});
+   useLiveRuns.getState().reset();
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   // Without the live feed the proposal is still reachable, listed under the thread.
+   expect(await screen.findAllByRole('button',{name:/^(Approve|Aprobar|Approuver|Aprovar)$/})).toHaveLength(1);
+   act(()=>{
+     useLiveRuns.getState().apply({sequence:1,kind:'task_queued',task_id:'task-p',many_id:'many-test',data:{}});
+     useLiveRuns.getState().apply({sequence:2,kind:'task_step',task_id:'task-p',many_id:'many-test',data:{callId:'call-9',tool:'propose_action',operation:null,host:null,phase:'start',ok:null}});
+   });
+   await waitFor(()=>expect(screen.getAllByRole('button',{name:/^(Approve|Aprobar|Approuver|Aprovar)$/})).toHaveLength(1));
  });
  it('names what the Many is doing right now while it works',async()=>{
    const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};

@@ -181,7 +181,9 @@ export default function ManysView() {
   const selectedVariant = detail ? manyMarkVariant(detail.many.id) : 'lime';
   const summary = detail ? summarizeMany(detail) : null;
   const status = summary?.status ?? 'idle';
-  const decisions = summary?.decisions ?? [];
+  // A proposal already shown in the thread, where it was asked, is not listed a second time below it.
+  const askedInThread = new Set(Object.values(runs).flatMap((run) => run.items.flatMap((item) => (item.kind === 'tool' && item.tool === 'propose_action' ? [item.callId] : []))));
+  const decisions = (summary?.decisions ?? []).filter((action) => !(action.operation_id && askedInThread.has(action.operation_id)));
   const conflicts = summary?.conflicts ?? [];
   const questions = summary?.questions ?? [];
   const pendingQuestion = questions[0] ?? null;
@@ -493,7 +495,7 @@ export default function ManysView() {
                                 ))}
                               </MessageContent>
                             </Message>
-                            {taskRun && <ManyTimeline run={taskRun} manyId={selected} variant={selectedVariant} onOpenComputer={() => openInspector('computer')} />}
+                            {taskRun && <ManyTimeline run={taskRun} manyId={selected} variant={selectedVariant} onOpenComputer={() => openInspector('computer')} actions={detail.actions} busy={busy} perform={perform} />}
                           </Fragment>
                         );
                       })}

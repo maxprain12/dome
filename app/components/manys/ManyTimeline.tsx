@@ -4,6 +4,8 @@ import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { cn } from '@/lib/utils';
 import type { LiveRun } from '@/lib/manys/liveRuns';
 import ManyMark, { type ManyMarkVariant } from './ManyMark';
+import type { Action } from '@/lib/manys/api';
+import ManyActionCard from './ManyActionCard';
 import ManyToolCard from './ManyToolCard';
 
 interface Props {
@@ -11,10 +13,14 @@ interface Props {
   manyId: string;
   variant: ManyMarkVariant;
   onOpenComputer: () => void;
+  /** The Many's actions: a proposal appears in the thread at the point where it was asked. */
+  actions: Action[];
+  busy: boolean;
+  perform: (fn: () => Promise<unknown>) => Promise<void>;
 }
 
 /** What happened during one turn, in order: the text as it was written and each thing the Many did. */
-export default function ManyTimeline({ run, manyId, variant, onOpenComputer }: Props) {
+export default function ManyTimeline({ run, manyId, variant, onOpenComputer, actions, busy, perform }: Props) {
   const live = !run.ended;
   const lastComputer = run.items.findLast((item) => item.kind === 'tool' && (item.tool.startsWith('computer_') || item.tool === 'execute_approved'));
   const lastIndex = run.items.length - 1;
@@ -35,7 +41,12 @@ export default function ManyTimeline({ run, manyId, variant, onOpenComputer }: P
         </Message>
       ) : (
         <div key={item.callId} className="sm:ml-[34px]">
-          <ManyToolCard tool={item} manyId={manyId} live={live} latestComputer={item === lastComputer} onOpenComputer={onOpenComputer} />
+          {(() => {
+            const proposal = item.tool === 'propose_action' ? actions.find((action) => action.operation_id === item.callId) : undefined;
+            return proposal
+              ? <ManyActionCard action={proposal} many={manyId} busy={busy} perform={perform} />
+              : <ManyToolCard tool={item} manyId={manyId} live={live} latestComputer={item === lastComputer} onOpenComputer={onOpenComputer} />;
+          })()}
         </div>
       )))}
     </>
