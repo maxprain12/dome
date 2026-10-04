@@ -52,7 +52,7 @@ describe('approval card', () => {
       many: { id: 'many-test', name: 'R', instructions: '', grant_revision: 1, grants: { projects: [], resources: [], capabilities: [] } },
       conversations: [], tasks: [], messages: [], recurrences: [], computer: null, conflicts: [],
       actions: [{ id: 'a', digest: 'd', state: 'pending', expires_at: new Date(Date.now() + 600000).toISOString(), receipt: null,
-        proposal: { capability: 'computer.write', parameters: { tool: 'computer', parameters: { operation: 'type', parameters: { text: '{{credential:11111111-1111-4111-8111-111111111111}}' } } } } }],
+        proposal: { capability: 'computer.write', tool: 'computer', parameters: { operation: 'type', parameters: { text: '{{credential:11111111-1111-4111-8111-111111111111}}' } } } }],
     } as unknown as ManyDetail;
     render(<ManyReview detail={detail} busy={false} perform={async () => undefined} />);
     expect(screen.queryByText(/\{\{credential/)).toBeNull();

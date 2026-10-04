@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Grants } from '@/lib/manys/api';
-import { computerAllows, computerEnabled, withComputerEnabled, withComputerKind, withPaused } from './computerPermissions';
+import { OUTSIDE_CAPABILITIES, computerAllows, computerEnabled, outsideEnabled, withCapabilities, withComputerEnabled, withComputerKind, withPaused } from './computerPermissions';
 
 const base: Grants = { projects: [], resources: [], capabilities: ['vault.read'] };
 
@@ -32,5 +32,20 @@ describe('computer permissions', () => {
     expect(paused.paused).toBe(true);
     expect(paused.computer?.files).toBe(false);
     expect(withPaused(paused, false).paused).toBe(false);
+  });
+});
+
+describe('capability switches', () => {
+  it('adds and removes capabilities without duplicating or losing the others', () => {
+    const on = withCapabilities(base, ['web.read'], true);
+    expect(on.capabilities).toEqual(['vault.read', 'web.read']);
+    expect(withCapabilities(on, ['web.read'], true).capabilities).toEqual(['vault.read', 'web.read']);
+    expect(withCapabilities(on, ['web.read'], false).capabilities).toEqual(['vault.read']);
+  });
+
+  it('reads the outside switch as on when any of the four is granted', () => {
+    expect(outsideEnabled(base)).toBe(false);
+    expect(outsideEnabled(withCapabilities(base, ['external.purchase'], true))).toBe(true);
+    expect(withCapabilities(withCapabilities(base, OUTSIDE_CAPABILITIES, true), OUTSIDE_CAPABILITIES, false).capabilities).toEqual(['vault.read']);
   });
 });

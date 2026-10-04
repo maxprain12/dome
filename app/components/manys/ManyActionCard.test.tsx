@@ -32,6 +32,21 @@ describe('ManyActionCard', () => {
     expect(screen.getByText(/hello (un acceso guardado|a saved sign-in|un accès enregistré|um acesso salvo)/i)).toBeInTheDocument();
   });
 
+  it.each([
+    [{ operation: 'navigate', parameters: { url: 'https://www.instagram.com/accounts/login/?next=/' } }, /Open www\.instagram\.com\/accounts\/login\/|Abrir www\.instagram\.com\/accounts\/login\//],
+    [{ operation: 'click', parameters: { ref: 'e12' } }, /Click on the page|Hacer clic en la página/],
+    [{ operation: 'exec', parameters: { command: 'ls /workspace' } }, /Run ls \/workspace|Ejecutar ls \/workspace/],
+  ])('says in a sentence what it will do: %j', (parameters, sentence) => {
+    render(<ManyActionCard action={action('pending', { proposal: { capability: 'computer.write', tool: 'computer', parameters } })} many="many-1" busy={false} perform={perform} />);
+    expect(screen.getByText(sentence)).toBeInTheDocument();
+    expect(screen.queryByText(/ref|operation/i)).toBeNull();
+  });
+
+  it('falls back to what the capability is when it does not recognise the operation', () => {
+    render(<ManyActionCard action={action('pending', { proposal: { capability: 'external.publish', tool: 'mail', parameters: { to: 'a@b.c' } } })} many="many-1" busy={false} perform={perform} />);
+    expect(screen.getAllByText(/Publish|Publicar|Publier/).length).toBeGreaterThan(0);
+  });
+
   it('cannot be approved once it has expired', () => {
     render(<ManyActionCard action={action('pending', { expires_at: new Date(Date.now() - 1000).toISOString() })} many="many-1" busy={false} perform={perform} />);
     expect(screen.getByRole('button', { name: approve })).toBeDisabled();
@@ -46,7 +61,7 @@ describe('ManyActionCard', () => {
 
   it('shows the receipt only on request once decided', () => {
     render(<ManyActionCard action={action('succeeded', { receipt: { ok: true } })} many="many-1" busy={false} perform={perform} />);
-    fireEvent.click(screen.getByRole('button', { name: /View full proposal|Ver propuesta completa|Voir la proposition complète|Ver proposta completa/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^(Details|Detalles|Détails|Detalhes)$/ }));
     expect(screen.getByText(/"ok": true/)).toBeInTheDocument();
   });
 

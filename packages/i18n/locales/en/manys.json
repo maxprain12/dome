@@ -87,13 +87,9 @@
       "empty": "No recent activity from Many yet."
     },
     "permissions": {
-      "title": "Computer permissions",
-      "hint": "You decide what this computer may be used for. Each switch applies to Many and to you.",
-      "enabled": "Enable this computer",
       "browser": "Browser",
       "files": "Workspace files",
       "shell": "Terminal commands",
-      "pausesWork": "Changing a permission pauses what Many is doing right now.",
       "allow": "Allow",
       "offHint": "You can turn it back on any time; whatever Many is doing right now will pause.",
       "off": {
@@ -322,8 +318,7 @@
   "viewDetail": "View detail",
   "pendingAction": "Pending action",
   "expiresIn": "Expires in {{hours}} h",
-  "viewFullProposal": "View full proposal",
-  "requiresApproval": "with approval",
+  "viewFullProposal": "Details",
   "canRead": "Can read",
   "shareHint": "Sharing a resource does not share the rest of the project.",
   "saveChanges": "Save changes",
@@ -410,40 +405,6 @@
       "delete": "Delete {{name}}",
       "lastUsed": "Last used {{when}}",
       "neverUsed": "Not used yet"
-    },
-    "skills": {
-      "title": "Skills",
-      "intro": "Instructions this Many loads when a task needs them, like a recipe or a house style. A skill never gives it new permissions.",
-      "none": "No skills yet.",
-      "new": "New skill",
-      "editing": "Editing {{name}}",
-      "name": "Name",
-      "saveAs": "Saved as {{name}}",
-      "description": "When to use it",
-      "content": "Instructions",
-      "save": "Create skill",
-      "cancel": "Cancel",
-      "enable": "Enable {{name}}",
-      "edit": "Edit {{name}}",
-      "delete": "Delete {{name}}"
-    },
-    "connections": {
-      "title": "Connected services",
-      "intro": "Remote tool servers (MCP). Tools that only read run on their own; any tool that changes something waits for your approval.",
-      "none": "No connected services.",
-      "name": "Name",
-      "url": "Server address",
-      "urlHint": "It must be a public https address.",
-      "credential": "Sign-in",
-      "noCredential": "No sign-in needed",
-      "credentialHint": "A saved sign-in is sent as a bearer token. It must be allowed for this server’s website.",
-      "connect": "Connect",
-      "signedIn": "Signed in",
-      "tools": "{{count}} tools, {{reads}} read-only",
-      "notRead": "Tools not read yet",
-      "enable": "Enable {{name}}",
-      "refresh": "Read tools of {{name}}",
-      "delete": "Disconnect {{name}}"
     }
   },
   "savedCredential": "a saved sign-in",
@@ -478,5 +439,31 @@
     "resumeAll": "Resume all",
     "paused": "Many is paused",
     "pausedHint": "It takes no new work and what it was doing is stopped. Resume it to give it tasks again."
+  },
+  "actionSummary": {
+    "navigate": "Open {{target}}",
+    "click": "Click on the page",
+    "type": "Type “{{text}}”",
+    "key": "Press {{key}}",
+    "scroll": "Scroll the page",
+    "exec": "Run {{command}}",
+    "writeFile": "Save {{path}}"
+  },
+  "perm": {
+    "libraryTitle": "Your library",
+    "read": "Read",
+    "readHint": "Search and read what you share with it",
+    "write": "Edit",
+    "writeHint": "Change the notes and files you share",
+    "webTitle": "The web",
+    "web": "Research the web",
+    "webHint": "Search and read public pages",
+    "computerTitle": "Its computer",
+    "computer": "Use its computer",
+    "computerHint": "A desktop with a browser, a terminal and files",
+    "outsideTitle": "Acting outside Dome",
+    "outside": "Send, publish, buy and delete",
+    "outsideHint": "It always asks for your approval first",
+    "applies": "Each change applies at once and pauses what Many is doing now."
   }
 }

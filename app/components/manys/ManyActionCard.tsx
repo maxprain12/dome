@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Clock01Icon, Mail01Icon } from '@hugeicons/core-free-icons';
+import { Mail01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { request, type Action } from '@/lib/manys/api';
+import { describeAction } from './actionSummary';
 import { cn } from '@/lib/utils';
 
 const CREDENTIAL_PLACEHOLDER = /\{\{credential:[0-9a-f-]{36}(?::(?:username|secret))?\}\}/gi;
@@ -69,27 +70,26 @@ export default function ManyActionCard({ action, many, busy, perform }: { action
   const capability = (action.proposal as { capability?: string } | null)?.capability;
   const capabilityLabel = capability ? t(`manys.capabilities.${capability.replace('.', '_')}`, { defaultValue: capability }) : '';
   const expiry = minutes === null ? t(`manys.actions.${action.state}`) : expired ? t('manys.expired') : minutes >= 60 ? t('manys.expiresIn', { hours: Math.round(minutes / 60) }) : t('manys.expiresInMinutes', { minutes });
-  const title = waiting ? `${t('manys.pendingAction')}${capabilityLabel ? `: ${capabilityLabel}` : ''}` : (capabilityLabel || t('manys.pendingAction'));
+  const summary = describeAction(action.proposal, t('manys.savedCredential'));
+  const title = summary ? t(`manys.actionSummary.${summary.key}`, summary.values) : (capabilityLabel || t('manys.pendingAction'));
   const running = ['approved', 'prepared', 'dispatched'].includes(action.state);
   return (
     <article className={cn('dome-card flex flex-col p-3.5', TONE[action.state] ?? 'dome-card-plain')} aria-label={title}>
-      <div className="mb-2.5 flex items-center gap-2">
-        <HugeiconsIcon icon={Mail01Icon} className="size-4" aria-hidden />
-        <span className="grow text-sm font-semibold">{title}</span>
-        {open ? (
-          <Badge variant="outline">
-            {minutes !== null && <HugeiconsIcon icon={Clock01Icon} className="size-3" aria-hidden />}
-            {expiry}
-          </Badge>
-        ) : (
+      <div className="flex items-start gap-2.5">
+        <HugeiconsIcon icon={Mail01Icon} className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <div className="min-w-0 grow">
+          <p className="text-sm font-semibold break-words">{title}</p>
+          <p className="text-xs text-muted-foreground">{open ? (capabilityLabel ? `${capabilityLabel} · ${expiry}` : expiry) : capabilityLabel}</p>
+        </div>
+        {!open && (
           <Badge variant={BADGE[action.state] ?? 'outline'}>
             {running && <span aria-hidden="true" className="size-[7px] animate-pulse rounded-full bg-current motion-reduce:animate-none" />}
             {t(`manys.actions.${action.state}`, { defaultValue: action.state })}
           </Badge>
         )}
       </div>
-      {rows.length > 0 && (
-        <div className="flex flex-col gap-1.5 rounded-[10px] bg-muted px-3 py-2.5">
+      {full && rows.length > 0 && (
+        <div className="mt-3 flex flex-col gap-1.5 rounded-[10px] bg-muted px-3 py-2.5">
           {rows.map(([key, value]) => (
             <div key={key} className="flex items-start gap-2">
               <span className="w-[72px] shrink-0 text-muted-foreground capitalize">{key}</span>
@@ -138,7 +138,7 @@ export default function ManyActionCard({ action, many, busy, perform }: { action
       {!waiting && (action.proposal != null || action.receipt != null) && (
         <Button type="button" variant="link" size="xs" className="mt-2 self-start" aria-expanded={full} onClick={() => setFull((value) => !value)}>{t('manys.viewFullProposal')}</Button>
       )}
-      {(full || (waiting && rows.length === 0)) && action.proposal != null && (
+      {(full || (waiting && rows.length === 0 && !summary)) && action.proposal != null && (
         <pre className="dome-term mt-3 max-h-48 overflow-auto whitespace-pre-wrap">{JSON.stringify(action.proposal, null, 2)}</pre>
       )}
       {(waiting || full) && action.receipt != null && <pre className="dome-term mt-3 max-h-48 overflow-auto whitespace-pre-wrap">{JSON.stringify(action.receipt, null, 2)}</pre>}
