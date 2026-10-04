@@ -13,6 +13,7 @@ import {
   MoreHorizontalIcon,
   PanelRightIcon,
   Refresh01Icon,
+  FileSearchIcon,
   RepeatIcon,
   SentIcon,
   Shield01Icon,
@@ -386,6 +387,10 @@ export default function ManysView() {
                     <DropdownMenuItem onClick={() => openInspector('routines')}>
                       <HugeiconsIcon icon={RepeatIcon} aria-hidden />
                       {t('manys.recurrences')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInspector('governance')}>
+                      <HugeiconsIcon icon={FileSearchIcon} aria-hidden />
+                      {t('manys.governance.tab')}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {!chatOnly && (

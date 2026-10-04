@@ -1,19 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import type { IconSvgElement } from '@hugeicons/react';
-import { ComputerIcon, RepeatIcon, Shield01Icon } from '@hugeicons/core-free-icons';
+import { ComputerIcon, FileSearchIcon, RepeatIcon, Shield01Icon } from '@hugeicons/core-free-icons';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request, type ManyDetail } from '@/lib/manys/api';
 import ManySettings from './ManySettings';
 import ManyComputer from './ManyComputer';
 import ManyRoutines from './ManyRoutines';
+import ManyGovernance from './ManyGovernance';
 
-export type InspectorTab = 'computer' | 'context' | 'routines';
+export type InspectorTab = 'computer' | 'context' | 'routines' | 'governance';
 
 export const INSPECTOR_TABS: ReadonlyArray<{ id: InspectorTab; label: string; icon: IconSvgElement }> = [
   { id: 'computer', label: 'manys.computer', icon: ComputerIcon },
   { id: 'context', label: 'manys.context', icon: Shield01Icon },
   { id: 'routines', label: 'manys.recurrences', icon: RepeatIcon },
+  { id: 'governance', label: 'manys.governance.tab', icon: FileSearchIcon },
 ];
 
 interface ManyInspectorProps {
@@ -50,6 +52,7 @@ export default function ManyInspector({ tab, onTab, detail, busy, live, perform 
           <ManySettings key={manyId} many={detail.many} onSave={(value) => perform(() => request(`/${manyId}`, 'PATCH', value))} />
         )}
         {tab === 'routines' && <ManyRoutines detail={detail} busy={busy} perform={perform} />}
+        {tab === 'governance' && <ManyGovernance key={manyId} manyId={manyId} />}
       </div>
     </aside>
   );
