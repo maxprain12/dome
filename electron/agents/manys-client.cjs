@@ -15,20 +15,53 @@ const definitions=[
   {type:'function',function:{name:'manys_task',description:'Inspect tasks, approvals and results of a cloud Many.',parameters:{type:'object',properties:{many_id:{type:'string'}},required:['many_id']}}},
   {type:'function',function:{name:'manys_recur',description:'Schedule independent recurring tasks for a cloud Many. Repeated checks without changes remain silent.',parameters:{type:'object',properties:{many_id:{type:'string'},prompt:{type:'string'},interval_seconds:{type:'number',minimum:300}},required:['many_id','prompt','interval_seconds']}}},
 ];
+function preservedCustomProviders(value) {
+  if(value==null)return [];
+  if(!Array.isArray(value))throw new Error('invalid_request');
+  return value.map(entry=>{
+    if(!entry||typeof entry!=='object'||Array.isArray(entry))throw new Error('invalid_request');
+    const id=typeof entry.id==='string'?entry.id.trim():'';
+    if(!id||!Array.isArray(entry.models)||entry.models.length===0)throw new Error('invalid_request');
+    const models=entry.models.map(model=>{
+      if(!model||typeof model!=='object'||Array.isArray(model))throw new Error('invalid_request');
+      const modelId=typeof model.id==='string'?model.id.trim():'';
+      const baseUrl=typeof model.baseUrl==='string'?model.baseUrl.trim():'';
+      if(!modelId||!baseUrl)throw new Error('invalid_request');
+      const next={id:modelId,baseUrl};
+      if(model.type==='chat'||model.type==='image'||model.type==='classifier')next.type=model.type;
+      if(typeof model.api==='string'&&model.api.trim())next.api=model.api.trim();
+      return next;
+    });
+    const next={id,models};
+    if(typeof entry.name==='string'&&entry.name.trim())next.name=entry.name.trim();
+    return next;
+  });
+}
+async function createCloudMany(database,input) {
+  const prepared=prepareCloudManyCreate(database.getQueries(),input??{});
+  if(!prepared.ok)throw new Error(prepared.error);
+  const current=await request(database,'/model-binding');
+  const customProviders=preservedCustomProviders(current?.customProviders);
+  const binding=customProviders.length?{...prepared.binding,customProviders}:prepared.binding;
+  const tooLarge=value=>JSON.stringify(value??{}).length>1048576;
+  if(tooLarge(binding)||tooLarge(prepared.body))throw new Error('request_too_large');
+  // Provider freezes this binding onto the collaborator inside create. The create
+  // body cannot carry `runtime`: the strict schema rejects the request first.
+  await request(database,'/model-binding','POST',binding);
+  const created=await request(database,'','POST',prepared.body);
+  return acceptCreatedMany(database.getQueries(),prepared.runtime,created);
+}
 async function execute(database,name,args) {
   if(name==='manys_list')return request(database,'');
   if(name==='manys_create'){
     const runtime=args.runtime_source==='provider_key'
       ?{source:'provider_key',provider:args.provider}
       :args.runtime_source==='dome_credits'?{source:'dome_credits'}:{};
-    const prepared=prepareCloudManyCreate(database.getQueries(),{
+    return createCloudMany(database,{
       name:z.string().min(1).max(120).parse(args.name),
       instructions:z.string().max(20000).parse(args.instructions??''),
       runtime,
     });
-    if(!prepared.ok)throw new Error(prepared.error);
-    const created=await request(database,'','POST',prepared.body);
-    return acceptCreatedMany(database.getQueries(),prepared.runtime,created);
   }
   const id=IdSchema.parse(args.many_id);
   if(name==='manys_task')return request(database,`/${id}`);
@@ -51,4 +84,4 @@ async function delegatePipeline(database,item,manyId,prompt) {
   const task=await request(database,`/${manyId}/tasks`,'POST',{prompt,requestKey,pipelineItemId:item.id});
   db.prepare('DELETE FROM settings WHERE key=?').run(key);return task;
 }
-module.exports={request,definitions,execute,delegatePipeline};
+module.exports={request,definitions,execute,delegatePipeline,createCloudMany};

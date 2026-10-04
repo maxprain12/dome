@@ -8,6 +8,7 @@ const {
   listCloudAgentProviders,
   prepareCloudManyCreate,
   acceptCreatedMany,
+  publicManyError,
   readRuntime,
 } = require('../ai/cloud-agent-runtime.cjs');
 
@@ -81,22 +82,27 @@ test('only saved API-key providers with a public base URL are offered', () => {
   assert.equal(JSON.stringify(providers).includes('sk-'), false);
 });
 
-test('create keeps the chosen runtime and drops any key the caller tried to attach', () => {
+test('create keeps the chosen runtime off the body Provider would reject', () => {
   const queries = memoryQueries({ ai_api_key_openai: 'sk-openai' });
   const credits = prepareCloudManyCreate(queries, { name: 'Ada', runtime: { source: 'dome_credits' } });
   assert.equal(credits.ok, true);
-  assert.deepEqual(credits.body.runtime, { source: 'dome_credits' });
+  assert.deepEqual(credits.body, { name: 'Ada' });
+  assert.deepEqual(credits.runtime, { source: 'dome_credits' });
+  assert.deepEqual(credits.binding, { provider: 'dome', model: 'dome/auto' });
+  assert.equal(JSON.stringify(credits.binding).includes('sk-'), false);
 
   const saved = prepareCloudManyCreate(queries, {
     name: 'Ada',
+    instructions: 'Investiga',
     apiKey: 'sk-openai',
     runtime: { source: 'provider_key', provider: 'openai', apiKey: 'sk-openai' },
   });
   assert.equal(saved.ok, true);
-  assert.deepEqual(saved.body, {
-    name: 'Ada',
-    runtime: { source: 'provider_key', provider: 'openai' },
-  });
+  assert.deepEqual(saved.body, { name: 'Ada', instructions: 'Investiga' });
+  assert.equal(Object.hasOwn(saved.body, 'runtime'), false);
+  assert.deepEqual(saved.runtime, { source: 'provider_key', provider: 'openai' });
+  assert.equal(saved.binding.provider, 'openai');
+  assert.equal(saved.binding.apiKey, 'sk-openai');
   assert.equal(JSON.stringify(saved.body).includes('sk-'), false);
 
   const local = prepareCloudManyCreate(queries, {
@@ -107,6 +113,13 @@ test('create keeps the chosen runtime and drops any key the caller tried to atta
 
   const missing = prepareCloudManyCreate(queries, { name: 'Ada' });
   assert.deepEqual(missing, { ok: false, error: 'invalid_runtime' });
+});
+
+test('a connection failure is not the same code as a rejected request', () => {
+  assert.equal(publicManyError(new Error('fetch failed')), 'service_unavailable');
+  assert.equal(publicManyError(new Error('Dome provider is not connected.')), 'service_unavailable');
+  assert.equal(publicManyError(new Error('invalid_request')), 'invalid_request');
+  assert.equal(publicManyError(new Error('manys_unavailable')), 'service_unavailable');
 });
 
 test('the choice is stored on the created agent and replayed when the server omits it', () => {

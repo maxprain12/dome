@@ -2,9 +2,12 @@
 
 /**
  * Cloud runtime for a Many.
- * Desktop and Companion create with the same body: dome credits, or a saved
- * API-key provider whose base URL is reachable outside the user's machine.
- * The API key itself never leaves the main process and is never shown.
+ * Desktop and Companion choose the same way: Dome credits, or a saved API-key
+ * provider whose base URL is reachable outside the user's machine.
+ * Provider's create schema rejects unknown keys, so `runtime` is not part of
+ * the create body. The choice is stored first on the model binding Provider
+ * freezes onto the new collaborator. The key is sent only on that
+ * authenticated call, never to the renderer and never shown.
  *
  * Contract: shared/manys/cloud-runtime.json
  */
@@ -13,7 +16,7 @@ const net = require('node:net');
 const contract = require('../../shared/manys/cloud-runtime.json');
 const { isBlockedIp } = require('../services/web/url-guard.cjs');
 const { API_KEY_CHAT_PROVIDERS } = require('./provider-auth.cjs');
-const { hasProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
+const { hasProviderApiKey, readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
 
 const SOURCES = new Set(contract.sources);
@@ -34,6 +37,28 @@ const API_KEY_CANDIDATES = [
   'vllm',
   'lmstudio',
 ];
+
+/** Models Provider snapshots when the person does not pick one. Keep aligned with Provider `DEFAULT_MODELS`. */
+const DEFAULT_CLOUD_MODELS = {
+  openai: 'gpt-5.6-sol',
+  anthropic: 'claude-sonnet-5',
+  google: 'gemini-3-flash-preview',
+  minimax: 'MiniMax-M3',
+  openrouter: 'anthropic/claude-sonnet-4.5',
+  deepseek: 'deepseek-chat',
+  moonshot: 'kimi-k2-0905-preview',
+  qwen: 'qwen-max',
+  opencode: 'claude-opus-4-8',
+  'opencode-go': 'deepseek-v4-flash',
+  xai: 'grok-4',
+  groq: 'llama-3.3-70b-versatile',
+  mistral: 'mistral-large-latest',
+  fireworks: 'accounts/fireworks/models/llama-v3p3-70b-instruct',
+  together: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  'google-vertex': 'gemini-2.5-flash',
+  'azure-openai-responses': 'gpt-5',
+  ollama: 'llama3.2',
+};
 
 const PROVIDER_NAMES = {
   openai: 'OpenAI',
@@ -213,6 +238,54 @@ function acceptCreatedMany(queries, sent, data) {
   return attachRememberedRuntime(queries, data);
 }
 
+function readCloudApiKey(queries, provider) {
+  if (provider === 'ollama') return readSettingSecret(queries, 'ollama_api_key') || '';
+  return readProviderApiKey(queries, provider) || '';
+}
+
+/**
+ * Payload for POST /api/v1/manys/model-binding. Provider freezes this row onto
+ * the collaborator during create. Dome credits carry no user key.
+ * @param {object} queries
+ * @param {{ source: string, provider?: string }} runtime
+ */
+function cloudModelBinding(queries, runtime) {
+  if (runtime.source === 'dome_credits') return { provider: 'dome', model: 'dome/auto' };
+  const provider = runtime.provider || '';
+  const apiKey = readCloudApiKey(queries, provider);
+  if (!apiKey) return null;
+  const binding = {
+    provider,
+    model: DEFAULT_CLOUD_MODELS[provider] || provider,
+    apiKey,
+  };
+  const base = effectiveBaseUrl(queries, provider);
+  if (base && !isMachineLocalBaseUrl(base)) binding.baseUrl = base;
+  return binding;
+}
+
+/** Fields Provider's strict create schema accepts. `runtime` is not one of them. */
+function providerCreateBody(sourceBody) {
+  const next = {};
+  if (typeof sourceBody.name === 'string') next.name = sourceBody.name;
+  if (typeof sourceBody.instructions === 'string') next.instructions = sourceBody.instructions;
+  if (sourceBody.grants && typeof sourceBody.grants === 'object' && !Array.isArray(sourceBody.grants)) {
+    next.grants = sourceBody.grants;
+  }
+  return next;
+}
+
+/**
+ * Codes are safe to show through i18n. Sentences from fetch or auth stay a connection failure.
+ * @param {unknown} error
+ */
+function publicManyError(error) {
+  const message = error instanceof Error ? error.message : '';
+  if (message === 'manys_unavailable') return 'service_unavailable';
+  if (/^[a-z][a-z0-9_]{0,80}$/.test(message)) return message;
+  return 'service_unavailable';
+}
+
 /**
  * @param {object} queries
  * @param {Record<string, unknown> | undefined} body
@@ -225,10 +298,14 @@ function prepareCloudManyCreate(queries, body) {
     const allowed = listCloudAgentProviders(queries).some((provider) => provider.id === runtime.provider);
     if (!allowed) return { ok: false, error: 'provider_not_cloud_compatible' };
   }
-  const next = { ...sourceBody, runtime: publicRuntime(runtime) };
-  delete next.apiKey;
-  delete next.api_key;
-  return { ok: true, body: next, runtime: publicRuntime(runtime) };
+  const binding = cloudModelBinding(queries, runtime);
+  if (!binding) return { ok: false, error: 'provider_not_cloud_compatible' };
+  return {
+    ok: true,
+    body: providerCreateBody(sourceBody),
+    runtime: publicRuntime(runtime),
+    binding,
+  };
 }
 
 module.exports = {
@@ -239,6 +316,7 @@ module.exports = {
   parseRuntime,
   publicRuntime,
   prepareCloudManyCreate,
+  publicManyError,
   rememberRuntime,
   readRuntime,
   attachRememberedRuntime,

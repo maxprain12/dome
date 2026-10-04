@@ -160,7 +160,8 @@ export default function ManysView() {
           {error && (
             <Alert variant="destructive">
               <AlertDescription>
-                {t(`manys.errors.${error}`, { defaultValue: t('manys.errors.service_unavailable') })}{' '}
+                <span>{t(`manys.errors.${error}`, { defaultValue: t('manys.errors.request_failed') })}</span>
+                {draft.trim() ? <span> {t('manys.errors.draft_saved')}</span> : null}{' '}
                 <Button size="sm" variant="outline" onClick={() => { void refresh(); }}>{t('manys.retry')}</Button>
               </AlertDescription>
             </Alert>
