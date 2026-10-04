@@ -110,7 +110,21 @@
     "credential_not_found": "Cette connexion enregistrée n’existe plus.",
     "credential_operation_denied": "Une connexion enregistrée ne peut être saisie que dans un champ.",
     "credential_unreadable": "Cette connexion enregistrée n’a pas pu être ouverte. Enregistrez-la de nouveau.",
-    "credential_field_missing": "Cette connexion n’a pas d’identifiant."
+    "credential_field_missing": "Cette connexion n’a pas d’identifiant.",
+    "name_taken": "Ce nom est déjà utilisé ici.",
+    "skill_limit": "Vous avez atteint la limite de 100 skills.",
+    "skill_not_found": "Cette skill n’existe plus.",
+    "mcp_limit": "Vous avez atteint la limite de 20 services connectés.",
+    "mcp_url_rejected": "Cette adresse n’est pas autorisée. Utilisez une adresse https publique.",
+    "mcp_unavailable": "Le service n’a pas répondu.",
+    "mcp_unauthorized": "Le service a refusé la connexion.",
+    "mcp_error": "Le service a signalé une erreur.",
+    "mcp_bad_response": "Le service a envoyé quelque chose d’inattendu.",
+    "mcp_response_too_large": "Le service a répondu avec trop de données.",
+    "mcp_server_not_found": "Ce service n’est pas connecté.",
+    "mcp_tool_unknown": "Cet outil n’existe pas sur le service.",
+    "connection_changed": "Le service a changé après la proposition. Demandez-la de nouveau.",
+    "read_only_tool_needs_no_review": "Cet outil ne fait que lire, il n’a donc pas besoin d’approbation."
   },
   "actions": {
     "pending": "À vérifier",
@@ -313,6 +327,40 @@
       "delete": "Supprimer {{name}}",
       "lastUsed": "Dernier usage {{when}}",
       "neverUsed": "Pas encore utilisée"
+    },
+    "skills": {
+      "title": "Skills",
+      "intro": "Instructions que ce Many charge quand une tâche en a besoin, comme une recette ou un style maison. Une skill ne donne jamais de nouvelles permissions.",
+      "none": "Aucune skill pour l’instant.",
+      "new": "Nouvelle skill",
+      "editing": "Modification de {{name}}",
+      "name": "Nom",
+      "saveAs": "Enregistrée sous {{name}}",
+      "description": "Quand l’utiliser",
+      "content": "Instructions",
+      "save": "Créer la skill",
+      "cancel": "Annuler",
+      "enable": "Activer {{name}}",
+      "edit": "Modifier {{name}}",
+      "delete": "Supprimer {{name}}"
+    },
+    "connections": {
+      "title": "Services connectés",
+      "intro": "Serveurs d’outils distants (MCP). Les outils qui ne font que lire s’exécutent seuls ; ceux qui modifient quelque chose attendent votre approbation.",
+      "none": "Aucun service connecté.",
+      "name": "Nom",
+      "url": "Adresse du serveur",
+      "urlHint": "Ce doit être une adresse https publique.",
+      "credential": "Connexion",
+      "noCredential": "Aucune connexion nécessaire",
+      "credentialHint": "Une connexion enregistrée est envoyée comme jeton. Elle doit être autorisée pour le site de ce serveur.",
+      "connect": "Connecter",
+      "signedIn": "Connecté",
+      "tools": "{{count}} outils, {{reads}} en lecture seule",
+      "notRead": "Outils pas encore lus",
+      "enable": "Activer {{name}}",
+      "refresh": "Lire les outils de {{name}}",
+      "delete": "Déconnecter {{name}}"
     }
   },
   "savedCredential": "une connexion enregistrée"

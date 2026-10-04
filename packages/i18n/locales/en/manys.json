@@ -110,7 +110,21 @@
     "credential_not_found": "That saved sign-in no longer exists.",
     "credential_operation_denied": "A saved sign-in can only be typed into a field.",
     "credential_unreadable": "That saved sign-in could not be opened. Save it again.",
-    "credential_field_missing": "That sign-in has no username."
+    "credential_field_missing": "That sign-in has no username.",
+    "name_taken": "That name is already in use here.",
+    "skill_limit": "You reached the limit of 100 skills.",
+    "skill_not_found": "That skill no longer exists.",
+    "mcp_limit": "You reached the limit of 20 connected services.",
+    "mcp_url_rejected": "That address is not allowed. Use a public https address.",
+    "mcp_unavailable": "The service did not answer.",
+    "mcp_unauthorized": "The service refused the sign-in.",
+    "mcp_error": "The service reported an error.",
+    "mcp_bad_response": "The service sent something unexpected.",
+    "mcp_response_too_large": "The service answered with too much data.",
+    "mcp_server_not_found": "That service is not connected.",
+    "mcp_tool_unknown": "That tool does not exist on the service.",
+    "connection_changed": "The service changed after this was proposed. Ask for it again.",
+    "read_only_tool_needs_no_review": "That tool only reads, so it needs no approval."
   },
   "actions": {
     "pending": "Needs review",
@@ -313,6 +327,40 @@
       "delete": "Delete {{name}}",
       "lastUsed": "Last used {{when}}",
       "neverUsed": "Not used yet"
+    },
+    "skills": {
+      "title": "Skills",
+      "intro": "Instructions this Many loads when a task needs them, like a recipe or a house style. A skill never gives it new permissions.",
+      "none": "No skills yet.",
+      "new": "New skill",
+      "editing": "Editing {{name}}",
+      "name": "Name",
+      "saveAs": "Saved as {{name}}",
+      "description": "When to use it",
+      "content": "Instructions",
+      "save": "Create skill",
+      "cancel": "Cancel",
+      "enable": "Enable {{name}}",
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
+    "connections": {
+      "title": "Connected services",
+      "intro": "Remote tool servers (MCP). Tools that only read run on their own; any tool that changes something waits for your approval.",
+      "none": "No connected services.",
+      "name": "Name",
+      "url": "Server address",
+      "urlHint": "It must be a public https address.",
+      "credential": "Sign-in",
+      "noCredential": "No sign-in needed",
+      "credentialHint": "A saved sign-in is sent as a bearer token. It must be allowed for this server’s website.",
+      "connect": "Connect",
+      "signedIn": "Signed in",
+      "tools": "{{count}} tools, {{reads}} read-only",
+      "notRead": "Tools not read yet",
+      "enable": "Enable {{name}}",
+      "refresh": "Read tools of {{name}}",
+      "delete": "Disconnect {{name}}"
     }
   },
   "savedCredential": "a saved sign-in"
