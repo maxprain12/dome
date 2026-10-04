@@ -59,9 +59,9 @@ export function YearView({
             type="button"
             aria-label={format(month, 'MMMM yyyy', { locale: dfLocale })}
             className={cn(
-              'flex w-full flex-col items-stretch rounded-xl border bg-card p-3 text-left transition-[border-color] hover:border-primary',
+              'flex w-full flex-col items-stretch rounded-2xl border border-border/70 bg-card p-3 text-left transition-[border-color] hover:border-foreground/30',
               'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none',
-              isCurrentMonth && 'border-primary',
+              isCurrentMonth && 'border-foreground/40',
             )}
             onClick={() => onMonthClick(month)}
           >

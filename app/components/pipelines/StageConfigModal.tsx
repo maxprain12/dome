@@ -166,7 +166,7 @@ export default function StageConfigModal({
           ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
 
         {showTemplate && (
-          <div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
+          <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-3">
             <Field><FieldLabel>{t('manys.title')}</FieldLabel><Select value={agentId ?? MANY_EXECUTOR_ID} onValueChange={next=>{if(next)setAgentId(next);}} items={agentOptions}><SelectTrigger><SelectValue placeholder={t('manys.local')}>{agentOptions.find(option=>option.value===(agentId??MANY_EXECUTOR_ID))?.label??t('manys.local')}</SelectValue></SelectTrigger><SelectContent><SelectGroup>{agentOptions.map(option=><SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
           </div>
         )}

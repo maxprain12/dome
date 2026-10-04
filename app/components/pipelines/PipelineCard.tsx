@@ -313,7 +313,7 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
       onKeyDown={onKeyActivate}
       aria-grabbed={dragging}
       className={cn(
-        'group w-full cursor-grab rounded-xl border bg-card p-2.5 text-left shadow-none',
+        'group w-full cursor-grab rounded-2xl border border-border/70 bg-card p-2.5 text-left shadow-none',
         'transition-[border-color,opacity,background-color] [transition-duration:var(--duration-fast)]',
         'hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isRunning && 'border-primary',

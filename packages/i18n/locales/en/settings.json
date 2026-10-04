@@ -79,7 +79,9 @@
     "custom_desc": "Coming soon — fonts, density, accent colors",
     "reset_layout_label": "Reset panel layout",
     "reset_layout_desc": "Restore default sidebar and Many panel widths.",
-    "reset_layout_action": "Reset layout"
+    "reset_layout_action": "Reset layout",
+    "reduce_transparency_label": "Reduce transparency",
+    "reduce_transparency_desc": "Makes the sidebar, tabs, Many panel and menus solid instead of frosted glass."
   },
   "advanced": {
     "title": "Advanced",

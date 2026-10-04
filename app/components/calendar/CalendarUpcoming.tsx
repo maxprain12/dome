@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowRight01Icon, Calendar03Icon } from '@hugeicons/core-free-icons';
+import { Calendar03Icon } from '@hugeicons/core-free-icons';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Empty,
@@ -11,22 +12,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-function formatFeedTime(event: CalendarEvent, locale: string): string {
-  const start = new Date(event.start_at);
-  if (event.all_day) return start.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' });
-  return start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+function formatTimeRange(event: CalendarEvent, locale: string): string {
+  if (event.all_day) return new Date(event.start_at).toLocaleDateString(locale, { weekday: 'long' });
+  const opts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  const start = new Date(event.start_at).toLocaleTimeString(locale, opts);
+  const end = new Date(event.end_at).toLocaleTimeString(locale, opts);
+  return event.end_at > event.start_at ? `${start} – ${end}` : start;
 }
 
 export function CalendarUpcoming({
@@ -40,13 +33,11 @@ export function CalendarUpcoming({
   const locale = getDateTimeLocaleTag();
 
   return (
-    <Card className="flex h-full min-h-0 flex-col gap-0 overflow-hidden py-0 shadow-none">
-      <CardHeader className="shrink-0 border-b px-4 py-3">
-        <CardTitle className="flex items-center justify-between text-sm">
+    <Card className="flex h-full min-h-0 flex-col gap-0 overflow-hidden rounded-2xl py-0 shadow-none">
+      <CardHeader className="shrink-0 px-4 pb-2 pt-3.5">
+        <CardTitle className="flex items-center justify-between text-[15px] font-semibold">
           {t('calendarPage.upcoming')}
-          <span className="text-xs font-normal tabular-nums text-muted-foreground">
-            {events.length}
-          </span>
+          <Badge variant="outline" className="tabular-nums">{events.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-0">
@@ -62,36 +53,31 @@ export function CalendarUpcoming({
           </Empty>
         ) : (
           <ScrollArea className="h-full">
-            <ItemGroup className="gap-1 p-2">
-              {events.map((event) => (
-                <Item key={event.id} size="xs" variant="default">
-                  <ItemMedia className="w-14 justify-start text-xs tabular-nums text-muted-foreground">
-                    {formatFeedTime(event, locale)}
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{event.title}</ItemTitle>
-                    <ItemDescription>
-                      {new Date(event.start_at).toLocaleDateString(locale, {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <Button
+            <ul className="flex flex-col gap-0.5 px-2 pb-2.5">
+              {events.map((event) => {
+                const start = new Date(event.start_at);
+                return (
+                  <li key={event.id}>
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon-xs"
                       onClick={() => onEventClick(event)}
-                      aria-label={event.title}
+                      className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-foreground/[0.05] focus-visible:bg-foreground/[0.05] focus-visible:outline-none"
                     >
-                      <HugeiconsIcon icon={ArrowRight01Icon} />
-                    </Button>
-                  </ItemActions>
-                </Item>
-              ))}
-            </ItemGroup>
+                      <span aria-hidden="true" className="flex h-11 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-muted leading-[1.1]">
+                        <span className="text-[9.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                          {start.toLocaleDateString(locale, { month: 'short' }).replace('.', '')}
+                        </span>
+                        <b className="text-base font-semibold">{start.getDate()}</b>
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col leading-snug">
+                        <span className="truncate text-sm font-medium">{event.title}</span>
+                        <span className="truncate text-xs text-muted-foreground">{formatTimeRange(event, locale)}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </ScrollArea>
         )}
       </CardContent>

@@ -53,7 +53,7 @@ export default function AICloudProviderConfig({
     <div
       className={cn(
         'flex flex-col gap-4',
-        wrapInCard && 'rounded-xl border bg-card p-4',
+        wrapInCard && 'rounded-2xl border border-border/70 bg-card p-4',
       )}
     >
       <Field>

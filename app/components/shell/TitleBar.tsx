@@ -46,13 +46,13 @@ export default function TitleBar({
 
   return (
     <header
-      className="flex h-11 shrink-0 items-stretch border-b border-sidebar-border bg-sidebar [-webkit-app-region:drag]"
+      className="flex h-11 shrink-0 items-stretch bg-transparent pr-2 [-webkit-app-region:drag]"
       data-tour="titlebar"
     >
       {/* Rail cell shares --chrome-rail-width with the sidebar so the hairline is one column. */}
       <div
         className={cn(
-          'flex h-full shrink-0 items-center border-r border-sidebar-border pr-2',
+          'flex h-full shrink-0 items-center pr-2',
           isMac ? 'pl-20' : 'pl-2',
           leftSidebarCollapsed ? undefined : 'w-(--chrome-rail-width) justify-end',
         )}
@@ -70,13 +70,13 @@ export default function TitleBar({
         </Button>
       </div>
 
-      <div className="flex min-w-0 flex-1 items-stretch overflow-hidden">
+      <div className="dome-glass my-1 flex min-w-0 flex-1 items-stretch overflow-hidden rounded-full">
         <DomeTabBar onNewChat={onNewChat} />
       </div>
 
       <div
         className={cn(
-          'flex h-full shrink-0 items-center gap-0.5 border-l border-sidebar-border px-2 [-webkit-app-region:no-drag]',
+          'flex h-full shrink-0 items-center gap-0.5 pl-2 [-webkit-app-region:no-drag]',
           needsRightInset && 'mr-[138px]',
         )}
       >

@@ -364,22 +364,25 @@ const loadCalendars = useCallback(async () => {
       onNewEvent={openNewEvent}
     >
       {calendars.length > 0 ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-4 py-2 md:px-5">
-          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('calendarPage.filter_calendars')}
-          </span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-1.5 pt-2.5 md:px-5">
           {calendars.map((c) => {
             const on = visibleCalendarIds.includes(c.id);
             return (
               <Toggle
                 key={c.id}
-                variant="outline"
-                size="sm"
+                size="default"
                 pressed={on}
                 onPressedChange={() => toggleCalendarFilter(c.id)}
-                className={cn('h-6 rounded-full px-2.5 text-[11px]', !on && 'opacity-50')}
-                style={{ borderColor: c.color || undefined }}
+                className={cn(
+                  'h-7 gap-1.5 rounded-full border-0 bg-muted px-3 text-[12.5px] text-foreground',
+                  on ? 'bg-card shadow-[0_0_0_1px_var(--hairline),0_1px_2px_oklch(0.3_0.04_125/0.08)]' : 'text-muted-foreground',
+                )}
               >
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full shadow-[inset_0_0_0_1px_oklch(0_0_0/0.15)]"
+                  style={{ backgroundColor: c.color || 'var(--brand-lime)' }}
+                />
                 {c.title}
               </Toggle>
             );
@@ -388,7 +391,7 @@ const loadCalendars = useCallback(async () => {
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:flex-row md:p-4">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card">
           {loading ? (
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
               <Spinner className="size-7" aria-hidden />

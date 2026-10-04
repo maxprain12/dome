@@ -565,11 +565,10 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     <ShellSidebar collapsed={collapsed} label={t('sidebar.navigation')}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
         <SidebarContent className="min-h-0 min-w-0 overflow-hidden p-0">
-        <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden [&_[data-slot=scroll-area-viewport]]:overflow-x-hidden">
-          <nav aria-label={t('sidebar.navigation')}>
+          <nav aria-label={t('sidebar.navigation')} className="shrink-0">
             <SidebarHeader className="p-0">
             <SidebarGroup>
-              <SidebarGroupLabel>{t('sidebar.group_workspace')}</SidebarGroupLabel>
+              <SidebarGroupLabel className="sr-only">{t('sidebar.group_workspace')}</SidebarGroupLabel>
               <SidebarMenu>
                 {visiblePrimaryUnifiedNavItems.filter((item) => ['library', 'projects', 'calendar'].includes(item.key)).map((item) => (
                   <SidebarNavButton key={item.key} icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />
@@ -584,18 +583,38 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
               ].map((group) => {
                 const items = visiblePrimaryUnifiedNavItems.filter((item) => group.keys.includes(item.key));
                 if (!items.length) return null;
-                return <ShellNavSection key={group.id} forceOpen={group.id === 'connections' || group.id === 'many'} tourGroup={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
+                return <div key={group.id}><SidebarSeparator className="my-1.5" /><ShellNavSection forceOpen={group.id === 'connections' || group.id === 'many'} tourGroup={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
                   {items.map((item) => <SidebarNavButton key={item.key} nested icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} count={item.kind === 'tab' ? item.count : undefined} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />)}
-                </ShellNavSection>;
+                </ShellNavSection></div>;
               })}
             </SidebarGroup>
           </nav>
 
-          {/* Workspace tree */}
-          <SidebarSeparator />
-          <SidebarGroup className="mt-1">
-            <div className="flex items-center gap-1">
-              <SidebarGroupLabel className="min-w-0 flex-1 shrink">{t('sidebar.group_files')}</SidebarGroupLabel>
+          {/* Workspace tree: the only scrollable region of the sidebar */}
+          <SidebarSeparator className="my-2" />
+          <SidebarGroup className="min-h-0 flex-1">
+            <SidebarGroupLabel className="sr-only">{t('sidebar.group_files')}</SidebarGroupLabel>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setWorkspaceOpen(!workspaceOpen)}
+                aria-expanded={workspaceOpen}
+                aria-label={workspaceOpen ? t('sidebar.collapse_workspace') : t('sidebar.expand_workspace')}
+              >
+                <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenProjectRootFolder}
+                className="min-w-0 flex-1 justify-start"
+              >
+                <span className="truncate">{activeProjectLabel}</span>
+              </Button>
+
               {/* New resource button */}
               <Button
                 type="button"
@@ -619,48 +638,28 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setWorkspaceOpen(!workspaceOpen)}
-                aria-expanded={workspaceOpen}
-                aria-label={workspaceOpen ? t('sidebar.collapse_workspace') : t('sidebar.expand_workspace')}
-              >
-                <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleOpenProjectRootFolder}
-                className="min-w-0 flex-1 justify-start"
-              >
-                <span className="truncate">{activeProjectLabel}</span>
-              </Button>
 
               <ShellProjectPicker />
 
             </div>
             {workspaceOpen && (
-              <div className="pb-2">
-                {loading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <HugeiconsIcon icon={RefreshIcon} className="animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  <FileTree
-                    resources={scopedResources}
-                    onRefresh={() => { fetchResources({ silent: true }); }}
-                    autoExpandFolderIds={autoExpandFolderIds}
-                  />
-                )}
-              </div>
+              <ScrollArea className="mt-0.5 min-h-0 min-w-0 flex-1 overflow-x-hidden [&_[data-slot=scroll-area-viewport]]:overflow-x-hidden">
+                <div className="pb-2">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <HugeiconsIcon icon={RefreshIcon} className="animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <FileTree
+                      resources={scopedResources}
+                      onRefresh={() => { fetchResources({ silent: true }); }}
+                      autoExpandFolderIds={autoExpandFolderIds}
+                    />
+                  )}
+                </div>
+              </ScrollArea>
             )}
           </SidebarGroup>
-        </ScrollArea>
         </SidebarContent>
 
         {/* Add resource dropdown */}
@@ -717,8 +716,8 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         )}
 
         {/* Footer: enlaces secundarios, luego Ajustes */}
-        <SidebarFooter>
-          <SidebarSeparator />
+        <SidebarFooter className="shrink-0 gap-1 p-2 pt-0">
+          <SidebarSeparator className="my-1" />
           <nav aria-label={t('sidebar.more_tools')}>
             <SidebarMenu>
             {visibleSecondaryUnifiedNavItems.map((item) => (

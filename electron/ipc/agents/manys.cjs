@@ -4,6 +4,7 @@ const { fetchWithDomeAuth, getDomeProviderBaseUrl } = require('../../auth/dome-o
 const {
   listCloudAgentProviders,
   attachRememberedRuntime,
+  forgetRuntime,
   publicManyError,
 } = require('../../ai/cloud-agent-runtime.cjs');
 const { createCloudMany } = require('../../agents/manys-client.cjs');
@@ -12,6 +13,11 @@ const RequestSchema=z.object({
   path:z.string().max(300).regex(/^(?:\/[a-z0-9-]+)*(?:\?after=\d+)?$/),
   body:z.record(z.string(),z.unknown()).optional(),
 }).strict();
+async function readManyBody(response) {
+  const text = await response.text();
+  if (!String(text).trim()) return response.ok ? {} : { error: 'service_unavailable' };
+  return JSON.parse(text);
+}
 function register({ipcMain,windowManager,database}) {
   ipcMain.handle('manys:cloud-providers',async(event,payload)=>{
     if(!windowManager.isAuthorized(event.sender.id))return {success:false,error:'unauthorized'};
@@ -40,8 +46,12 @@ function register({ipcMain,windowManager,database}) {
       const response=await fetchWithDomeAuth(database,`${getDomeProviderBaseUrl()}/api/v1/manys${path}`,{
         method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(65000),
       });
-      const data=await response.json();
-      if(!response.ok)return {success:false,error:data.error||'service_unavailable',status:response.status};
+      const data=await readManyBody(response);
+      if(!response.ok){
+        const code=data&&typeof data==='object'&&typeof data.error==='string'?data.error:'service_unavailable';
+        return {success:false,error:publicManyError(new Error(code)),status:response.status};
+      }
+      if(method==='DELETE'&&/^\/[a-z0-9-]+$/.test(path))forgetRuntime(database.getDB(),path.slice(1));
       const queries=database.getQueries();
       const enriched=attachRememberedRuntime(queries,data);
       return {success:true,data:enriched};

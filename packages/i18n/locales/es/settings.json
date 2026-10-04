@@ -79,7 +79,9 @@
     "custom_desc": "Próximamente — fuentes, densidad, colores de acento",
     "reset_layout_label": "Restablecer layout",
     "reset_layout_desc": "Vuelve a los anchos predeterminados del panel Many y las barras laterales.",
-    "reset_layout_action": "Restablecer"
+    "reset_layout_action": "Restablecer",
+    "reduce_transparency_label": "Reducir transparencia",
+    "reduce_transparency_desc": "Hace sólidos la barra lateral, las pestañas, el panel Many y los menús en lugar de vidrio translúcido."
   },
   "advanced": {
     "title": "Avanzado",

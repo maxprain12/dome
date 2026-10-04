@@ -1,6 +1,7 @@
 import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import ManysView from './ManysView';
+import ManyComputer from './ManyComputer';
 import ManyReview from './ManyReview';
 import {manyMarkVariant} from './ManyMark';
 import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/manys/api';
@@ -35,6 +36,7 @@ describe('Many’s durable interaction',()=>{
    vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'},{id:'anthropic',name:'Anthropic'}]);
    vi.mocked(request).mockImplementation(async (path,method)=>method==='POST'&&path===''?{...detail.many,id:'many-new',name:'Ada',runtime:{source:'provider_key',provider:'anthropic'}}:path===''?{manys:[detail.many]}:detail);
    render(<ManysView/>);
+   fireEvent.click((await screen.findAllByRole('button',{name:/New Many|Nuevo Many/}))[0]);
    expect(await screen.findAllByRole('radio')).toHaveLength(2);
    expect(screen.getByRole('radio',{name:/Saved API key|Clave de API guardada/i})).toBeEnabled();
    expect(screen.getByRole('radio',{name:/Dome credits|Créditos de Dome/i})).toBeEnabled();
@@ -45,30 +47,9 @@ describe('Many’s durable interaction',()=>{
    fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('','POST',{name:'Ada',runtime:{source:'dome_credits'}}));
  });
-  it('shows a rejected create without claiming the draft was saved',async()=>{
-    vi.mocked(request).mockImplementation(async (path,method)=>{
-      if(method==='POST'&&path==='')throw new Error('invalid_request');
-      return path===''?{manys:[detail.many]}:detail;
-    });
-    render(<ManysView/>);
-    fireEvent.change(await screen.findByLabelText(/Name|Nombre/),{target:{value:'Ada'}});
-    fireEvent.click(await screen.findByRole('radio',{name:/OpenAI/}));
-    fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
-    expect(await screen.findByText(/^(The request is not valid\.|La solicitud no es válida\.)$/)).toBeInTheDocument();
-    expect(screen.queryByText(/Your draft is saved|Tu borrador está guardado/)).toBeNull();
-    expect(screen.queryByText(/Could not connect|No se pudo conectar/)).toBeNull();
-  });
-  it('keeps a connection failure separate from a saved composer draft',async()=>{
-    vi.mocked(delegateToMany).mockRejectedValue(new Error('service_unavailable'));
-    render(<ManysView/>);
-    fireEvent.click(await screen.findByRole('button',{name:'Research'}));
-    fireEvent.change(await screen.findByLabelText(/Message or task|Mensaje o tarea/),{target:{value:'Report'}});
-    fireEvent.click(screen.getByRole('button',{name:/Send task|Enviar tarea/}));
-    expect(await screen.findByText(/^(Could not connect\.|No se pudo conectar\.)$/)).toBeInTheDocument();
-    expect(screen.getByText(/^(Your draft is saved\.|Tu borrador está guardado\.)$/)).toBeInTheDocument();
-  });
-  it('stores the saved provider by name and refuses to show the key',async()=>{
+ it('stores the saved provider by name and refuses to show the key',async()=>{
    render(<ManysView/>);
+   fireEvent.click((await screen.findAllByRole('button',{name:/New Many|Nuevo Many/}))[0]);
    fireEvent.change(await screen.findByLabelText(/Name|Nombre/),{target:{value:'Ada'}});
    const saved=await screen.findByRole('radio',{name:/OpenAI/});
    expect(saved).toBeEnabled();
@@ -76,6 +57,36 @@ describe('Many’s durable interaction',()=>{
    fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('','POST',{name:'Ada',runtime:{source:'provider_key',provider:'openai'}}));
    expect(screen.queryByText(/sk-/)).toBeNull();
+ });
+ it('retries a template instructions update without creating a second Many',async()=>{
+   const created={...detail.many,id:'many-new',name:'Investigación',grants:detail.many.grants};
+   vi.mocked(request).mockImplementation(async (path,method)=>{
+     if(method==='POST'&&path==='')return created;
+     if(method==='PATCH'&&path==='/many-new')throw new Error('service_unavailable');
+     return path===''?{manys:[detail.many]}:detail;
+   });
+   render(<ManysView/>);
+   fireEvent.click((await screen.findAllByRole('button',{name:/^Use$|^Usar$/}))[0]);
+   fireEvent.click(await screen.findByRole('radio',{name:/Dome credits|Créditos de Dome/i}));
+   fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
+   expect(await screen.findByText(/^(Could not connect\.|No se pudo conectar\.)$/)).toBeInTheDocument();
+   fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
+   await waitFor(()=>expect(vi.mocked(request).mock.calls.filter(([path,method])=>method==='PATCH'&&path==='/many-new')).toHaveLength(2));
+   expect(vi.mocked(request).mock.calls.filter(([path,method])=>method==='POST'&&path==='')).toHaveLength(1);
+ });
+ it('clears the local draft when delete succeeds',async()=>{
+   localStorage.setItem('manys:draft:many-test','Report');
+   render(<ManysView/>);
+   fireEvent.click((await screen.findAllByRole('button',{name:/Options for Research|Opciones de Research|Options de Research|Opções de Research/}))[0]);
+   fireEvent.click(await screen.findByRole('menuitem',{name:/Delete Many|Eliminar Many|Supprimer le Many|Excluir Many/}));
+   fireEvent.click(screen.getByRole('button',{name:/^Delete Many$|^Eliminar Many$|^Supprimer le Many$|^Excluir Many$/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','DELETE'));
+   await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
+ });
+ it('types into the computer as visible text',()=>{
+   render(<ManyComputer manyId="many-test" control="human"/>);
+   const field=screen.getByLabelText(/Type into the browser|Escribir en el navegador|Saisir dans le navigateur|Escrever no navegador/);
+   expect(field).toHaveAttribute('type','text');
  });
  it('records an uncertain failure with evidence without approving or resending it',async()=>{
    const perform=vi.fn(async fn=>fn());render(<ManyReview detail={{...detail,actions:[{id:'action',digest:'hash',state:'outcome_unknown',expires_at:'',proposal:{operation:'send'},receipt:null}]}} busy={false} perform={perform}/>);

@@ -260,7 +260,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
         setMessage(null);
         setRepoSkills([]);
       }}
-      className="overflow-hidden rounded-xl border bg-card"
+      className="overflow-hidden rounded-2xl border border-border/70 bg-card"
     >
       <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/50 motion-reduce:transition-none">
         <span className="flex items-center gap-2">

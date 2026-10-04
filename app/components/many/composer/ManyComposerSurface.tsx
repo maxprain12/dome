@@ -168,7 +168,7 @@ export default function ManyComposerSurface({
       <InputGroup
         data-disabled={disabled || isLoading ? true : undefined}
         className={cn(
-          'h-auto max-h-[min(55vh,24rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm',
+          'h-auto max-h-[min(55vh,24rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-[22px] border-transparent bg-background shadow-[0_0_0_1px_var(--hairline),0_6px_20px_oklch(0.3_0.04_125/0.08)]',
           dragging && 'border-primary/50 bg-primary/5 ring-2 ring-primary/15',
           islandClassName,
         )}

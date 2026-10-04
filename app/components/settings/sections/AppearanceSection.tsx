@@ -10,9 +10,11 @@ import {
   Sun03Icon,
 } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useAppearanceStore } from '@/lib/store/useAppearanceStore';
 import { resetLayoutPreferences } from '@/lib/shell/layoutReset';
 
 type ThemeValue = 'light' | 'dark' | 'auto';
@@ -32,6 +34,8 @@ export default function AppearanceSection() {
   const { t } = useTranslation();
   const currentTheme = useAppStore((s) => s.theme);
   const updateTheme = useAppStore((s) => s.updateTheme);
+  const reduceTransparency = useAppearanceStore((s) => s.reduceTransparency);
+  const setReduceTransparency = useAppearanceStore((s) => s.setReduceTransparency);
   const handleResetLayout = useCallback(() => resetLayoutPreferences(), []);
 
   return (
@@ -53,7 +57,7 @@ export default function AppearanceSection() {
               value={theme.value}
               variant="outline"
               aria-label={t(theme.labelKey)}
-              className="h-auto min-h-24 w-full flex-col items-start justify-start gap-2 rounded-xl p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
+              className="h-auto min-h-24 w-full flex-col items-start justify-start gap-2 rounded-xl p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-brand-mint"
             >
               <HugeiconsIcon icon={theme.icon} />
               <span className="font-medium">{t(theme.labelKey)}</span>
@@ -66,6 +70,17 @@ export default function AppearanceSection() {
       </SettingsGroup>
 
       <SettingsGroup>
+        <SettingsRow
+          title={t('settings.appearance.reduce_transparency_label')}
+          description={t('settings.appearance.reduce_transparency_desc')}
+          control={
+            <Switch
+              checked={reduceTransparency}
+              onCheckedChange={setReduceTransparency}
+              aria-label={t('settings.appearance.reduce_transparency_label')}
+            />
+          }
+        />
         <SettingsRow
           title={t('settings.appearance.reset_layout_label')}
           description={t('settings.appearance.reset_layout_desc')}

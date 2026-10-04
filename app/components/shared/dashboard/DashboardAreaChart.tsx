@@ -120,7 +120,7 @@ export function DashboardAreaChart({
               />
               <Area
                 dataKey="value"
-                type="linear"
+                type="monotone"
                 fill="url(#fillDashboardValue)"
                 stroke="var(--color-value)"
                 strokeWidth={2}

@@ -9,6 +9,7 @@ const {
   prepareCloudManyCreate,
   acceptCreatedMany,
   publicManyError,
+  forgetRuntime,
   readRuntime,
 } = require('../ai/cloud-agent-runtime.cjs');
 
@@ -144,4 +145,12 @@ test('the choice is stored on the created agent and replayed when the server omi
   });
   assert.deepEqual(listed.manys[0].runtime, { source: 'provider_key', provider: 'openai' });
   assert.deepEqual(readRuntime(queries, 'many-1'), { source: 'provider_key', provider: 'openai' });
+});
+
+test('deleting a Many forgets only its remembered runtime', () => {
+  const removed = [];
+  const db = { prepare: (sql) => ({ run: (key) => removed.push([sql, key]) }) };
+  forgetRuntime(db, 'many-1');
+  forgetRuntime(db, '');
+  assert.deepEqual(removed, [['DELETE FROM settings WHERE key=?', 'manys_runtime:many-1']]);
 });

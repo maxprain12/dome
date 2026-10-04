@@ -21,7 +21,7 @@ const bubbleVariants = cva(
     variants: {
       variant: {
         default:
-          "*:data-[slot=bubble-content]:bg-primary *:data-[slot=bubble-content]:text-primary-foreground [&>[data-slot=bubble-content]:is(button,a):hover]:bg-primary-hover",
+          "*:data-[slot=bubble-content]:bg-[linear-gradient(180deg,oklch(0.38_0_0),oklch(0.26_0_0))] *:data-[slot=bubble-content]:text-[oklch(0.985_0_0)] *:data-[slot=bubble-content]:shadow-[inset_0_1px_0_oklch(1_0_0/0.14)] dark:*:data-[slot=bubble-content]:bg-[linear-gradient(180deg,oklch(1_0_0),oklch(0.9_0_0))] dark:*:data-[slot=bubble-content]:text-[oklch(0.2_0_0)] [&>[data-slot=bubble-content]:is(button,a):hover]:bg-primary-hover",
         secondary:
           "*:data-[slot=bubble-content]:bg-brand-mint *:data-[slot=bubble-content]:text-primary [&>[data-slot=bubble-content]:is(button,a):hover]:bg-brand-lime",
         muted:
@@ -72,7 +72,7 @@ function BubbleContent({
     props: mergeProps<"div">(
       {
         className: cn(
-          "w-fit max-w-full min-w-0 overflow-hidden rounded-lg border border-transparent px-2.5 py-1.5 text-xs/relaxed wrap-break-word group-data-[align=end]/bubble:self-end [button]:text-left [button,a]:transition-colors [button,a]:outline-none [button,a]:focus-visible:border-ring [button,a]:focus-visible:ring-2 [button,a]:focus-visible:ring-ring/30",
+          "w-fit max-w-full min-w-0 overflow-hidden rounded-[20px] border border-transparent px-[15px] py-[9px] text-sm/[1.55] wrap-break-word group-data-[align=end]/bubble:self-end group-data-[align=end]/bubble:rounded-br-[7px] group-data-[align=start]/bubble:rounded-bl-[7px] [button]:text-left [button,a]:transition-colors [button,a]:outline-none [button,a]:focus-visible:border-ring [button,a]:focus-visible:ring-2 [button,a]:focus-visible:ring-ring/30",
           className
         ),
       },

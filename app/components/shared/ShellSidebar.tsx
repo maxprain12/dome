@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 /** The shell owns width/collapse; shadcn supplies navigation and disclosure semantics. */
 export function ShellSidebar({ collapsed, label, children }: { collapsed: boolean; label: string; children: ReactNode }) {
   return <SidebarProvider open={!collapsed} onOpenChange={(open) => useResizeStore.setState({ leftSidebarCollapsed: !open })} keyboardShortcut={false} className="contents">
-    <aside aria-label={label} aria-hidden={collapsed} hidden={collapsed} className={cn('dome-left-sidebar h-full w-(--chrome-rail-width) shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground', collapsed ? 'hidden' : 'flex')}>
+    <aside aria-label={label} aria-hidden={collapsed} hidden={collapsed} className={cn('dome-left-sidebar dome-glass mx-2 mb-2 w-[calc(var(--chrome-rail-width)-1rem)] shrink-0 flex-col overflow-hidden rounded-3xl text-sidebar-foreground', collapsed ? 'hidden' : 'flex')}>
       {children}
     </aside>
   </SidebarProvider>;
@@ -47,10 +47,8 @@ export function ShellNavSection({ label, icon, activeId, forceOpen = false, defa
   const [disclosure, setDisclosure] = useState<{ activeId?: string; open: boolean } | null>(null);
   const open = forceOpen || (disclosure && disclosure.activeId === activeId ? disclosure.open : Boolean(activeId) || defaultOpen);
   if (forceOpen) return <SidebarMenu><SidebarMenuItem>
-    <div data-tour-group={tourGroup} className="flex h-8 items-center gap-2 px-2 text-sm font-medium">
-      <HugeiconsIcon icon={icon} className="size-4" aria-hidden /><span>{label}</span>
-    </div>
-    <SidebarMenuSub>{children}</SidebarMenuSub>
+    <span data-tour-group={tourGroup} className="sr-only">{label}</span>
+    <SidebarMenuSub className="ml-0 max-w-full translate-x-0 border-l-0 px-0 py-0">{children}</SidebarMenuSub>
   </SidebarMenuItem></SidebarMenu>;
   return <SidebarMenu><SidebarMenuItem>
     <Collapsible open={open} onOpenChange={(next) => setDisclosure({ activeId, open: next })}>

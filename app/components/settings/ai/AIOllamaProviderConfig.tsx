@@ -99,7 +99,7 @@ export default function AIOllamaProviderConfig({
   const apiKeyIsRequired = ollamaMode === 'cloud';
 
   return (
-    <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-xl border bg-card p-4')}>
+    <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-2xl border border-border/70 bg-card p-4')}>
       <OllamaStatusRow
         checking={checkingOllama}
         available={ollamaAvailable}

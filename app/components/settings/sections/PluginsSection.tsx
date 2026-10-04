@@ -120,7 +120,7 @@ export default function PluginsSection() {
           <Skeleton className="h-14 w-full" />
         </div>
       ) : plugins.length === 0 ? (
-        <Empty className="rounded-xl border bg-card py-10">
+        <Empty className="rounded-2xl border border-border/70 bg-card py-10">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <HugeiconsIcon icon={PuzzleIcon} />

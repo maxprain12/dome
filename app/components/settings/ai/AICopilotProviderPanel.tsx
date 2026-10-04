@@ -102,7 +102,7 @@ export default function AICopilotProviderPanel({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+    <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-4">
       <div>
         <p className="text-sm font-medium">{t('settings.ai.copilot_connect_title')}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
