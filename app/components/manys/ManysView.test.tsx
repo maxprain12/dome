@@ -110,10 +110,30 @@ describe('Many’s durable interaction',()=>{
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','DELETE'));
    await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
  });
- it('types into the computer as visible text',()=>{
-   render(<ManyComputer manyId="many-test" control="human" live={false}/>);
-   const field=screen.getByLabelText(/Type into the browser|Escribir en el navegador|Saisir dans le navigateur|Escrever no navegador/);
-   expect(field).toHaveAttribute('type','text');
+ describe('the computer panel',()=>{
+   const take=/^(Take control|Tomar el control|Prendre la main|Assumir o controle)$/;
+   it('explains who has the computer, waits to start it, and takes control on request',async()=>{
+     vi.mocked(request).mockResolvedValue({});
+     render(<ManyComputer manyId="many-test" control="agent" live={false}/>);
+     expect(screen.getByText(/pauses its task|pausa su tarea|met sa tâche en pause|pausa a tarefa/)).toBeInTheDocument();
+     expect(screen.getByRole('button',{name:/^(Show the screen|Ver pantalla|Voir l'écran|Ver a tela)$/})).toBeInTheDocument();
+     fireEvent.click(screen.getAllByRole('button',{name:take})[0]);
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'enter',parameters:{}}));
+     expect(await screen.findByRole('button',{name:/^(Hand back control|Devolver el control|Rendre la main|Devolver o controle)$/})).toBeInTheDocument();
+   });
+   it('hands control back and says the Many will take a fresh capture',async()=>{
+     vi.mocked(request).mockResolvedValue({});
+     render(<ManyComputer manyId="many-test" control="human" live={false}/>);
+     fireEvent.click(screen.getByRole('button',{name:/^(Hand back control|Devolver el control|Rendre la main|Devolver o controle)$/}));
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'leave',parameters:{}}));
+     expect(await screen.findByText(/fresh capture before it continues|captura nueva antes de continuar|nouvelle capture avant de continuer|nova captura antes de continuar/)).toBeInTheDocument();
+   });
+   it('keeps the terminal for the person who holds the wheel',()=>{
+     render(<ManyComputer manyId="many-test" control="agent" live={false}/>);
+     fireEvent.mouseDown(screen.getByRole('tab',{name:'Terminal'}));
+     fireEvent.click(screen.getByRole('tab',{name:'Terminal'}));
+     expect(screen.getByText(/The terminal is yours|El terminal es tuyo|Le terminal est à vous|O terminal é seu/)).toBeInTheDocument();
+   });
  });
  it('records an uncertain failure with evidence without approving or resending it',async()=>{
    const perform=vi.fn(async fn=>fn());render(<ManyReview detail={{...detail,actions:[{id:'action',digest:'hash',state:'outcome_unknown',expires_at:'',proposal:{operation:'send'},receipt:null}]}} busy={false} perform={perform}/>);

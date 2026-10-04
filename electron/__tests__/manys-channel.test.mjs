@@ -1,0 +1,112 @@
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire, Module } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const authPath = require.resolve('../auth/dome-oauth.cjs');
+const previousAuth = require.cache[authPath];
+const authStub = new Module(authPath);
+authStub.exports = { getOrRefreshSession: async () => ({}), getDomeProviderBaseUrl: () => 'https://dome-provider.test' };
+require.cache[authPath] = authStub;
+const channelPath = require.resolve('../ipc/agents/manys-channel.cjs');
+delete require.cache[channelPath];
+const { register } = require('../ipc/agents/manys-channel.cjs');
+
+const MANY = '11111111-1111-4111-8111-111111111111';
+class FakeSocket {
+  static last = null;
+  constructor(url, headers, behaviour) {
+    Object.assign(this, { url, headers, readyState: 0, sent: [], closed: null });
+    FakeSocket.last = this;
+    queueMicrotask(() => {
+      if (behaviour === 'fail') return this.onerror?.();
+      this.readyState = 1;
+      this.onopen?.();
+    });
+  }
+  send(data) { this.sent.push(data); }
+  close(code) { this.closed = code ?? 1000; this.readyState = 3; this.onclose?.({ code: this.closed }); }
+}
+
+function setup({ session = { connected: true, accessToken: 'tok-1' }, behaviour } = {}) {
+  const handlers = new Map();
+  register({
+    ipcMain: { handle: (name, fn) => handlers.set(name, fn) },
+    windowManager: { isAuthorized: (id) => id !== 99 },
+    database: {},
+    createSocket: (url, headers) => new FakeSocket(url, headers, behaviour),
+    getSession: async () => session,
+    providerUrl: () => 'https://dome-provider.test/',
+  });
+  const sent = [];
+  const makeSender = (id) => {
+    const destroyedListeners = [];
+    return { id, isDestroyed: () => false, send: (channel, payload) => sent.push([id, channel, payload]), once: (name, fn) => destroyedListeners.push(fn), destroy: () => destroyedListeners.forEach((fn) => fn()) };
+  };
+  const call = (name, sender, payload) => handlers.get(name)({ sender }, payload);
+  return { call, sent, makeSender };
+}
+
+test('opens a wss socket with the session token and relays frames to the window that opened it', async () => {
+  const { call, sent, makeSender } = setup();
+  const sender = makeSender(1);
+  const opened = await call('manys:channel:open', sender, { manyId: MANY, channel: 'terminal' });
+  assert.equal(opened.success, true);
+  assert.equal(FakeSocket.last.url, `wss://dome-provider.test/api/v1/manys/${MANY}/computer/terminal`);
+  assert.deepEqual(FakeSocket.last.headers, { authorization: 'Bearer tok-1' });
+  FakeSocket.last.onmessage({ data: '{"type":"output"}' });
+  FakeSocket.last.onmessage({ data: new Uint8Array(3) });
+  assert.deepEqual(sent, [[1, 'manys:channel:event', { channelId: opened.data.channelId, type: 'message', data: '{"type":"output"}' }]]);
+  FakeSocket.last.close(1006);
+  assert.equal(sent.at(-1)[2].type, 'close');
+  assert.equal(sent.at(-1)[2].code, 1006);
+});
+
+test('refuses unknown windows, malformed requests and a missing connection', async () => {
+  const { call, makeSender } = setup();
+  assert.equal((await call('manys:channel:open', makeSender(99), { manyId: MANY, channel: 'stream' })).error, 'unauthorized');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: 'nope', channel: 'stream' })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'shell' })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'stream', extra: 1 })).error, 'invalid_request');
+  const offline = setup({ session: { connected: false } });
+  assert.equal((await offline.call('manys:channel:open', offline.makeSender(1), { manyId: MANY, channel: 'stream' })).error, 'not_connected');
+});
+
+test('reports a socket that never opens', async () => {
+  const { call, makeSender } = setup({ behaviour: 'fail' });
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'stream' })).error, 'channel_unavailable');
+});
+
+test('only the owning window can send or close, and sends are bounded', async () => {
+  const { call, makeSender } = setup();
+  const owner = makeSender(1);
+  const { data } = await call('manys:channel:open', owner, { manyId: MANY, channel: 'stream' });
+  const socket = FakeSocket.last;
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: '{"type":"key"}' })).success, true);
+  assert.deepEqual(socket.sent, ['{"type":"key"}']);
+  assert.equal((await call('manys:channel:send', makeSender(2), { channelId: data.channelId, data: 'x' })).error, 'channel_closed');
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: 'x'.repeat(256 * 1024 + 1) })).error, 'invalid_request');
+  await call('manys:channel:close', makeSender(2), { channelId: data.channelId });
+  assert.equal(socket.closed, null);
+  await call('manys:channel:close', owner, { channelId: data.channelId });
+  assert.equal(socket.closed, 1000);
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: 'x' })).error, 'channel_closed');
+});
+
+test('limits channels per window and closes them when the window goes away', async () => {
+  const { call, makeSender } = setup();
+  const sender = makeSender(1);
+  const sockets = [];
+  for (let i = 0; i < 4; i += 1) {
+    assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'stream' })).success, true);
+    sockets.push(FakeSocket.last);
+  }
+  assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'stream' })).error, 'too_many_channels');
+  sender.destroy();
+  assert.deepEqual(sockets.map((socket) => socket.closed), [1001, 1001, 1001, 1001]);
+});
+
+after(() => {
+  if (previousAuth) require.cache[authPath] = previousAuth;
+  else delete require.cache[authPath];
+});
