@@ -83,6 +83,31 @@
     },
     "activity": {
       "empty": "Aún no hay actividad reciente de Many."
+    },
+    "permissions": {
+      "title": "Permisos del ordenador",
+      "hint": "Tú decides qué puede usar este ordenador. Cada interruptor vale para Many y para ti.",
+      "enabled": "Activar este ordenador",
+      "browser": "Navegador",
+      "files": "Archivos del espacio de trabajo",
+      "shell": "Comandos de terminal",
+      "pausesWork": "Cambiar un permiso pausa lo que Many está haciendo ahora.",
+      "allow": "Permitir",
+      "offHint": "Puedes volver a activarlo cuando quieras; lo que Many esté haciendo ahora se pausará.",
+      "off": {
+        "browserTitle": "El navegador está desactivado",
+        "filesTitle": "Los archivos están desactivados",
+        "shellTitle": "El terminal está desactivado"
+      }
+    },
+    "power": {
+      "running": "Encendido",
+      "stopped": "Apagado",
+      "checking": "Comprobando…",
+      "unknown": "Estado desconocido",
+      "start": "Encender ordenador",
+      "stop": "Apagar ordenador",
+      "stopHint": "Apagarlo conserva los archivos y el perfil del navegador. Se enciende solo al usarlo y se apaga tras 15 minutos sin uso."
     }
   },
   "message": "Mensaje",
@@ -183,7 +208,9 @@
     "mcp_server_not_found": "Ese servicio no está conectado.",
     "mcp_tool_unknown": "Esa herramienta no existe en el servicio.",
     "connection_changed": "El servicio cambió después de proponerlo. Pídelo de nuevo.",
-    "read_only_tool_needs_no_review": "Esa herramienta solo lee, así que no necesita aprobación."
+    "read_only_tool_needs_no_review": "Esa herramienta solo lee, así que no necesita aprobación.",
+    "many_paused": "Many está en pausa. Reanúdalo para darle trabajo.",
+    "computer_permission_denied": "Ese permiso del ordenador está desactivado."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -424,5 +451,13 @@
     "failed": "No funcionó",
     "openComputer": "Abrir el ordenador",
     "liveView": "Vista en vivo del ordenador"
+  },
+  "pause": {
+    "pause": "Pausar este Many",
+    "resume": "Reanudar",
+    "pauseAll": "Pausar todos",
+    "resumeAll": "Reanudar todos",
+    "paused": "Many está en pausa",
+    "pausedHint": "No acepta trabajo nuevo y lo que hacía quedó detenido. Reanúdalo para volver a darle tareas."
   }
 }

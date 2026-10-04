@@ -1,4 +1,5 @@
-export interface Grants {projects:string[];resources:string[];capabilities:string[]}
+export interface ComputerPermissions {browser:boolean;files:boolean;shell:boolean}
+export interface Grants {projects:string[];resources:string[];capabilities:string[];computer?:ComputerPermissions;paused?:boolean}
 /** How a cloud Many runs. `provider` is a saved provider id, never an API key. Desktop and Companion send the same shape. */
 export type ManyCloudRuntime =
   | { source: 'dome_credits' }

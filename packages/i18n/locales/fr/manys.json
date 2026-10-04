@@ -83,6 +83,31 @@
     },
     "activity": {
       "empty": "Pas encore d'activité récente de Many."
+    },
+    "permissions": {
+      "title": "Autorisations de l'ordinateur",
+      "hint": "Vous décidez de ce que cet ordinateur peut faire. Chaque interrupteur vaut pour Many et pour vous.",
+      "enabled": "Activer cet ordinateur",
+      "browser": "Navigateur",
+      "files": "Fichiers de l'espace de travail",
+      "shell": "Commandes du terminal",
+      "pausesWork": "Modifier une autorisation met en pause ce que Many fait en ce moment.",
+      "allow": "Autoriser",
+      "offHint": "Vous pouvez le réactiver à tout moment ; ce que Many fait en ce moment sera mis en pause.",
+      "off": {
+        "browserTitle": "Le navigateur est désactivé",
+        "filesTitle": "Les fichiers sont désactivés",
+        "shellTitle": "Le terminal est désactivé"
+      }
+    },
+    "power": {
+      "running": "Allumé",
+      "stopped": "Éteint",
+      "checking": "Vérification…",
+      "unknown": "État inconnu",
+      "start": "Démarrer l'ordinateur",
+      "stop": "Arrêter l'ordinateur",
+      "stopHint": "L'arrêter conserve les fichiers et le profil du navigateur. Il démarre seul à l'usage et s'arrête après 15 minutes d'inactivité."
     }
   },
   "message": "Message",
@@ -183,7 +208,9 @@
     "mcp_server_not_found": "Ce service n’est pas connecté.",
     "mcp_tool_unknown": "Cet outil n’existe pas sur le service.",
     "connection_changed": "Le service a changé après la proposition. Demandez-la de nouveau.",
-    "read_only_tool_needs_no_review": "Cet outil ne fait que lire, il n’a donc pas besoin d’approbation."
+    "read_only_tool_needs_no_review": "Cet outil ne fait que lire, il n’a donc pas besoin d’approbation.",
+    "many_paused": "Many est en pause. Reprenez-le pour lui donner du travail.",
+    "computer_permission_denied": "Cette autorisation de l'ordinateur est désactivée."
   },
   "actions": {
     "pending": "À vérifier",
@@ -424,5 +451,13 @@
     "failed": "N'a pas fonctionné",
     "openComputer": "Ouvrir l'ordinateur",
     "liveView": "Vue en direct de l'ordinateur"
+  },
+  "pause": {
+    "pause": "Mettre ce Many en pause",
+    "resume": "Reprendre",
+    "pauseAll": "Tout mettre en pause",
+    "resumeAll": "Tout reprendre",
+    "paused": "Many est en pause",
+    "pausedHint": "Il n'accepte plus de travail et ce qu'il faisait est arrêté. Reprenez-le pour lui confier des tâches."
   }
 }

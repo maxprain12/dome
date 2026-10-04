@@ -9,6 +9,8 @@ import {
   Delete02Icon,
   Folder01Icon,
   Maximize02Icon,
+  PauseIcon,
+  PlayCircleIcon,
   Minimize02Icon,
   MoreHorizontalIcon,
   PanelRightIcon,
@@ -52,7 +54,7 @@ import { stepDetail, stepKey, useManySteps } from '@/lib/manys/steps';
 import { useLiveRuns, useManyEvents } from '@/lib/manys/liveRuns';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import ManyTimeline from './ManyTimeline';
-import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { retryTask, setManyPaused, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
 
@@ -181,6 +183,7 @@ export default function ManysView() {
   const selectedVariant = detail ? manyMarkVariant(detail.many.id) : 'lime';
   const summary = detail ? summarizeMany(detail) : null;
   const status = summary?.status ?? 'idle';
+  const paused = detail?.many.grants.paused === true;
   // A proposal already shown in the thread, where it was asked, is not listed a second time below it.
   const askedInThread = new Set(Object.values(runs).flatMap((run) => run.items.flatMap((item) => (item.kind === 'tool' && item.tool === 'propose_action' ? [item.callId] : []))));
   const decisions = (summary?.decisions ?? []).filter((action) => !(action.operation_id && askedInThread.has(action.operation_id)));
@@ -428,6 +431,10 @@ export default function ManysView() {
                         {t('manys.local')}
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => { void perform(() => setManyPaused(detail.many, !paused)); }}>
+                      <HugeiconsIcon icon={paused ? PlayCircleIcon : PauseIcon} aria-hidden />
+                      {t(paused ? 'manys.pause.resume' : 'manys.pause.pause')}
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => setToDelete(detail.many)}>
                       <HugeiconsIcon icon={Delete02Icon} aria-hidden />
@@ -618,6 +625,16 @@ export default function ManysView() {
                       </Button>
                     </div>
                   )}
+                  {paused ? (
+                    <div className="dome-card dome-card-warn flex items-center gap-3 px-3 py-2.5 text-sm" role="status">
+                      <HugeiconsIcon icon={PauseIcon} className="size-4 shrink-0" aria-hidden />
+                      <div className="flex min-w-0 grow flex-col">
+                        <strong className="font-semibold">{t('manys.pause.paused')}</strong>
+                        <span className="text-muted-foreground">{t('manys.pause.pausedHint')}</span>
+                      </div>
+                      <Button type="button" size="sm" disabled={busy} onClick={() => { void perform(() => setManyPaused(detail.many, false)); }}>{t('manys.pause.resume')}</Button>
+                    </div>
+                  ) : (
                   <form
                     className="dome-glass-strong dome-composer"
                     onSubmit={(event) => {
@@ -644,6 +661,7 @@ export default function ManysView() {
                       <HugeiconsIcon icon={SentIcon} />
                     </Button>
                   </form>
+                  )}
                   {pendingQuestion && (
                     <Button type="button" variant="ghost" size="sm" className="self-start" disabled={busy} onClick={() => { void cancelTasks([pendingQuestion]); }}>
                       {t('manys.skipQuestion')}

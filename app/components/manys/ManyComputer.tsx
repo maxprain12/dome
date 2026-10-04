@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { request } from '@/lib/manys/api';
+import { request, type CloudMany } from '@/lib/manys/api';
 import { stepDetail, stepKey, useManySteps } from '@/lib/manys/steps';
 import { cn } from '@/lib/utils';
 import ManyComputerFiles from './ManyComputerFiles';
+import ManyComputerPermission, { PermissionOff } from './ManyComputerPermission';
+import { computerAllows, withComputerEnabled, withComputerKind, type ComputerKind } from './computerPermissions';
 import ManyComputerScreen from './ManyComputerScreen';
 import ManyComputerTerminal from './ManyComputerTerminal';
 
@@ -17,7 +19,7 @@ const VIEWS: readonly View[] = ['screen', 'terminal', 'files', 'activity'];
  * A Many's computer. Everyone can watch its screen; taking control pauses the Many's task and
  * hands the browser, the terminal and the files to the person until they give it back.
  */
-export default function ManyComputer({ manyId, control, live }: { manyId: string; control: string; live: boolean }) {
+export default function ManyComputer({ manyId, many, control, live, perform }: { manyId: string; many: CloudMany; control: string; live: boolean; perform: (fn: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>('screen');
   const [held, setHeld] = useState(control);
@@ -43,6 +45,8 @@ export default function ManyComputer({ manyId, control, live }: { manyId: string
     }
   };
   const take = () => { void change('enter'); };
+  const save = (grants: CloudMany['grants']) => perform(() => request(`/${manyId}`, 'PATCH', { name: many.name, instructions: many.instructions, grants }));
+  const allow = (kind: ComputerKind) => { void save(withComputerKind(withComputerEnabled(many.grants, true), kind, true)); };
   const state = human ? 'human' : held === 'snapshot_required' ? 'snapshot' : 'agent';
 
   return (
@@ -68,9 +72,12 @@ export default function ManyComputer({ manyId, control, live }: { manyId: string
         </TabsList>
       </Tabs>
 
-      {view === 'screen' && <ManyComputerScreen manyId={manyId} human={human} autoConnect={live || human} busy={busy} onTakeControl={take} />}
-      {view === 'terminal' && <ManyComputerTerminal manyId={manyId} human={human} busy={busy} onTakeControl={take} />}
-      {view === 'files' && <ManyComputerFiles manyId={manyId} />}
+      {view === 'screen' && !computerAllows(many.grants, 'browser') && <PermissionOff kind="browser" busy={busy} onAllow={allow} />}
+      {view === 'terminal' && !computerAllows(many.grants, 'shell') && <PermissionOff kind="shell" busy={busy} onAllow={allow} />}
+      {view === 'files' && !computerAllows(many.grants, 'files') && <PermissionOff kind="files" busy={busy} onAllow={allow} />}
+      {view === 'screen' && computerAllows(many.grants, 'browser') && <ManyComputerScreen manyId={manyId} human={human} autoConnect={live || human} busy={busy} onTakeControl={take} />}
+      {view === 'terminal' && computerAllows(many.grants, 'shell') && <ManyComputerTerminal manyId={manyId} human={human} busy={busy} onTakeControl={take} />}
+      {view === 'files' && computerAllows(many.grants, 'files') && <ManyComputerFiles manyId={manyId} />}
       {view === 'activity' && (
         <ul className="dome-card dome-card-plain flex flex-col gap-1.5 p-3" aria-label={t('manys.computer.tabs.activity')}>
           {steps.length === 0 && <li className="text-muted-foreground">{t('manys.computer.activity.empty')}</li>}
@@ -83,6 +90,7 @@ export default function ManyComputer({ manyId, control, live }: { manyId: string
           ))}
         </ul>
       )}
+      <ManyComputerPermission manyId={manyId} grants={many.grants} busy={busy} onChange={(grants) => { void save(grants); }} />
     </section>
   );
 }

@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Add01Icon, Alert02Icon, Folder01Icon, GlobalIcon, Refresh01Icon, RepeatIcon, SentIcon } from '@hugeicons/core-free-icons';
+import { Add01Icon, Alert02Icon, Folder01Icon, GlobalIcon, Refresh01Icon, RepeatIcon, SentIcon, PauseIcon, PlayCircleIcon } from '@hugeicons/core-free-icons';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { delegateToMany, request, type Action, type CloudMany, type ManyDetail, type Task } from '@/lib/manys/api';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManyOptionsMenu from './ManyOptionsMenu';
-import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { retryTask, setManyPaused, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 export const MANY_TEMPLATES = ['person', 'competitor', 'meeting'] as const;
 export type ManyTemplate = (typeof MANY_TEMPLATES)[number];
@@ -109,6 +109,9 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
     }
   };
 
+  // One switch for the whole team: stop everyone, or let everyone work again.
+  const anyWorking = manys.some((many) => many.grants.paused !== true);
+
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-8 pt-8 pb-10">
       <header className="flex flex-wrap items-end gap-4">
@@ -116,6 +119,12 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
           <h1 className="text-2xl/[1.3] font-semibold tracking-tight">{t('manys.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('manys.intro')}</p>
         </div>
+        {manys.length > 0 && (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => { void perform(() => Promise.all(manys.map((many) => setManyPaused(many, anyWorking)))); }}>
+            <HugeiconsIcon icon={anyWorking ? PauseIcon : PlayCircleIcon} aria-hidden />
+            {t(anyWorking ? 'manys.pause.pauseAll' : 'manys.pause.resumeAll')}
+          </Button>
+        )}
         <Button type="button" variant="outline" onClick={onOpenLocal}>{t('manys.local')}</Button>
         <Button type="button" onClick={onNew}>
           <HugeiconsIcon icon={Add01Icon} aria-hidden />
