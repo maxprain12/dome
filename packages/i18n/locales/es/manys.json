@@ -87,13 +87,9 @@
       "empty": "Aún no hay actividad reciente de Many."
     },
     "permissions": {
-      "title": "Permisos del ordenador",
-      "hint": "Tú decides qué puede usar este ordenador. Cada interruptor vale para Many y para ti.",
-      "enabled": "Activar este ordenador",
       "browser": "Navegador",
       "files": "Archivos del espacio de trabajo",
       "shell": "Comandos de terminal",
-      "pausesWork": "Cambiar un permiso pausa lo que Many está haciendo ahora.",
       "allow": "Permitir",
       "offHint": "Puedes volver a activarlo cuando quieras; lo que Many esté haciendo ahora se pausará.",
       "off": {
@@ -322,8 +318,7 @@
   "viewDetail": "Ver detalle",
   "pendingAction": "Acción pendiente",
   "expiresIn": "Caduca en {{hours}} h",
-  "viewFullProposal": "Ver propuesta completa",
-  "requiresApproval": "con aprobación",
+  "viewFullProposal": "Detalles",
   "canRead": "Puede leer",
   "shareHint": "Compartir un recurso no comparte el resto del proyecto.",
   "saveChanges": "Guardar cambios",
@@ -410,40 +405,6 @@
       "delete": "Eliminar {{name}}",
       "lastUsed": "Último uso {{when}}",
       "neverUsed": "Sin usar todavía"
-    },
-    "skills": {
-      "title": "Skills",
-      "intro": "Instrucciones que este Many carga cuando una tarea las necesita, como una receta o un estilo propio. Una skill nunca le da permisos nuevos.",
-      "none": "Todavía no hay skills.",
-      "new": "Nueva skill",
-      "editing": "Editando {{name}}",
-      "name": "Nombre",
-      "saveAs": "Se guardará como {{name}}",
-      "description": "Cuándo usarla",
-      "content": "Instrucciones",
-      "save": "Crear skill",
-      "cancel": "Cancelar",
-      "enable": "Activar {{name}}",
-      "edit": "Editar {{name}}",
-      "delete": "Eliminar {{name}}"
-    },
-    "connections": {
-      "title": "Servicios conectados",
-      "intro": "Servidores de herramientas remotos (MCP). Las herramientas que solo leen se ejecutan solas; las que cambian algo esperan tu aprobación.",
-      "none": "No hay servicios conectados.",
-      "name": "Nombre",
-      "url": "Dirección del servidor",
-      "urlHint": "Debe ser una dirección https pública.",
-      "credential": "Acceso",
-      "noCredential": "No necesita acceso",
-      "credentialHint": "Un acceso guardado se envía como token. Debe estar permitido para el sitio de este servidor.",
-      "connect": "Conectar",
-      "signedIn": "Con acceso",
-      "tools": "{{count}} herramientas, {{reads}} de solo lectura",
-      "notRead": "Herramientas sin leer todavía",
-      "enable": "Activar {{name}}",
-      "refresh": "Leer herramientas de {{name}}",
-      "delete": "Desconectar {{name}}"
     }
   },
   "savedCredential": "un acceso guardado",
@@ -478,5 +439,31 @@
     "resumeAll": "Reanudar todos",
     "paused": "Many está en pausa",
     "pausedHint": "No acepta trabajo nuevo y lo que hacía quedó detenido. Reanúdalo para volver a darle tareas."
+  },
+  "actionSummary": {
+    "navigate": "Abrir {{target}}",
+    "click": "Hacer clic en la página",
+    "type": "Escribir «{{text}}»",
+    "key": "Pulsar {{key}}",
+    "scroll": "Desplazar la página",
+    "exec": "Ejecutar {{command}}",
+    "writeFile": "Guardar {{path}}"
+  },
+  "perm": {
+    "libraryTitle": "Tu biblioteca",
+    "read": "Leer",
+    "readHint": "Buscar y leer lo que compartas con él",
+    "write": "Editar",
+    "writeHint": "Cambiar las notas y archivos que compartas",
+    "webTitle": "Internet",
+    "web": "Investigar en la web",
+    "webHint": "Buscar y leer páginas públicas",
+    "computerTitle": "Su ordenador",
+    "computer": "Usar su ordenador",
+    "computerHint": "Un escritorio con navegador, terminal y archivos",
+    "outsideTitle": "Actuar fuera de Dome",
+    "outside": "Enviar, publicar, comprar y borrar",
+    "outsideHint": "Siempre te pide aprobación antes",
+    "applies": "Cada cambio se aplica al momento y pausa lo que Many está haciendo ahora."
   }
 }

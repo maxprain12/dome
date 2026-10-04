@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ComputerIcon, Maximize02Icon, Settings01Icon } from '@hugeicons/core-free-icons';
+import { ComputerIcon, Maximize02Icon } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request, type CloudMany } from '@/lib/manys/api';
@@ -14,7 +13,7 @@ import { useComputerPower } from '@/lib/manys/useComputerPower';
 import { cn } from '@/lib/utils';
 import ManyComputerDesktop from './ManyComputerDesktop';
 import ManyComputerFiles from './ManyComputerFiles';
-import ManyComputerPermission, { PermissionOff } from './ManyComputerPermission';
+import { PermissionOff } from './PermissionOff';
 import ManyComputerScreen from './ManyComputerScreen';
 import ManyComputerTerminal from './ManyComputerTerminal';
 import ManyComputerViewer from './ManyComputerViewer';
@@ -38,7 +37,6 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
   const steps = useManySteps(manyId);
   const [drawer, setDrawer] = useState<Drawer>('terminal');
   const [expanded, setExpanded] = useState(false);
-  const [settings, setSettings] = useState(false);
 
   const save = (grants: CloudMany['grants']) => perform(() => request(`/${manyId}`, 'PATCH', { name: many.name, instructions: many.instructions, grants }));
   const allow = (kind: ComputerKind) => { void save(withComputerKind(withComputerEnabled(many.grants, true), kind, true)); };
@@ -100,9 +98,11 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
         <Button type="button" size="icon" variant="ghost" disabled={!running || !shell} aria-label={t('manys.computer.expand')} title={t('manys.computer.expand')} onClick={() => setExpanded(true)}>
           <HugeiconsIcon icon={Maximize02Icon} size={16} />
         </Button>
-        <Button type="button" size="icon" variant="ghost" aria-label={t('manys.computer.permissions.title')} title={t('manys.computer.permissions.title')} onClick={() => setSettings(true)}>
-          <HugeiconsIcon icon={Settings01Icon} size={16} />
-        </Button>
+        {running && (
+          <Button type="button" size="xs" variant="outline" disabled={power.working} title={t('manys.computer.power.stopHint')} onClick={() => { void power.stop(); }}>
+            {t('manys.computer.power.stop')}
+          </Button>
+        )}
       </header>
 
       <ManyComputerWheel wheel={wheel.wheel} busy={wheel.busy} disabled={!running || !shell} onTake={() => { void take(); }} onRelease={release} />
@@ -138,13 +138,6 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
       )}
 
       <ManyComputerViewer open={expanded && running && shell} onOpenChange={setExpanded} manyId={manyId} name={many.name} wheel={wheel.wheel} busy={wheel.busy} onTake={() => { void take(); }} onRelease={release} onResync={wheel.resync} />
-
-      <Dialog open={settings} onOpenChange={setSettings}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>{t('manys.computer.permissions.title')}</DialogTitle></DialogHeader>
-          <ManyComputerPermission grants={many.grants} busy={wheel.busy} power={power} onChange={(grants) => { void save(grants); }} />
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

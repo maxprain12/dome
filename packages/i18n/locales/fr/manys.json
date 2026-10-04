@@ -87,13 +87,9 @@
       "empty": "Pas encore d'activité récente de Many."
     },
     "permissions": {
-      "title": "Autorisations de l'ordinateur",
-      "hint": "Vous décidez de ce que cet ordinateur peut faire. Chaque interrupteur vaut pour Many et pour vous.",
-      "enabled": "Activer cet ordinateur",
       "browser": "Navigateur",
       "files": "Fichiers de l'espace de travail",
       "shell": "Commandes du terminal",
-      "pausesWork": "Modifier une autorisation met en pause ce que Many fait en ce moment.",
       "allow": "Autoriser",
       "offHint": "Vous pouvez le réactiver à tout moment ; ce que Many fait en ce moment sera mis en pause.",
       "off": {
@@ -322,8 +318,7 @@
   "viewDetail": "Voir le détail",
   "pendingAction": "Action en attente",
   "expiresIn": "Expire dans {{hours}} h",
-  "viewFullProposal": "Voir la proposition complète",
-  "requiresApproval": "avec approbation",
+  "viewFullProposal": "Détails",
   "canRead": "Peut lire",
   "shareHint": "Partager une ressource ne partage pas le reste du projet.",
   "saveChanges": "Enregistrer les modifications",
@@ -410,40 +405,6 @@
       "delete": "Supprimer {{name}}",
       "lastUsed": "Dernier usage {{when}}",
       "neverUsed": "Pas encore utilisée"
-    },
-    "skills": {
-      "title": "Skills",
-      "intro": "Instructions que ce Many charge quand une tâche en a besoin, comme une recette ou un style maison. Une skill ne donne jamais de nouvelles permissions.",
-      "none": "Aucune skill pour l’instant.",
-      "new": "Nouvelle skill",
-      "editing": "Modification de {{name}}",
-      "name": "Nom",
-      "saveAs": "Enregistrée sous {{name}}",
-      "description": "Quand l’utiliser",
-      "content": "Instructions",
-      "save": "Créer la skill",
-      "cancel": "Annuler",
-      "enable": "Activer {{name}}",
-      "edit": "Modifier {{name}}",
-      "delete": "Supprimer {{name}}"
-    },
-    "connections": {
-      "title": "Services connectés",
-      "intro": "Serveurs d’outils distants (MCP). Les outils qui ne font que lire s’exécutent seuls ; ceux qui modifient quelque chose attendent votre approbation.",
-      "none": "Aucun service connecté.",
-      "name": "Nom",
-      "url": "Adresse du serveur",
-      "urlHint": "Ce doit être une adresse https publique.",
-      "credential": "Connexion",
-      "noCredential": "Aucune connexion nécessaire",
-      "credentialHint": "Une connexion enregistrée est envoyée comme jeton. Elle doit être autorisée pour le site de ce serveur.",
-      "connect": "Connecter",
-      "signedIn": "Connecté",
-      "tools": "{{count}} outils, {{reads}} en lecture seule",
-      "notRead": "Outils pas encore lus",
-      "enable": "Activer {{name}}",
-      "refresh": "Lire les outils de {{name}}",
-      "delete": "Déconnecter {{name}}"
     }
   },
   "savedCredential": "une connexion enregistrée",
@@ -478,5 +439,31 @@
     "resumeAll": "Tout reprendre",
     "paused": "Many est en pause",
     "pausedHint": "Il n'accepte plus de travail et ce qu'il faisait est arrêté. Reprenez-le pour lui confier des tâches."
+  },
+  "actionSummary": {
+    "navigate": "Ouvrir {{target}}",
+    "click": "Cliquer sur la page",
+    "type": "Saisir « {{text}} »",
+    "key": "Appuyer sur {{key}}",
+    "scroll": "Faire défiler la page",
+    "exec": "Exécuter {{command}}",
+    "writeFile": "Enregistrer {{path}}"
+  },
+  "perm": {
+    "libraryTitle": "Votre bibliothèque",
+    "read": "Lire",
+    "readHint": "Chercher et lire ce que vous partagez avec lui",
+    "write": "Modifier",
+    "writeHint": "Changer les notes et fichiers que vous partagez",
+    "webTitle": "Le web",
+    "web": "Faire des recherches sur le web",
+    "webHint": "Chercher et lire des pages publiques",
+    "computerTitle": "Son ordinateur",
+    "computer": "Utiliser son ordinateur",
+    "computerHint": "Un bureau avec navigateur, terminal et fichiers",
+    "outsideTitle": "Agir en dehors de Dome",
+    "outside": "Envoyer, publier, acheter et supprimer",
+    "outsideHint": "Il demande toujours votre accord avant",
+    "applies": "Chaque changement s'applique aussitôt et met en pause ce que Many fait."
   }
 }

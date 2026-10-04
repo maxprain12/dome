@@ -130,22 +130,12 @@ describe('the computer panel', () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ computer: { browser: true, files: true, shell: false } }) })));
   });
 
-  it('keeps permissions and power behind the gear, and saves each switch in the grants', async () => {
+  it('keeps permission switches out of the panel and stops the computer from its header', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
     await screen.findByLabelText(desktopLabel);
+    expect(screen.queryByRole('switch')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Computer permissions|Permisos del ordenador|Autorisations de l'ordinateur|Permissões do computador/ }));
-    fireEvent.click(await screen.findByRole('checkbox', { name: /Terminal commands|Comandos de terminal|Commandes du terminal/ }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ computer: { browser: true, files: true, shell: false } }) })));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Enable this computer|Activar este ordenador|Activer cet ordinateur|Ativar este computador/ }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ capabilities: ['vault.read'] }) })));
-  });
-
-  it('stops the computer from the settings', async () => {
-    render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    await screen.findByLabelText(desktopLabel);
-    fireEvent.click(screen.getByRole('button', { name: /Computer permissions|Permisos del ordenador|Autorisations de l'ordinateur|Permissões do computador/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /^(Stop computer|Apagar ordenador|Arrêter l'ordinateur|Desligar computador)$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^(Stop computer|Apagar ordenador|Arrêter l'ordinateur|Desligar computador)$/ }));
     await waitFor(() => expect(computerOps()).toContain('stop'));
   });
 });

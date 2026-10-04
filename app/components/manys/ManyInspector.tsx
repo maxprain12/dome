@@ -49,7 +49,13 @@ export default function ManyInspector({ tab, onTab, detail, busy, perform }: Man
       <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 pb-4">
         {tab === 'computer' && <ManyComputer key={manyId} manyId={manyId} many={detail.many} control={detail.computer?.control ?? 'agent'} perform={perform} />}
         {tab === 'context' && (
-          <ManySettings key={manyId} many={detail.many} onSave={(value) => perform(() => request(`/${manyId}`, 'PATCH', value))} />
+          <ManySettings
+            key={manyId}
+            many={detail.many}
+            busy={busy}
+            onSave={(value) => perform(() => request(`/${manyId}`, 'PATCH', value))}
+            onGrants={(grants) => { void perform(() => request(`/${manyId}`, 'PATCH', { name: detail.many.name, instructions: detail.many.instructions, grants })); }}
+          />
         )}
         {tab === 'routines' && <ManyRoutines detail={detail} busy={busy} perform={perform} />}
         {tab === 'access' && <ManyAccess key={manyId} manyId={manyId} />}
