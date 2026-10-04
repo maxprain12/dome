@@ -110,7 +110,21 @@
     "credential_not_found": "Ese acceso guardado ya no existe.",
     "credential_operation_denied": "Un acceso guardado solo se puede escribir en un campo.",
     "credential_unreadable": "No se pudo abrir ese acceso guardado. Guárdalo de nuevo.",
-    "credential_field_missing": "Ese acceso no tiene usuario."
+    "credential_field_missing": "Ese acceso no tiene usuario.",
+    "name_taken": "Ese nombre ya está en uso aquí.",
+    "skill_limit": "Alcanzaste el límite de 100 skills.",
+    "skill_not_found": "Esa skill ya no existe.",
+    "mcp_limit": "Alcanzaste el límite de 20 servicios conectados.",
+    "mcp_url_rejected": "Esa dirección no está permitida. Usa una dirección https pública.",
+    "mcp_unavailable": "El servicio no respondió.",
+    "mcp_unauthorized": "El servicio rechazó el acceso.",
+    "mcp_error": "El servicio informó de un error.",
+    "mcp_bad_response": "El servicio envió algo inesperado.",
+    "mcp_response_too_large": "El servicio respondió con demasiados datos.",
+    "mcp_server_not_found": "Ese servicio no está conectado.",
+    "mcp_tool_unknown": "Esa herramienta no existe en el servicio.",
+    "connection_changed": "El servicio cambió después de proponerlo. Pídelo de nuevo.",
+    "read_only_tool_needs_no_review": "Esa herramienta solo lee, así que no necesita aprobación."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -313,6 +327,40 @@
       "delete": "Eliminar {{name}}",
       "lastUsed": "Último uso {{when}}",
       "neverUsed": "Sin usar todavía"
+    },
+    "skills": {
+      "title": "Skills",
+      "intro": "Instrucciones que este Many carga cuando una tarea las necesita, como una receta o un estilo propio. Una skill nunca le da permisos nuevos.",
+      "none": "Todavía no hay skills.",
+      "new": "Nueva skill",
+      "editing": "Editando {{name}}",
+      "name": "Nombre",
+      "saveAs": "Se guardará como {{name}}",
+      "description": "Cuándo usarla",
+      "content": "Instrucciones",
+      "save": "Crear skill",
+      "cancel": "Cancelar",
+      "enable": "Activar {{name}}",
+      "edit": "Editar {{name}}",
+      "delete": "Eliminar {{name}}"
+    },
+    "connections": {
+      "title": "Servicios conectados",
+      "intro": "Servidores de herramientas remotos (MCP). Las herramientas que solo leen se ejecutan solas; las que cambian algo esperan tu aprobación.",
+      "none": "No hay servicios conectados.",
+      "name": "Nombre",
+      "url": "Dirección del servidor",
+      "urlHint": "Debe ser una dirección https pública.",
+      "credential": "Acceso",
+      "noCredential": "No necesita acceso",
+      "credentialHint": "Un acceso guardado se envía como token. Debe estar permitido para el sitio de este servidor.",
+      "connect": "Conectar",
+      "signedIn": "Con acceso",
+      "tools": "{{count}} herramientas, {{reads}} de solo lectura",
+      "notRead": "Herramientas sin leer todavía",
+      "enable": "Activar {{name}}",
+      "refresh": "Leer herramientas de {{name}}",
+      "delete": "Desconectar {{name}}"
     }
   },
   "savedCredential": "un acceso guardado"

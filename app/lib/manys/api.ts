@@ -12,6 +12,9 @@ export interface PolicyMatch {tools?:string[];capabilities?:string[];operations?
 export interface Policy {id:string;many_id:string|null;name:string;effect:'allow'|'deny';mode:'enforce'|'observe';enabled:boolean;match:PolicyMatch}
 export interface AuditEntry {id:string;sequence:number;phase:'decision'|'result';parent_id:string|null;tool:string;operation:string|null;host:string|null;decision:'allowed'|'denied'|'observed_denied'|null;rule_name:string|null;reason:string|null;outcome:'ok'|'error'|null;error_code:string|null;created_at:string}
 export interface Credential {id:string;many_id:string|null;label:string;username:string|null;hosts:string[];created_at:string;last_used_at:string|null}
+export interface Skill {id:string;many_id:string|null;name:string;description:string;content:string;enabled:boolean}
+export interface McpTool {name:string;description:string;readOnly:boolean}
+export interface McpServer {id:string;many_id:string|null;name:string;url:string;credential_id:string|null;enabled:boolean;tools:McpTool[];tools_refreshed_at:string|null}
 export async function request<T>(path:string,method='GET',body?:Record<string,unknown>):Promise<T> {
   const result=await window.electron.invoke('manys:request',{path,method,body}) as {success:boolean;error?:string;data:T};
   if(!result.success)throw new Error(result.error??'service_unavailable');return result.data;
