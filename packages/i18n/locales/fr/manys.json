@@ -65,7 +65,12 @@
     "external_delete": "Supprimer"
   },
   "errors": {
-    "service_unavailable": "Connexion impossible. Votre brouillon est enregistré.",
+    "service_unavailable": "Connexion impossible.",
+    "draft_saved": "Votre brouillon est enregistré.",
+    "request_failed": "La demande n'a pas pu aboutir.",
+    "invalid_request": "La demande n'est pas valide.",
+    "request_too_large": "La demande est trop volumineuse.",
+    "provider_key_missing": "Le fournisseur n'a pas de clé utilisable.",
     "manys_disabled": "Many’s n’est pas encore activé sur Provider.",
     "insufficient_scope": "Reconnectez votre compte Dome pour autoriser Many’s.",
     "subscription_inactive": "Un abonnement actif est nécessaire.",

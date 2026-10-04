@@ -65,7 +65,12 @@
     "external_delete": "Excluir"
   },
   "errors": {
-    "service_unavailable": "Não foi possível conectar. Seu rascunho está salvo.",
+    "service_unavailable": "Não foi possível conectar.",
+    "draft_saved": "Seu rascunho está salvo.",
+    "request_failed": "Não foi possível concluir a solicitação.",
+    "invalid_request": "A solicitação não é válida.",
+    "request_too_large": "A solicitação é grande demais.",
+    "provider_key_missing": "O provedor não tem uma chave que possa usar.",
     "manys_disabled": "Many’s ainda não está habilitado no Provider.",
     "insufficient_scope": "Volte a ligar a conta Dome para autorizar Many’s.",
     "subscription_inactive": "É necessária uma subscrição ativa.",

@@ -2,9 +2,12 @@
   "version": 1,
   "sources": ["dome_credits", "provider_key"],
   "createBody": {
-    "runtime": {
-      "source": "dome_credits | provider_key",
-      "provider": "Saved provider id when source is provider_key. Never an API key."
-    }
+    "name": "Display name.",
+    "instructions": "Optional.",
+    "grants": "Optional. Provider rejects unknown keys. Do not send runtime here."
+  },
+  "modelBinding": {
+    "dome_credits": { "provider": "dome", "model": "dome/auto" },
+    "provider_key": "provider, model, public baseUrl when one is saved, and the API key. Sent only to Provider on POST /api/v1/manys/model-binding, never to the renderer."
   }
 }

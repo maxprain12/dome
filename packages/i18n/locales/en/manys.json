@@ -65,7 +65,12 @@
     "external_delete": "Delete"
   },
   "errors": {
-    "service_unavailable": "Could not connect. Your draft is saved.",
+    "service_unavailable": "Could not connect.",
+    "draft_saved": "Your draft is saved.",
+    "request_failed": "The request could not be completed.",
+    "invalid_request": "The request is not valid.",
+    "request_too_large": "The request is too large.",
+    "provider_key_missing": "The provider has no key it can use.",
     "manys_disabled": "Many’s is not yet enabled on Provider.",
     "insufficient_scope": "Reconnect your Dome account to authorize Many’s.",
     "subscription_inactive": "An active subscription is required.",

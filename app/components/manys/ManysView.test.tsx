@@ -45,7 +45,29 @@ describe('Many’s durable interaction',()=>{
    fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('','POST',{name:'Ada',runtime:{source:'dome_credits'}}));
  });
- it('stores the saved provider by name and refuses to show the key',async()=>{
+  it('shows a rejected create without claiming the draft was saved',async()=>{
+    vi.mocked(request).mockImplementation(async (path,method)=>{
+      if(method==='POST'&&path==='')throw new Error('invalid_request');
+      return path===''?{manys:[detail.many]}:detail;
+    });
+    render(<ManysView/>);
+    fireEvent.change(await screen.findByLabelText(/Name|Nombre/),{target:{value:'Ada'}});
+    fireEvent.click(await screen.findByRole('radio',{name:/OpenAI/}));
+    fireEvent.click(screen.getByRole('button',{name:/^Create$|^Crear$/}));
+    expect(await screen.findByText(/^(The request is not valid\.|La solicitud no es válida\.)$/)).toBeInTheDocument();
+    expect(screen.queryByText(/Your draft is saved|Tu borrador está guardado/)).toBeNull();
+    expect(screen.queryByText(/Could not connect|No se pudo conectar/)).toBeNull();
+  });
+  it('keeps a connection failure separate from a saved composer draft',async()=>{
+    vi.mocked(delegateToMany).mockRejectedValue(new Error('service_unavailable'));
+    render(<ManysView/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+    fireEvent.change(await screen.findByLabelText(/Message or task|Mensaje o tarea/),{target:{value:'Report'}});
+    fireEvent.click(screen.getByRole('button',{name:/Send task|Enviar tarea/}));
+    expect(await screen.findByText(/^(Could not connect\.|No se pudo conectar\.)$/)).toBeInTheDocument();
+    expect(screen.getByText(/^(Your draft is saved\.|Tu borrador está guardado\.)$/)).toBeInTheDocument();
+  });
+  it('stores the saved provider by name and refuses to show the key',async()=>{
    render(<ManysView/>);
    fireEvent.change(await screen.findByLabelText(/Name|Nombre/),{target:{value:'Ada'}});
    const saved=await screen.findByRole('radio',{name:/OpenAI/});

@@ -3,10 +3,10 @@ const { z } = require('zod');
 const { fetchWithDomeAuth, getDomeProviderBaseUrl } = require('../../auth/dome-oauth.cjs');
 const {
   listCloudAgentProviders,
-  prepareCloudManyCreate,
-  acceptCreatedMany,
   attachRememberedRuntime,
+  publicManyError,
 } = require('../../ai/cloud-agent-runtime.cjs');
+const { createCloudMany } = require('../../agents/manys-client.cjs');
 const RequestSchema=z.object({
   method:z.enum(['GET','POST','PATCH','DELETE']).default('GET'),
   path:z.string().max(300).regex(/^(?:\/[a-z0-9-]+)*(?:\?after=\d+)?$/),
@@ -28,12 +28,12 @@ function register({ipcMain,windowManager,database}) {
     const parsed=RequestSchema.safeParse(payload);
     if(!parsed.success)return {success:false,error:'invalid_request'};
     let {path,method,body}=parsed.data;
-    let sentRuntime=null;
     if(method==='POST'&&path===''){
-      const prepared=prepareCloudManyCreate(database.getQueries(),body??{});
-      if(!prepared.ok)return {success:false,error:prepared.error};
-      body=prepared.body;
-      sentRuntime=prepared.runtime;
+      try {
+        return {success:true,data:await createCloudMany(database,body??{})};
+      } catch (error) {
+        return {success:false,error:publicManyError(error)};
+      }
     }
     if(JSON.stringify(body??{}).length>1048576)return {success:false,error:'request_too_large'};
     try {
@@ -43,9 +43,9 @@ function register({ipcMain,windowManager,database}) {
       const data=await response.json();
       if(!response.ok)return {success:false,error:data.error||'service_unavailable',status:response.status};
       const queries=database.getQueries();
-      const enriched=method==='POST'&&path===''?acceptCreatedMany(queries,sentRuntime,data):attachRememberedRuntime(queries,data);
+      const enriched=attachRememberedRuntime(queries,data);
       return {success:true,data:enriched};
-    }catch{return {success:false,error:'service_unavailable'};}
+    }catch (error) {return {success:false,error:publicManyError(error)};}
   });
 }
 module.exports={register};

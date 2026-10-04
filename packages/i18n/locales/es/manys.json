@@ -65,7 +65,12 @@
     "external_delete": "Borrar"
   },
   "errors": {
-    "service_unavailable": "No se pudo conectar. Tu borrador está guardado.",
+    "service_unavailable": "No se pudo conectar.",
+    "draft_saved": "Tu borrador está guardado.",
+    "request_failed": "No se pudo completar la solicitud.",
+    "invalid_request": "La solicitud no es válida.",
+    "request_too_large": "La solicitud es demasiado grande.",
+    "provider_key_missing": "El proveedor no tiene una clave que pueda usar.",
     "manys_disabled": "Many’s aún no está habilitado en Provider.",
     "insufficient_scope": "Vuelve a conectar tu cuenta Dome para autorizar Many’s.",
     "subscription_inactive": "Necesitas una suscripción activa.",
