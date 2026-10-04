@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowReloadHorizontalIcon, Maximize02Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { ArrowReloadHorizontalIcon, Refresh01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { request } from '@/lib/manys/api';
@@ -33,15 +33,12 @@ interface Props {
   human: boolean;
   /** A small read-only preview for inline use: no address bar, no controls. */
   compact?: boolean;
-  /** The full-size viewer: the screen takes all the width it is given. */
-  large?: boolean;
-  onExpand?: () => void;
   /** Takes the wheel again when the computer has forgotten it. Resolves true when it was taken. */
   onResync?: () => Promise<boolean>;
 }
 
-/** The computer's screen as it changes, with the mouse and keyboard going straight to it. */
-export default function ManyComputerScreen({ manyId, human, compact = false, large = false, onExpand, onResync }: Props) {
+/** The Many's browser as it changes, with the mouse and keyboard going straight to it. */
+export default function ManyComputerScreen({ manyId, human, compact = false, onResync }: Props) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const channel = useRef<ComputerChannel | null>(null);
@@ -271,16 +268,11 @@ export default function ManyComputerScreen({ manyId, human, compact = false, lar
           ref={canvas}
           tabIndex={human ? 0 : -1}
           aria-label={t(human ? 'manys.computer.screen.canvasHuman' : 'manys.computer.screen.canvasWatch')}
-          className={cn('block aspect-[1280/800] w-full bg-muted outline-none', large && 'mx-auto max-w-[calc(68vh*1.6)]', human && 'cursor-crosshair', focused && human && 'ring-2 ring-ring ring-inset')}
+          className={cn('block aspect-[1280/800] w-full bg-muted outline-none', human && 'cursor-crosshair', focused && human && 'ring-2 ring-ring ring-inset')}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           {...pointer}
         />
-        {onExpand && !compact && link === 'live' && (
-          <Button type="button" size="icon" variant="outline" className="absolute top-2 right-2 bg-background/85 backdrop-blur-sm" aria-label={t('manys.computer.expand')} title={t('manys.computer.expand')} onClick={onExpand}>
-            <HugeiconsIcon icon={Maximize02Icon} size={16} />
-          </Button>
-        )}
         {link !== 'live' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 p-4 text-center">
             {link === 'connecting' ? (

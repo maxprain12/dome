@@ -12,6 +12,7 @@ import { stepDetail, stepKey, useManySteps } from '@/lib/manys/steps';
 import { useComputerControl } from '@/lib/manys/useComputerControl';
 import { useComputerPower } from '@/lib/manys/useComputerPower';
 import { cn } from '@/lib/utils';
+import ManyComputerDesktop from './ManyComputerDesktop';
 import ManyComputerFiles from './ManyComputerFiles';
 import ManyComputerPermission, { PermissionOff } from './ManyComputerPermission';
 import ManyComputerScreen from './ManyComputerScreen';
@@ -20,13 +21,14 @@ import ManyComputerViewer from './ManyComputerViewer';
 import ManyComputerWheel from './ManyComputerWheel';
 import { computerAllows, computerEnabled, withComputerEnabled, withComputerKind, type ComputerKind } from './computerPermissions';
 
-type Drawer = 'terminal' | 'files' | 'activity';
-const DRAWERS: readonly Drawer[] = ['terminal', 'files', 'activity'];
+type Drawer = 'terminal' | 'files' | 'browser' | 'activity';
+const DRAWERS: readonly Drawer[] = ['terminal', 'files', 'browser', 'activity'];
 
 /**
- * A Many's computer. The screen comes first and is live whenever the computer is on; taking the
- * wheel pauses the Many and hands the browser, the terminal and the files to the person until they
- * give it back. Permissions and power live behind the gear, not in the way.
+ * A Many's computer. Its whole desktop comes first and is live whenever the computer is on; taking
+ * the wheel pauses the Many and hands the machine (browser, terminal, files, any app) to the person
+ * until they give it back. The terminal, the files and the browser on their own sit below it.
+ * Permissions and power live behind the gear, not in the way.
  */
 export default function ManyComputer({ manyId, many, control, perform }: { manyId: string; many: CloudMany; control: string; perform: (fn: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation();
@@ -47,7 +49,7 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
     }
   };
   const release = () => { void wheel.release(); };
-  const browser = computerAllows(many.grants, 'browser');
+  const shell = computerAllows(many.grants, 'shell');
   const running = power.power === 'running';
 
   const offered = (kind: ComputerKind) => !computerAllows(many.grants, kind) && <PermissionOff kind={kind} busy={wheel.busy} onAllow={allow} />;
@@ -62,24 +64,24 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
   );
 
   let screen;
-  if (!browser) screen = offered('browser');
+  if (!shell) screen = offered('shell');
   else if (power.power === null) {
     screen = power.failed ? (
       <div className="dome-card dome-card-err flex flex-col items-start gap-2 p-4">
         <p>{t('manys.computer.power.unreachable')}</p>
         <Button type="button" size="sm" variant="outline" onClick={() => { void power.refresh(); }}>{t('manys.computer.screen.reconnect')}</Button>
       </div>
-    ) : <Skeleton className="aspect-[1280/800] w-full rounded-[14px]" />;
+    ) : <Skeleton className="aspect-[1440/960] w-full rounded-[14px]" />;
   } else if (!running) screen = poweredOff;
   else if (expanded) {
     screen = (
-      <div className="dome-card dome-card-plain flex aspect-[1280/800] w-full flex-col items-center justify-center gap-2 p-4 text-center">
+      <div className="dome-card dome-card-plain flex aspect-[1440/960] w-full flex-col items-center justify-center gap-2 p-4 text-center">
         <span className="text-muted-foreground">{t('manys.computer.viewer.open')}</span>
         <Button type="button" size="sm" variant="outline" onClick={() => setExpanded(false)}>{t('manys.computer.viewer.close')}</Button>
       </div>
     );
   } else {
-    screen = <ManyComputerScreen manyId={manyId} human={wheel.human} onExpand={() => setExpanded(true)} onResync={wheel.resync} />;
+    screen = <ManyComputerDesktop manyId={manyId} human={wheel.human} onExpand={() => setExpanded(true)} onResync={wheel.resync} />;
   }
 
   return (
@@ -95,7 +97,7 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
             {power.failed ? t('manys.computer.power.unknown') : power.power ? t(`manys.computer.power.${power.power}`) : t('manys.computer.power.checking')}
           </span>
         )}
-        <Button type="button" size="icon" variant="ghost" disabled={!running || !browser} aria-label={t('manys.computer.expand')} title={t('manys.computer.expand')} onClick={() => setExpanded(true)}>
+        <Button type="button" size="icon" variant="ghost" disabled={!running || !shell} aria-label={t('manys.computer.expand')} title={t('manys.computer.expand')} onClick={() => setExpanded(true)}>
           <HugeiconsIcon icon={Maximize02Icon} size={16} />
         </Button>
         <Button type="button" size="icon" variant="ghost" aria-label={t('manys.computer.permissions.title')} title={t('manys.computer.permissions.title')} onClick={() => setSettings(true)}>
@@ -103,7 +105,7 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
         </Button>
       </header>
 
-      <ManyComputerWheel wheel={wheel.wheel} busy={wheel.busy} disabled={!running || !browser} onTake={() => { void take(); }} onRelease={release} />
+      <ManyComputerWheel wheel={wheel.wheel} busy={wheel.busy} disabled={!running || !shell} onTake={() => { void take(); }} onRelease={release} />
 
       {screen}
 
@@ -119,6 +121,7 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
 
         {drawer === 'terminal' && (offered('shell') || <ManyComputerTerminal manyId={manyId} human={wheel.human} busy={wheel.busy} onTakeControl={() => { void take(); }} />)}
         {drawer === 'files' && (offered('files') || <ManyComputerFiles manyId={manyId} />)}
+        {drawer === 'browser' && (offered('browser') || <ManyComputerScreen manyId={manyId} human={wheel.human} onResync={wheel.resync} />)}
         {drawer === 'activity' && (
           <ul className="dome-card dome-card-plain flex flex-col gap-1.5 p-3" aria-label={t('manys.computer.tabs.activity')}>
             {steps.length === 0 && <li className="text-muted-foreground">{t('manys.computer.activity.empty')}</li>}
@@ -134,7 +137,7 @@ export default function ManyComputer({ manyId, many, control, perform }: { manyI
         </>
       )}
 
-      <ManyComputerViewer open={expanded && running && browser} onOpenChange={setExpanded} manyId={manyId} name={many.name} wheel={wheel.wheel} busy={wheel.busy} onTake={() => { void take(); }} onRelease={release} onResync={wheel.resync} />
+      <ManyComputerViewer open={expanded && running && shell} onOpenChange={setExpanded} manyId={manyId} name={many.name} wheel={wheel.wheel} busy={wheel.busy} onTake={() => { void take(); }} onRelease={release} onResync={wheel.resync} />
 
       <Dialog open={settings} onOpenChange={setSettings}>
         <DialogContent className="sm:max-w-md">

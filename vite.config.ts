@@ -84,6 +84,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Electron ships its own recent Chromium. noVNC (the Many's desktop) uses top-level await.
+    target: 'esnext',
     // 'hidden' = generate maps for Sentry upload without referencing them in the
     // bundle. Only when a token is present (release builds); off otherwise.
     sourcemap: sentryAuthToken ? 'hidden' : false,
@@ -133,6 +135,7 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     exclude: ['pyodide'],
+    esbuildOptions: { target: 'esnext' },
     include: ['@hugeicons/react', '@hugeicons/core-free-icons', 'exceljs'],
   },
 });

@@ -33,7 +33,8 @@
       "screen": "Pantalla",
       "terminal": "Terminal",
       "files": "Archivos",
-      "activity": "Actividad"
+      "activity": "Actividad",
+      "browser": "Navegador"
     },
     "screen": {
       "connecting": "Conectando con el ordenador…",
@@ -119,6 +120,13 @@
       "hint": "Haz clic y escribe en la pantalla. Esc cierra la vista ampliada; el control sigue siendo tuyo hasta que lo devuelvas.",
       "open": "Viendo la pantalla ampliada.",
       "close": "Volver aquí"
+    },
+    "desktop": {
+      "watch": "Escritorio del ordenador, solo lectura",
+      "human": "Escritorio del ordenador. Tienes el control: haz clic, escribe y desplázate.",
+      "connecting": "Conectando con el escritorio…",
+      "lost": "Se perdió la conexión con el escritorio.",
+      "lostHint": "Si este ordenador se encendió antes de que existiera el escritorio, apágalo y vuelve a encenderlo desde el engranaje."
     }
   },
   "message": "Mensaje",

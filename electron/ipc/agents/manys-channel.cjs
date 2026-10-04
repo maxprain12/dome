@@ -4,18 +4,23 @@ const { z } = require('zod');
 const { getOrRefreshSession, getDomeProviderBaseUrl } = require('../../auth/dome-oauth.cjs');
 
 /**
- * Live sockets to a Many's computer: its screen and its terminal.
+ * Live sockets to a Many's computer: its browser screen, its terminal and its whole desktop.
  *
  * A renderer cannot set the Authorization header on a WebSocket, and the session token must not
- * live there anyway, so the main process opens the socket and relays text frames. Each channel
- * belongs to the window that opened it; closing the window closes its channels.
+ * live there anyway, so the main process opens the socket and relays frames. The screen and the
+ * terminal speak JSON text; the desktop speaks VNC, so it relays binary frames as bytes. Each
+ * channel belongs to the window that opened it; closing the window closes its channels.
  */
 const MAX_CHANNELS_PER_WINDOW = 4;
 const MAX_SEND_CHARS = 256 * 1024;
 const MAX_FRAME_CHARS = 24 * 1024 * 1024;
+const MAX_BINARY_FRAME_BYTES = 16 * 1024 * 1024;
 const OPEN_TIMEOUT_MS = 20000;
-const OpenSchema = z.object({ manyId: z.uuid(), channel: z.enum(['stream', 'terminal']) }).strict();
-const SendSchema = z.object({ channelId: z.uuid(), data: z.string().min(1).max(MAX_SEND_CHARS) }).strict();
+const OpenSchema = z.object({ manyId: z.uuid(), channel: z.enum(['stream', 'terminal', 'desktop']) }).strict();
+const SendSchema = z.union([
+  z.object({ channelId: z.uuid(), data: z.string().min(1).max(MAX_SEND_CHARS) }).strict(),
+  z.object({ channelId: z.uuid(), bytes: z.instanceof(Uint8Array).refine((value) => value.byteLength > 0 && value.byteLength <= MAX_SEND_CHARS) }).strict(),
+]);
 const CloseSchema = z.object({ channelId: z.uuid() }).strict();
 
 const defaultSocket = (url, headers) => new WebSocket(url, { headers });
@@ -91,9 +96,16 @@ function register({
       }
       return { success: false, error: 'channel_unavailable' };
     }
-    channels.set(channelId, { socket, senderId: sender.id });
+    const binary = parsed.data.channel === 'desktop';
+    channels.set(channelId, { socket, senderId: sender.id, binary });
+    if (binary) socket.binaryType = 'arraybuffer';
     socket.onmessage = (message) => {
-      if (typeof message.data === 'string' && message.data.length <= MAX_FRAME_CHARS) notify({ type: 'message', data: message.data });
+      const data = message.data;
+      if (typeof data === 'string') {
+        if (data.length <= MAX_FRAME_CHARS) notify({ type: 'message', data });
+      } else if (binary && data && data.byteLength <= MAX_BINARY_FRAME_BYTES) {
+        notify({ type: 'binary', bytes: data instanceof Uint8Array ? data : new Uint8Array(data) });
+      }
     };
     socket.onclose = (closed) => {
       channels.delete(channelId);
@@ -114,8 +126,11 @@ function register({
     const entry = channels.get(parsed.data.channelId);
     if (!entry || entry.senderId !== event.sender.id) return { success: false, error: 'channel_closed' };
     if (entry.socket.readyState !== 1) return { success: false, error: 'channel_closed' };
+    const outgoing = 'bytes' in parsed.data ? parsed.data.bytes : parsed.data.data;
+    // Bytes only go to a desktop; a text channel never carries them.
+    if (typeof outgoing !== 'string' && !entry.binary) return { success: false, error: 'invalid_request' };
     try {
-      entry.socket.send(parsed.data.data);
+      entry.socket.send(outgoing);
     } catch {
       return { success: false, error: 'channel_closed' };
     }

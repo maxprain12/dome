@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Wheel } from '@/lib/manys/useComputerControl';
-import ManyComputerScreen from './ManyComputerScreen';
+import ManyComputerDesktop from './ManyComputerDesktop';
 import ManyComputerWheel from './ManyComputerWheel';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
   onResync: () => Promise<boolean>;
 }
 
-/** The computer's screen at a size worth driving: the whole screen, who has the wheel, and the button to change it. */
+/** The computer's desktop at a size worth driving: the whole screen, who has the wheel, and the button to change it. */
 export default function ManyComputerViewer({ open, onOpenChange, manyId, name, wheel, busy, onTake, onRelease, onResync }: Props) {
   const { t } = useTranslation();
   return (
@@ -26,7 +26,7 @@ export default function ManyComputerViewer({ open, onOpenChange, manyId, name, w
           <DialogTitle>{name} · {t('manys.computer.title')}</DialogTitle>
           <DialogDescription>{t('manys.computer.viewer.hint')}</DialogDescription>
         </DialogHeader>
-        {open && <ManyComputerScreen manyId={manyId} human={wheel === 'you'} onResync={onResync} large />}
+        {open && <ManyComputerDesktop manyId={manyId} human={wheel === 'you'} onResync={onResync} large />}
         <ManyComputerWheel wheel={wheel} busy={busy} onTake={onTake} onRelease={onRelease} />
       </DialogContent>
     </Dialog>
