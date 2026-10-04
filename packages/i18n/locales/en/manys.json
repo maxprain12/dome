@@ -363,5 +363,22 @@
       "delete": "Disconnect {{name}}"
     }
   },
-  "savedCredential": "a saved sign-in"
+  "savedCredential": "a saved sign-in",
+  "steps": {
+    "recent": "Recent steps",
+    "failed": "didn't work",
+    "searchLibrary": "Searching the library",
+    "readLibrary": "Reading from the library",
+    "writeLibrary": "Writing to the library",
+    "readFile": "Opening a file",
+    "deliverFile": "Preparing a file for you",
+    "lookComputer": "Looking at the computer",
+    "proposeAction": "Preparing an action for your approval",
+    "runApproved": "Doing the approved action",
+    "credentials": "Checking saved credentials",
+    "skill": "Reading the skill {{detail}}",
+    "mcpTools": "Checking a connected service",
+    "mcpCall": "Asking a connected service: {{detail}}",
+    "generic": "Working on it…"
+  }
 }

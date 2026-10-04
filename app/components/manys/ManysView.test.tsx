@@ -34,6 +34,12 @@ describe('Many’s durable interaction',()=>{
    fireEvent.click(screen.getByRole('button',{name:/Stop response|Detener respuesta/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-r','PATCH',{action:'cancel'}));
  });
+ it('names what the Many is doing right now while it works',async()=>{
+   const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[{sequence:1,task_id:'task-r',data:{tool:'vault_search',operation:null,host:null,phase:'start',ok:null}}]}:{...detail,tasks:[running]});
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByText(/Searching the library|Buscando en la biblioteca/)).toBeInTheDocument();
+ });
  it('lists collaborators with the Many mark and renders the thread as bubbles',async()=>{
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many,{...detail.many,id:'many-writer',name:'Writer'}]}:{...detail,messages:[{id:'m-assistant',role:'assistant',content:'Hello from Many',task_id:''},{id:'m-user',role:'user',content:'Hi',task_id:''}]});
    render(<ManysView/>);
