@@ -99,7 +99,10 @@
     "session_entry_count_limit": "Esta conversación es demasiado larga para que el agente continúe.",
     "session_entry_limit": "Un mensaje de esta conversación es demasiado grande.",
     "task_terminal": "Esta tarea ya terminó.",
-    "not_found": "Ese elemento ya no existe."
+    "not_found": "Ese elemento ya no existe.",
+    "policy_denied": "Una regla que definiste bloqueó esa acción.",
+    "policy_unavailable": "No se pudieron comprobar las reglas, así que no se hizo la acción.",
+    "policy_limit": "Alcanzaste el límite de 100 reglas."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -240,5 +243,49 @@
   "expired": "Caducada",
   "working": "Trabajando en ello…",
   "answerPlaceholder": "Escribe tu respuesta",
-  "skipQuestion": "Omitir esta pregunta"
+  "skipQuestion": "Omitir esta pregunta",
+  "governance": {
+    "tab": "Gobierno",
+    "intro": "Las reglas limitan lo que este Many puede hacer, además de sus permisos. Cada llamada que hace queda registrada abajo.",
+    "rules": "Reglas",
+    "noRules": "Sin reglas. El Many puede hacer lo que sus permisos permitan.",
+    "allowActive": "Hay una regla de permitir activa: lo que no cubra queda bloqueado.",
+    "newRule": "Nueva regla",
+    "namePlaceholder": "p. ej. Sin webs de banca",
+    "effect": "Qué hace",
+    "deny": "Bloquear",
+    "allow": "Permitir solo",
+    "allowHint": "Cuando hay una regla de permitir, el Many solo puede hacer lo que alguna regla de permitir cubra.",
+    "capabilities": "Permisos que cubre",
+    "hosts": "Sitios web",
+    "operations": "Acciones del ordenador",
+    "tools": "Herramientas",
+    "listHint": "Separa varios con comas. Usa * como comodín. Deja un campo vacío para cubrir cualquier valor.",
+    "observeOnly": "Solo observar",
+    "observeHint": "Anota lo que bloquearía sin bloquearlo. Útil para probar una regla.",
+    "allManys": "Aplicar a todos mis Manys",
+    "create": "Crear regla",
+    "observing": "Observando",
+    "everyMany": "Todos los Manys",
+    "enabled": "Activar {{name}}",
+    "delete": "Eliminar {{name}}",
+    "coversEverything": "Cubre todo",
+    "covers": {
+      "capabilities": "Permisos: {{list}}",
+      "hosts": "Sitios: {{list}}",
+      "tools": "Herramientas: {{list}}",
+      "operations": "Acciones: {{list}}"
+    },
+    "audit": "Registro de actividad",
+    "auditHint": "Cada llamada a la biblioteca o al ordenador, si se permitió y cómo terminó. No se puede editar.",
+    "noAudit": "Todavía no hay nada registrado.",
+    "loadOlder": "Ver anteriores",
+    "failed": "Falló",
+    "ruleChanged": "Regla modificada",
+    "decisions": {
+      "allowed": "Permitida",
+      "denied": "Bloqueada",
+      "observed_denied": "La bloquearía"
+    }
+  }
 }

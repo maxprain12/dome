@@ -55,6 +55,14 @@ test('a rejected delete keeps the remembered runtime', async () => {
   assert.equal(removed.length, 0);
 });
 
+test('accepts the governance paths and rejects anything else in the query', async () => {
+  nextResponse = { ok: true, status: 200, body: '{"entries":[]}' };
+  assert.equal((await request({ path: '/many-1/audit?before=42' })).success, true);
+  assert.equal((await request({ path: '/many-1/policies/rule-1', method: 'DELETE' })).success, true);
+  assert.equal((await request({ path: '/many-1/audit?before=42&x=1' })).error, 'invalid_request');
+  assert.equal((await request({ path: '/many-1/audit?before=abc' })).error, 'invalid_request');
+});
+
 after(() => {
   if (previousAuth) require.cache[authPath] = previousAuth;
   else delete require.cache[authPath];

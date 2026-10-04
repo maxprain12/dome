@@ -99,7 +99,10 @@
     "session_entry_count_limit": "Cette conversation est trop longue pour que l’agent continue.",
     "session_entry_limit": "Un message de cette conversation est trop volumineux.",
     "task_terminal": "Cette tâche est déjà terminée.",
-    "not_found": "Cet élément n’existe plus."
+    "not_found": "Cet élément n’existe plus.",
+    "policy_denied": "Une règle que vous avez définie a bloqué cette action.",
+    "policy_unavailable": "Les règles n’ont pas pu être vérifiées, l’action n’a donc pas été faite.",
+    "policy_limit": "Vous avez atteint la limite de 100 règles."
   },
   "actions": {
     "pending": "À vérifier",
@@ -240,5 +243,49 @@
   "expired": "Expirée",
   "working": "Je m’en occupe…",
   "answerPlaceholder": "Écrivez votre réponse",
-  "skipQuestion": "Ignorer cette question"
+  "skipQuestion": "Ignorer cette question",
+  "governance": {
+    "tab": "Gouvernance",
+    "intro": "Les règles limitent ce que ce Many peut faire, en plus de ses permissions. Chaque appel qu’il fait est enregistré ci-dessous.",
+    "rules": "Règles",
+    "noRules": "Aucune règle. Le Many peut faire ce que ses permissions autorisent.",
+    "allowActive": "Une règle d’autorisation est active : tout ce qu’elle ne couvre pas est bloqué.",
+    "newRule": "Nouvelle règle",
+    "namePlaceholder": "p. ex. Pas de sites bancaires",
+    "effect": "Ce qu’elle fait",
+    "deny": "Bloquer",
+    "allow": "Autoriser seulement",
+    "allowHint": "Dès qu’il y a une règle d’autorisation, le Many ne peut faire que ce qu’une règle d’autorisation couvre.",
+    "capabilities": "Permissions couvertes",
+    "hosts": "Sites web",
+    "operations": "Actions de l’ordinateur",
+    "tools": "Outils",
+    "listHint": "Séparez plusieurs valeurs par des virgules. Utilisez * comme joker. Laissez un champ vide pour couvrir toute valeur.",
+    "observeOnly": "Observer seulement",
+    "observeHint": "Note ce qu’elle bloquerait sans bloquer. Utile pour tester une règle.",
+    "allManys": "Appliquer à tous mes Manys",
+    "create": "Créer la règle",
+    "observing": "Observation",
+    "everyMany": "Tous les Manys",
+    "enabled": "Activer {{name}}",
+    "delete": "Supprimer {{name}}",
+    "coversEverything": "Couvre tout",
+    "covers": {
+      "capabilities": "Permissions : {{list}}",
+      "hosts": "Sites : {{list}}",
+      "tools": "Outils : {{list}}",
+      "operations": "Actions : {{list}}"
+    },
+    "audit": "Journal d’activité",
+    "auditHint": "Chaque appel à la bibliothèque ou à l’ordinateur, s’il a été autorisé et comment il s’est terminé. Non modifiable.",
+    "noAudit": "Rien d’enregistré pour l’instant.",
+    "loadOlder": "Voir plus ancien",
+    "failed": "Échec",
+    "ruleChanged": "Règle modifiée",
+    "decisions": {
+      "allowed": "Autorisé",
+      "denied": "Bloqué",
+      "observed_denied": "Aurait été bloqué"
+    }
+  }
 }

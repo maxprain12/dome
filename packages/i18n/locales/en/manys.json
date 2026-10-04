@@ -99,7 +99,10 @@
     "session_entry_count_limit": "This conversation is too long for the agent to continue.",
     "session_entry_limit": "A message in this conversation is too large.",
     "task_terminal": "This task has already ended.",
-    "not_found": "That item no longer exists."
+    "not_found": "That item no longer exists.",
+    "policy_denied": "A rule you set blocked that action.",
+    "policy_unavailable": "Rules could not be checked, so the action was not done.",
+    "policy_limit": "You reached the limit of 100 rules."
   },
   "actions": {
     "pending": "Needs review",
@@ -240,5 +243,49 @@
   "expired": "Expired",
   "working": "Working on it…",
   "answerPlaceholder": "Type your answer",
-  "skipQuestion": "Skip this question"
+  "skipQuestion": "Skip this question",
+  "governance": {
+    "tab": "Governance",
+    "intro": "Rules narrow what this Many may do, on top of its permissions. Every call it makes is recorded below.",
+    "rules": "Rules",
+    "noRules": "No rules. The Many can do whatever its permissions allow.",
+    "allowActive": "An allow rule is active: anything it does not cover is blocked.",
+    "newRule": "New rule",
+    "namePlaceholder": "e.g. No banking sites",
+    "effect": "What it does",
+    "deny": "Block",
+    "allow": "Allow only",
+    "allowHint": "Once there is an allow rule, the Many can only do what an allow rule covers.",
+    "capabilities": "Permissions covered",
+    "hosts": "Websites",
+    "operations": "Computer actions",
+    "tools": "Tools",
+    "listHint": "Separate several with commas. Use * as a wildcard. Leave a field empty to cover any value.",
+    "observeOnly": "Only observe",
+    "observeHint": "Records what it would block without blocking it. Good for testing a rule.",
+    "allManys": "Apply to all my Manys",
+    "create": "Create rule",
+    "observing": "Observing",
+    "everyMany": "All Manys",
+    "enabled": "Enable {{name}}",
+    "delete": "Delete {{name}}",
+    "coversEverything": "Covers everything",
+    "covers": {
+      "capabilities": "Permissions: {{list}}",
+      "hosts": "Websites: {{list}}",
+      "tools": "Tools: {{list}}",
+      "operations": "Actions: {{list}}"
+    },
+    "audit": "Activity record",
+    "auditHint": "Every call to the library or the computer, whether it was allowed, and how it ended. It cannot be edited.",
+    "noAudit": "Nothing recorded yet.",
+    "loadOlder": "Show older",
+    "failed": "Failed",
+    "ruleChanged": "Rule changed",
+    "decisions": {
+      "allowed": "Allowed",
+      "denied": "Blocked",
+      "observed_denied": "Would block"
+    }
+  }
 }
