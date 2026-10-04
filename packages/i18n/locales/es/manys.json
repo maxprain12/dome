@@ -363,5 +363,22 @@
       "delete": "Desconectar {{name}}"
     }
   },
-  "savedCredential": "un acceso guardado"
+  "savedCredential": "un acceso guardado",
+  "steps": {
+    "recent": "Pasos recientes",
+    "failed": "no funcionó",
+    "searchLibrary": "Buscando en la biblioteca",
+    "readLibrary": "Leyendo la biblioteca",
+    "writeLibrary": "Escribiendo en la biblioteca",
+    "readFile": "Abriendo un archivo",
+    "deliverFile": "Preparando un archivo para ti",
+    "lookComputer": "Mirando el ordenador",
+    "proposeAction": "Preparando una acción para tu aprobación",
+    "runApproved": "Haciendo la acción aprobada",
+    "credentials": "Revisando las credenciales guardadas",
+    "skill": "Leyendo la skill {{detail}}",
+    "mcpTools": "Consultando un servicio conectado",
+    "mcpCall": "Consultando un servicio conectado: {{detail}}",
+    "generic": "Trabajando en ello…"
+  }
 }
