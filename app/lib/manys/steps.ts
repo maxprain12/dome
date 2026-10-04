@@ -79,6 +79,7 @@ const LABELS: Record<string, string> = {
   vault_write: 'writeLibrary',
   vault_blob: 'readFile',
   vault_deliver_file: 'deliverFile',
+  web_research: 'webResearch',
   computer_read: 'lookComputer',
   propose_action: 'proposeAction',
   execute_approved: 'runApproved',

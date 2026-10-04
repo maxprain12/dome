@@ -55,6 +55,7 @@
   "capabilities": {
     "vault_read": "Leer biblioteca",
     "vault_write": "Editar biblioteca",
+    "web_read": "Investigar en la web",
     "computer_read": "Leer ordenador",
     "computer_write": "Operar ordenador",
     "external_send": "Enviar",
@@ -371,6 +372,7 @@
     "readLibrary": "Leyendo la biblioteca",
     "writeLibrary": "Escribiendo en la biblioteca",
     "readFile": "Abriendo un archivo",
+    "webResearch": "Buscando en la web",
     "deliverFile": "Preparando un archivo para ti",
     "lookComputer": "Mirando el ordenador",
     "proposeAction": "Preparando una acción para tu aprobación",

@@ -25,3 +25,20 @@ test('portable harness persists a waiting task, then resumes with a reviewed act
     assert.ok(JSON.stringify(requests[1]).includes('interrupted'));assert.equal(requests[1].max_tokens,2048);assert.ok(JSON.stringify(requests[1]).includes('Project A'));assert.ok(JSON.stringify(requests[1]).includes('approval-1'));
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('a plain-text reply with no terminal tool completes the task with that reply',async()=>{
+  const server=createServer(async(req,res)=>{
+    for await(const _ of req);
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',content:'Hola, ¿en qué te ayudo?'},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'stop'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:12,total_tokens:37}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const calls=[];
+  try {
+    await run({taskId:'task-chat',prompt:'hola',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+      saveEntry:async()=>{},beforeRequest:async()=>{},usage:async()=>{},call:async(id,name,args)=>{calls.push({id,name,args});return {state:'completed'};}});
+    assert.deepEqual(calls.map(c=>c.name),['finish_task']);assert.equal(calls[0].args.text,'Hola, ¿en qué te ayudo?');
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
