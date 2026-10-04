@@ -4,6 +4,8 @@ Many’s reúne colaboradores cloud en una pestaña de Dome. Abrir uno es una co
 
 Una tarea enviada se guarda en Provider antes de aparecer como aceptada. El request key se conserva si se pierde la respuesta, y los borradores sobreviven al cierre de la pestaña. Detener respuesta pausa la tarea y libera su intento; cancelar la tarea registra una cancelación durable. Esperar datos o aprobación también libera capacidad.
 
+Al crear un Many hay que elegir cómo corre en la nube. Las dos opciones son una clave de API ya guardada en Dome, o los créditos de Dome. La clave guardada solo se ofrece si el proveedor se autentica con API key y su URL base no es localhost, 127.0.0.1 ni otra dirección que solo exista en el ordenador (IP privada, enlace local, `.local`). La interfaz muestra el nombre del proveedor, nunca la clave. La elección queda en el agente como `runtime` (`source`: `dome_credits` o `provider_key`, y `provider` si aplica) para que Desktop y Companion creen con el mismo cuerpo. Contrato: `shared/manys/cloud-runtime.json`.
+
 El usuario selecciona proyectos, recursos y capacidades. Compartir un recurso no comparte el resto del proyecto. Todas las búsquedas, lecturas, blobs y escrituras del runtime pasan por el adaptador del vault. Las propuestas de escritura que parten de una revisión antigua se conservan para revisión en Many’s.
 
 El ordenador se abre junto a la conversación. Tomar control pausa y fencea al agente; el usuario puede navegar, escribir y ejecutar comandos. Devolverlo exige una captura nueva antes de reanudar tareas. Los archivos se publican como recursos de la biblioteca; las tarjetas guardan IDs, no URLs temporales.

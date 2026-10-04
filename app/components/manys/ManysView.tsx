@@ -21,6 +21,7 @@ import ManySettings from './ManySettings';
 import ManyComputer from './ManyComputer';
 import ManyReview from './ManyReview';
 import ManyMark, { manyMarkVariant } from './ManyMark';
+import ManyCreateForm from './ManyCreateForm';
 
 export default function ManysView() {
   const { t } = useTranslation();
@@ -28,7 +29,6 @@ export default function ManysView() {
   const [selected, setSelected] = useState('');
   const [detail, setDetail] = useState<ManyDetail | null>(null);
   const [error, setError] = useState('');
-  const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const currentSelected = useRef(selected);
@@ -67,16 +67,22 @@ export default function ManysView() {
     setDraft(localStorage.getItem(`manys:draft:${selected}`) ?? '');
   }, [selected]);
 
-  const perform = async (fn: () => Promise<unknown>) => {
+  const run = async (fn: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
     try {
       await fn();
       await refresh();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');
+      return false;
     } finally {
       setBusy(false);
     }
+  };
+
+  const perform = async (fn: () => Promise<unknown>): Promise<void> => {
+    await run(fn);
   };
 
   const openResource = (id: string) => perform(async () => {
@@ -141,29 +147,13 @@ export default function ManysView() {
             </Button>
           ))}
         </nav>
-        <form
-          className="flex items-center gap-2 border-t border-border p-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void perform(async () => {
-              const many = await request<CloudMany>('', 'POST', { name });
-              setName('');
-              setSelected(many.id);
-            });
-          }}
-        >
-          <Field className="min-w-0 flex-1">
-            <FieldLabel htmlFor="many-name" className="sr-only">{t('manys.name')}</FieldLabel>
-            <Input
-              id="many-name"
-              value={name}
-              maxLength={120}
-              placeholder={t('manys.name')}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Button disabled={busy || !name.trim()} type="submit">{t('manys.create')}</Button>
-        </form>
+        <ManyCreateForm
+          busy={busy}
+          onCreate={(input) => run(async () => {
+            const many = await request<CloudMany>('', 'POST', input);
+            setSelected(many.id);
+          })}
+        />
       </aside>
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-3 px-4 py-4">

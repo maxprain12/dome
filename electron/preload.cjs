@@ -736,6 +736,7 @@ const ALLOWED_CHANNELS = {
     'browser-extension:pair-cancel',
     'browser-extension:revoke',
     'manys:request',
+    'manys:cloud-providers',
     'remote-many:status',
     'remote-many:set-enabled',
     'remote-many:pair-start',
