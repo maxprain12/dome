@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CloudMany } from '@/lib/manys/api';
 
-const capabilities = ['vault.read', 'vault.write', 'computer.read', 'computer.write', 'external.send', 'external.publish', 'external.purchase', 'external.delete'];
+const capabilities = ['vault.read', 'vault.write', 'web.read', 'computer.read', 'computer.write', 'external.send', 'external.publish', 'external.purchase', 'external.delete'];
 /** Capabilities that always pass through a proposal the person reviews first. */
 const needsApproval = new Set(['external.send', 'external.publish', 'external.purchase', 'external.delete']);
 

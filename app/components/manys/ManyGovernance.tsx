@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request, type AuditEntry, type Policy } from '@/lib/manys/api';
 import { buildMatch, foldAudit, mergeAudit } from './governanceRules';
 
-const CAPABILITIES = ['vault.read', 'vault.write', 'computer.read', 'computer.write', 'external.send', 'external.publish', 'external.purchase', 'external.delete'];
+const CAPABILITIES = ['vault.read', 'vault.write', 'web.read', 'computer.read', 'computer.write', 'external.send', 'external.publish', 'external.purchase', 'external.delete'];
 const REFRESH_MS = 10000;
 const labelClass = 'mb-1.5 block text-xs leading-[1.3] font-semibold';
 const DECISION_BADGE = { allowed: 'ok', denied: 'err', observed_denied: 'warn' } as const;
