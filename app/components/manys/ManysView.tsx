@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -9,6 +9,8 @@ import {
   Delete02Icon,
   Folder01Icon,
   Maximize02Icon,
+  PauseIcon,
+  PlayCircleIcon,
   Minimize02Icon,
   MoreHorizontalIcon,
   PanelRightIcon,
@@ -49,7 +51,10 @@ import ManyRoster, { pendingCount } from './ManyRoster';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManysOverview, { type ManyTemplate } from './ManysOverview';
 import { stepDetail, stepKey, useManySteps } from '@/lib/manys/steps';
-import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { useLiveRuns, useManyEvents } from '@/lib/manys/liveRuns';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import ManyTimeline from './ManyTimeline';
+import { retryTask, setManyPaused, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
 
@@ -119,6 +124,16 @@ export default function ManysView() {
     return () => clearInterval(timer);
   }, [refresh, selected]);
 
+  // The feed says when something changed, so the view follows it instead of waiting for the next poll.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useManyEvents((event) => {
+    if (event.kind === 'run_text' || event.kind === 'task_step') return;
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => { void refresh(event.many_id !== currentSelected.current); }, 300);
+  });
+  useEffect(() => () => { if (refreshTimer.current) clearTimeout(refreshTimer.current); }, []);
+  const runs = useLiveRuns((state) => state.runs);
+
   useEffect(() => {
     setDraft(localStorage.getItem(`manys:draft:${selected}`) ?? '');
     setDetailsOpen(false);
@@ -168,16 +183,19 @@ export default function ManysView() {
   const selectedVariant = detail ? manyMarkVariant(detail.many.id) : 'lime';
   const summary = detail ? summarizeMany(detail) : null;
   const status = summary?.status ?? 'idle';
-  const decisions = summary?.decisions ?? [];
+  const paused = detail?.many.grants.paused === true;
+  // A proposal already shown in the thread, where it was asked, is not listed a second time below it.
+  const askedInThread = new Set(Object.values(runs).flatMap((run) => run.items.flatMap((item) => (item.kind === 'tool' && item.tool === 'propose_action' ? [item.callId] : []))));
+  const decisions = (summary?.decisions ?? []).filter((action) => !(action.operation_id && askedInThread.has(action.operation_id)));
   const conflicts = summary?.conflicts ?? [];
   const questions = summary?.questions ?? [];
   const pendingQuestion = questions[0] ?? null;
   const lastFailed = summary?.lastFailed ?? null;
   const inFlight = detail?.tasks.filter((task) => task !== lastFailed && (task.state === 'running' || task.state === 'queued')) ?? [];
   const working = inFlight.length > 0;
-  const steps = useManySteps(selected, working);
+  const steps = useManySteps(selected, inFlight.map((task) => task.id));
   const currentStep = [...steps].reverse().find((step) => !step.done) ?? steps[steps.length - 1];
-  const earlierSteps = steps.filter((step) => step !== currentStep).slice(-4);
+  const streaming = inFlight.some((task) => runs[task.id]?.items.at(-1)?.kind === 'text');
   const spokenResults = detail?.tasks.filter((task) => {
     const text = task.result?.text;
     return !!text && !detail.messages.some((message) => message.content === text);
@@ -413,6 +431,10 @@ export default function ManysView() {
                         {t('manys.local')}
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => { void perform(() => setManyPaused(detail.many, !paused)); }}>
+                      <HugeiconsIcon icon={paused ? PlayCircleIcon : PauseIcon} aria-hidden />
+                      {t(paused ? 'manys.pause.resume' : 'manys.pause.pause')}
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => setToDelete(detail.many)}>
                       <HugeiconsIcon icon={Delete02Icon} aria-hidden />
@@ -459,25 +481,29 @@ export default function ManysView() {
                         const related = detail.messages.filter((item) => item.task_id === message.task_id);
                         const isLastForTask = related[related.length - 1]?.id === message.id;
                         const resources = isLastForTask ? (task?.result?.resources ?? []) : [];
+                        const taskRun = isUser && message.task_id && !related.slice(related.indexOf(message) + 1).some((item) => item.role === 'user') ? runs[message.task_id] : undefined;
                         return (
-                          <Message key={message.id} align={isUser ? 'end' : 'start'} className="gap-2.5 text-sm/relaxed">
-                            {!isUser && (
-                              <MessageAvatar className="mt-0.5 size-6 min-w-6 self-start bg-transparent">
-                                <ManyMark variant={selectedVariant} className="size-6 ring-0" />
-                              </MessageAvatar>
-                            )}
-                            <MessageContent>
-                              <Bubble variant={isUser ? 'default' : 'muted'} align={isUser ? 'end' : 'start'}>
-                                <BubbleContent className="whitespace-pre-wrap">
-                                  {message.content}
-                                </BubbleContent>
-                              </Bubble>
-                              {queued && <Badge variant="outline" className="self-start">{t('manys.states.queued')}</Badge>}
-                              {resources.map((id) => (
-                                <Button key={id} variant="link" className="self-start" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
-                              ))}
-                            </MessageContent>
-                          </Message>
+                          <Fragment key={message.id}>
+                            <Message align={isUser ? 'end' : 'start'} className="gap-2.5 text-sm/relaxed">
+                              {!isUser && (
+                                <MessageAvatar className="mt-0.5 size-6 min-w-6 self-start bg-transparent">
+                                  <ManyMark variant={selectedVariant} className="size-6 ring-0" />
+                                </MessageAvatar>
+                              )}
+                              <MessageContent>
+                                <Bubble variant={isUser ? 'default' : 'muted'} align={isUser ? 'end' : 'start'}>
+                                  <BubbleContent className={isUser ? 'whitespace-pre-wrap' : undefined}>
+                                    {isUser ? message.content : <MarkdownRenderer content={message.content} />}
+                                  </BubbleContent>
+                                </Bubble>
+                                {queued && <Badge variant="outline" className="self-start">{t('manys.states.queued')}</Badge>}
+                                {resources.map((id) => (
+                                  <Button key={id} variant="link" className="self-start" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
+                                ))}
+                              </MessageContent>
+                            </Message>
+                            {taskRun && <ManyTimeline run={taskRun} manyId={selected} variant={selectedVariant} onOpenComputer={() => openInspector('computer')} actions={detail.actions} busy={busy} perform={perform} />}
+                          </Fragment>
                         );
                       })}
                       {spokenResults.map((task) => (
@@ -552,21 +578,13 @@ export default function ManysView() {
                             <ManyMark variant={selectedVariant} className="size-6 ring-0" />
                           </MessageAvatar>
                           <MessageContent>
-                            <Bubble variant="muted" align="start">
-                              <BubbleContent className="flex items-center gap-2 text-muted-foreground">
-                                <span aria-hidden="true" className="size-[7px] shrink-0 animate-pulse rounded-full bg-success" />
-                                {currentStep ? t(`manys.steps.${stepKey(currentStep.tool)}`, { detail: stepDetail(currentStep) }) : t('manys.working')}
-                              </BubbleContent>
-                            </Bubble>
-                            {earlierSteps.length > 0 && (
-                              <ol className="flex flex-col gap-0.5 px-1 text-xs text-muted-foreground" aria-label={t('manys.steps.recent')}>
-                                {earlierSteps.map((step) => (
-                                  <li key={step.id} className={cn('truncate', step.ok === false && 'text-destructive')}>
-                                    {t(`manys.steps.${stepKey(step.tool)}`, { detail: stepDetail(step) })}
-                                    {step.ok === false && ` · ${t('manys.steps.failed')}`}
-                                  </li>
-                                ))}
-                              </ol>
+                            {!streaming && (
+                              <Bubble variant="muted" align="start">
+                                <BubbleContent className="flex items-center gap-2 text-muted-foreground">
+                                  <span aria-hidden="true" className="size-[7px] shrink-0 animate-pulse rounded-full bg-success motion-reduce:animate-none" />
+                                  {currentStep && !currentStep.done ? t(`manys.steps.${stepKey(currentStep.tool)}`, { detail: stepDetail(currentStep) }) : t('manys.working')}
+                                </BubbleContent>
+                              </Bubble>
                             )}
                             <Button type="button" variant="ghost" size="sm" className="self-start" disabled={busy} onClick={() => { void cancelTasks(inFlight); }}>
                               {t('manys.stopReply')}
@@ -607,6 +625,16 @@ export default function ManysView() {
                       </Button>
                     </div>
                   )}
+                  {paused ? (
+                    <div className="dome-card dome-card-warn flex items-center gap-3 px-3 py-2.5 text-sm" role="status">
+                      <HugeiconsIcon icon={PauseIcon} className="size-4 shrink-0" aria-hidden />
+                      <div className="flex min-w-0 grow flex-col">
+                        <strong className="font-semibold">{t('manys.pause.paused')}</strong>
+                        <span className="text-muted-foreground">{t('manys.pause.pausedHint')}</span>
+                      </div>
+                      <Button type="button" size="sm" disabled={busy} onClick={() => { void perform(() => setManyPaused(detail.many, false)); }}>{t('manys.pause.resume')}</Button>
+                    </div>
+                  ) : (
                   <form
                     className="dome-glass-strong dome-composer"
                     onSubmit={(event) => {
@@ -633,6 +661,7 @@ export default function ManysView() {
                       <HugeiconsIcon icon={SentIcon} />
                     </Button>
                   </form>
+                  )}
                   {pendingQuestion && (
                     <Button type="button" variant="ghost" size="sm" className="self-start" disabled={busy} onClick={() => { void cancelTasks([pendingQuestion]); }}>
                       {t('manys.skipQuestion')}

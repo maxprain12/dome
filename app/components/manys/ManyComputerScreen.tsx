@@ -24,10 +24,12 @@ interface Props {
   autoConnect: boolean;
   busy: boolean;
   onTakeControl: () => void;
+  /** A small read-only preview for inline use: no address bar, no controls. */
+  compact?: boolean;
 }
 
 /** The computer's screen as it changes, with the mouse and keyboard going straight to it. */
-export default function ManyComputerScreen({ manyId, human, autoConnect, busy, onTakeControl }: Props) {
+export default function ManyComputerScreen({ manyId, human, autoConnect, busy, onTakeControl, compact = false }: Props) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const channel = useRef<ComputerChannel | null>(null);
@@ -229,7 +231,7 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
 
   return (
     <div className="flex flex-col gap-2">
-      <form
+      {!compact && <form
         className="flex items-center gap-1.5"
         onSubmit={(event) => {
           event.preventDefault();
@@ -251,7 +253,7 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
           <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={16} />
         </Button>
         <Button type="submit" variant="outline" disabled={!human || link !== 'live' || navigating || !address.trim()}>{t('manys.computer.screen.go')}</Button>
-      </form>
+      </form>}
 
       <div className={cn('relative overflow-hidden rounded-[14px] bg-muted shadow-[0_0_0_1px_var(--hairline)]', human && 'shadow-[0_0_0_2px_var(--warning)]')}>
         <canvas
@@ -283,7 +285,7 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
             {t('manys.computer.screen.blank')}
           </div>
         )}
-        {link === 'live' && (
+        {link === 'live' && !compact && (
           <div className="absolute inset-x-0 bottom-3 flex justify-center px-2">
             <div className="dome-glass-strong dome-glass-float inline-flex items-center gap-2 rounded-full py-1 pr-1 pl-3">
               <span aria-hidden="true" className={cn('size-[7px] rounded-full', human ? 'bg-warning' : 'bg-success')} />
@@ -293,7 +295,7 @@ export default function ManyComputerScreen({ manyId, human, autoConnect, busy, o
           </div>
         )}
       </div>
-      {notice && <p className="text-muted-foreground">{t(`manys.computer.notice.${notice}`, { defaultValue: notice })}</p>}
+      {notice && !compact && <p className="text-muted-foreground">{t(`manys.computer.notice.${notice}`, { defaultValue: notice })}</p>}
     </div>
   );
 }

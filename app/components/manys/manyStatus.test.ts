@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { delegateToMany, request, type ManyDetail, type Task } from '@/lib/manys/api';
-import { isFailedTask, retryTask, summarizeMany } from './manyStatus';
+import { isFailedTask, retryTask, setManyPaused, summarizeMany } from './manyStatus';
 
 vi.mock('@/lib/manys/api', () => ({ request: vi.fn(), delegateToMany: vi.fn() }));
 
@@ -59,5 +59,21 @@ describe('retryTask', () => {
     vi.mocked(delegateToMany).mockResolvedValue(task({}));
     await retryTask('m', task({ state: 'failed', prompt: 'Report' }));
     expect(delegateToMany).toHaveBeenCalledWith('m', 'Report');
+  });
+});
+
+describe('pause', () => {
+  it('shows a paused Many as paused whatever it was doing', () => {
+    const base = detail([task({ state: 'running' })]);
+    expect(summarizeMany(base).status).toBe('running');
+    const paused = { ...base, many: { ...base.many, grants: { ...base.many.grants, paused: true } } };
+    expect(summarizeMany(paused).status).toBe('paused');
+  });
+
+  it('saves the pause in the grants and keeps everything else about the Many', async () => {
+    vi.mocked(request).mockResolvedValue({});
+    const many = { id: 'm', name: 'Research', instructions: 'be brief', grant_revision: 1, grants: { projects: ['p'], resources: [], capabilities: ['vault.read'], computer: { browser: true, files: false, shell: false } } };
+    await setManyPaused(many, true);
+    expect(request).toHaveBeenCalledWith('/m', 'PATCH', { name: 'Research', instructions: 'be brief', grants: { ...many.grants, paused: true } });
   });
 });

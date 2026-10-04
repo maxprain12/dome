@@ -1,4 +1,5 @@
-import { delegateToMany, request, type Action, type ManyDetail, type Task } from '@/lib/manys/api';
+import { delegateToMany, request, type Action, type CloudMany, type ManyDetail, type Task } from '@/lib/manys/api';
+import { withPaused } from './computerPermissions';
 
 export type ManyStatus = 'idle' | 'queued' | 'running' | 'paused' | 'waiting_input' | 'waiting_approval' | 'failed';
 
@@ -62,5 +63,13 @@ export function summarizeMany(detail: ManyDetail): ManySummary {
   else if (activeTasks.some((task) => task.state === 'paused')) status = 'paused';
   else if (activeTasks.length > 0) status = 'queued';
 
+  // The owner's stop outranks whatever the Many was in the middle of.
+  if (detail.many.grants.paused) status = 'paused';
+
   return { status, activeTasks, decisions, conflicts, questions, lastFailed };
+}
+
+/** Stops a Many taking work (and fences what it is doing), or lets it work again. Nothing else about it changes. */
+export function setManyPaused(many: CloudMany, paused: boolean): Promise<unknown> {
+  return request(`/${many.id}`, 'PATCH', { name: many.name, instructions: many.instructions, grants: withPaused(many.grants, paused) });
 }

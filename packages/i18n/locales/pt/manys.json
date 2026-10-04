@@ -83,6 +83,31 @@
     },
     "activity": {
       "empty": "Ainda não há atividade recente do Many."
+    },
+    "permissions": {
+      "title": "Permissões do computador",
+      "hint": "Você decide para que este computador pode ser usado. Cada interruptor vale para o Many e para você.",
+      "enabled": "Ativar este computador",
+      "browser": "Navegador",
+      "files": "Arquivos do espaço de trabalho",
+      "shell": "Comandos de terminal",
+      "pausesWork": "Alterar uma permissão pausa o que o Many está fazendo agora.",
+      "allow": "Permitir",
+      "offHint": "Você pode reativar quando quiser; o que o Many estiver fazendo agora será pausado.",
+      "off": {
+        "browserTitle": "O navegador está desativado",
+        "filesTitle": "Os arquivos estão desativados",
+        "shellTitle": "O terminal está desativado"
+      }
+    },
+    "power": {
+      "running": "Ligado",
+      "stopped": "Desligado",
+      "checking": "Verificando…",
+      "unknown": "Estado desconhecido",
+      "start": "Iniciar computador",
+      "stop": "Desligar computador",
+      "stopHint": "Desligar mantém os arquivos e o perfil do navegador. Liga sozinho ao usar e desliga após 15 minutos sem uso."
     }
   },
   "message": "Mensagem",
@@ -183,7 +208,9 @@
     "mcp_server_not_found": "Esse serviço não está ligado.",
     "mcp_tool_unknown": "Essa ferramenta não existe no serviço.",
     "connection_changed": "O serviço mudou depois de ser proposto. Pede de novo.",
-    "read_only_tool_needs_no_review": "Essa ferramenta só lê, por isso não precisa de aprovação."
+    "read_only_tool_needs_no_review": "Essa ferramenta só lê, por isso não precisa de aprovação.",
+    "many_paused": "O Many está em pausa. Retome-o para dar trabalho.",
+    "computer_permission_denied": "Essa permissão do computador está desativada."
   },
   "actions": {
     "pending": "Precisa de revisão",
@@ -402,7 +429,6 @@
   },
   "savedCredential": "um acesso guardado",
   "steps": {
-    "recent": "Passos recentes",
     "failed": "não funcionou",
     "searchLibrary": "Pesquisando na biblioteca",
     "readLibrary": "Lendo a biblioteca",
@@ -418,5 +444,20 @@
     "mcpTools": "Consultando um serviço conectado",
     "mcpCall": "Consultando um serviço conectado: {{detail}}",
     "generic": "Trabalhando nisso…"
+  },
+  "toolCard": {
+    "working": "Em andamento",
+    "finished": "Concluído",
+    "failed": "Não funcionou",
+    "openComputer": "Abrir o computador",
+    "liveView": "Visão ao vivo do computador"
+  },
+  "pause": {
+    "pause": "Pausar este Many",
+    "resume": "Retomar",
+    "pauseAll": "Pausar todos",
+    "resumeAll": "Retomar todos",
+    "paused": "O Many está em pausa",
+    "pausedHint": "Não aceita trabalho novo e o que fazia foi interrompido. Retome-o para voltar a dar tarefas."
   }
 }

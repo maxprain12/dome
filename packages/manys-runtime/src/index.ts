@@ -14,6 +14,8 @@ export interface RuntimeInput {
   saveEntry:(entry:Record<string,unknown>)=>Promise<void>;
   beforeRequest:()=>Promise<void>;usage:(input:number,output:number)=>Promise<void>;
   call:(id:string,tool:string,args:Record<string,unknown>)=>Promise<unknown>;
+  /** Live text of the turn as it is written. Optional and best effort: it must never fail the run. */
+  stream?:(input:{messageId:string;delta:string;end?:boolean})=>void;
 }
 const schemas = {
   vault_deliver_file: Type.Object({path:Type.String(),projectId:Type.String(),name:Type.String(),mime:Type.String()}),
@@ -88,8 +90,13 @@ export async function run(input:RuntimeInput):Promise<void> {
     const value=payload as Record<string,unknown>;return {payload:{...value,max_tokens:model.api==='openai-responses'||input.provider==='openai'?undefined:2048,max_completion_tokens:model.api!=='openai-responses'&&input.provider==='openai'?2048:undefined,max_output_tokens:model.api==='openai-responses'?2048:undefined}};
   });
   let reply='';
+  let turn=0;let liveId='';
+  const live=(delta:string,end?:boolean)=>{try{input.stream?.({messageId:liveId,delta,end});}catch{/* watching is optional */}};
   harness.subscribe(async event=>{
+    if(event.type==='message_start'&&event.message.role==='assistant'){turn+=1;liveId=`${input.taskId}:${turn}`;}
+    if(event.type==='message_update'&&event.assistantMessageEvent.type==='text_delta'&&liveId)live(event.assistantMessageEvent.delta);
     if(event.type==='message_end'&&event.message.role==='assistant') {
+      if(liveId)live('',true);
       if(['error','aborted'].includes(event.message.stopReason))throw new Error('model_outcome_unknown');
       const usage=event.message.usage;
       await input.usage(usage.input+usage.cacheRead+usage.cacheWrite,usage.output);

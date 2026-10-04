@@ -1,13 +1,14 @@
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,act} from '@testing-library/react';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import ManysView from './ManysView';
 import ManyComputer from './ManyComputer';
 import ManyReview from './ManyReview';
 import {manyMarkVariant} from './ManyMark';
 import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/manys/api';
+import {useLiveRuns} from '@/lib/manys/liveRuns';
 vi.mock('@/lib/manys/api',()=>({request:vi.fn(),delegateToMany:vi.fn(),listCloudProviders:vi.fn()}));
 const detail:ManyDetail={many:{id:'many-test',name:'Research',instructions:'',grant_revision:1,grants:{projects:[],resources:[],capabilities:['vault.read']}},conversations:[{id:'conversation'}],tasks:[],messages:[],actions:[],recurrences:[],conflicts:[],computer:null};
-beforeEach(()=>{localStorage.clear();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
+beforeEach(()=>{localStorage.clear();useLiveRuns.getState().reset();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
 describe('Many’s durable interaction',()=>{
  it('restores a draft after leaving the view and clears it only after acceptance',async()=>{
    const view=render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
@@ -35,6 +36,58 @@ describe('Many’s durable interaction',()=>{
    expect(screen.queryByRole('button',{name:/Cancel task|Cancelar tarea/})).toBeNull();
    fireEvent.click(screen.getByRole('button',{name:/Stop response|Detener respuesta/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-r','PATCH',{action:'cancel'}));
+ });
+ it('shows the turn as it happens: the text as it is written and each tool as a card in the thread',async()=>{
+   const running={id:'task-live',prompt:'Research',state:'running' as const,question:null,result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[]}:{...detail,tasks:[running],messages:[{id:'u1',role:'user',content:'Research the market',task_id:'task-live'}]});
+   useLiveRuns.getState().reset();
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByText('Research the market')).toBeInTheDocument();
+   act(()=>{
+     useLiveRuns.getState().apply({sequence:1,kind:'task_queued',task_id:'task-live',many_id:'many-test',data:{}});
+     useLiveRuns.getState().apply({sequence:2,kind:'run_text',task_id:'task-live',many_id:'many-test',data:{messageId:'a',text:'Let me look that up.',end:false}});
+     useLiveRuns.getState().apply({sequence:3,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'start',ok:null}});
+   });
+   expect(await screen.findByText('Let me look that up.')).toBeInTheDocument();
+   const card=screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/});
+   expect(card).toBeInTheDocument();
+   expect(card).toHaveTextContent(/Working|En curso|En cours|Em andamento/);
+   act(()=>{useLiveRuns.getState().apply({sequence:4,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'end',ok:true}});});
+   await waitFor(()=>expect(screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/})).toHaveTextContent(/Done|Hecho|Terminé|Concluído/));
+ });
+ it('puts a proposal in the thread where it was asked and lists it only once',async()=>{
+   const waiting={id:'task-p',prompt:'Send it',state:'waiting_approval' as const,question:null,result:null};
+   const proposal={id:'act-9',digest:'e'.repeat(64),state:'pending',expires_at:new Date(Date.now()+3600_000).toISOString(),receipt:null,operation_id:'call-9',task_id:'task-p',proposal:{capability:'external.send',tool:'computer',parameters:{operation:'type',parameters:{text:'ping'}}}};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[]}:{...detail,tasks:[waiting],actions:[proposal],messages:[{id:'u9',role:'user',content:'Send it',task_id:'task-p'}]});
+   useLiveRuns.getState().reset();
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   // Without the live feed the proposal is still reachable, listed under the thread.
+   expect(await screen.findAllByRole('button',{name:/^(Approve|Aprobar|Approuver|Aprovar)$/})).toHaveLength(1);
+   act(()=>{
+     useLiveRuns.getState().apply({sequence:1,kind:'task_queued',task_id:'task-p',many_id:'many-test',data:{}});
+     useLiveRuns.getState().apply({sequence:2,kind:'task_step',task_id:'task-p',many_id:'many-test',data:{callId:'call-9',tool:'propose_action',operation:null,host:null,phase:'start',ok:null}});
+   });
+   await waitFor(()=>expect(screen.getAllByRole('button',{name:/^(Approve|Aprobar|Approuver|Aprovar)$/})).toHaveLength(1));
+ });
+ it('pauses a Many from its menu by saving the pause in its grants',async()=>{
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   fireEvent.click(await screen.findByRole('button',{name:/More options|Más opciones|Plus d’options|Mais opções/}));
+   fireEvent.click(await screen.findByRole('menuitem',{name:/Pause this Many|Pausar este Many|Mettre ce Many en pause|Pausar este Many/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({paused:true})})));
+ });
+ it('replaces the composer with an explanation while a Many is paused and resumes it from there',async()=>{
+   const pausedMany={...detail.many,grants:{...detail.many.grants,paused:true}};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[pausedMany]}:path.endsWith('/steps')?{steps:[]}:{...detail,many:pausedMany});
+   render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
+   expect(await screen.findByText(/Many is paused|Many está en pausa|Many est en pause|O Many está em pausa/)).toBeInTheDocument();
+   expect(screen.queryByLabelText(/^(Message|Mensaje)$/)).toBeNull();
+   fireEvent.click(screen.getByRole('button',{name:/^(Resume|Reanudar|Reprendre|Retomar)$/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({paused:false})})));
+ });
+ it('pauses the whole team from the overview',async()=>{
+   render(<ManysView/>);
+   fireEvent.click(await screen.findByRole('button',{name:/^(Pause all|Pausar todos|Tout mettre en pause)$/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({paused:true})})));
  });
  it('names what the Many is doing right now while it works',async()=>{
    const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};
@@ -111,10 +164,12 @@ describe('Many’s durable interaction',()=>{
    await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
  });
  describe('the computer panel',()=>{
+   const computerMany={...detail.many,grants:{...detail.many.grants,capabilities:['vault.read','computer.read','computer.write']}};
+   const perform=vi.fn(async(fn:()=>Promise<unknown>)=>{await fn();});
    const take=/^(Take control|Tomar el control|Prendre la main|Assumir o controle)$/;
    it('explains who has the computer, waits to start it, and takes control on request',async()=>{
      vi.mocked(request).mockResolvedValue({});
-     render(<ManyComputer manyId="many-test" control="agent" live={false}/>);
+     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
      expect(screen.getByText(/pauses its task|pausa su tarea|met sa tâche en pause|pausa a tarefa/)).toBeInTheDocument();
      expect(screen.getByRole('button',{name:/^(Show the screen|Ver pantalla|Voir l'écran|Ver a tela)$/})).toBeInTheDocument();
      fireEvent.click(screen.getAllByRole('button',{name:take})[0]);
@@ -123,13 +178,40 @@ describe('Many’s durable interaction',()=>{
    });
    it('hands control back and says the Many will take a fresh capture',async()=>{
      vi.mocked(request).mockResolvedValue({});
-     render(<ManyComputer manyId="many-test" control="human" live={false}/>);
+     render(<ManyComputer manyId="many-test" many={computerMany} control="human" live={false} perform={perform}/>);
      fireEvent.click(screen.getByRole('button',{name:/^(Hand back control|Devolver el control|Rendre la main|Devolver o controle)$/}));
      await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'leave',parameters:{}}));
      expect(await screen.findByText(/fresh capture before it continues|captura nueva antes de continuar|nouvelle capture avant de continuer|nova captura antes de continuar/)).toBeInTheDocument();
    });
+   it('says where a permission is off and switches it back on from there',async()=>{
+     vi.mocked(request).mockResolvedValue({});
+     const restricted={...computerMany,grants:{...computerMany.grants,computer:{browser:true,files:false,shell:false}}};
+     render(<ManyComputer manyId="many-test" many={restricted} control="human" live={false} perform={perform}/>);
+     fireEvent.mouseDown(screen.getByRole('tab',{name:/Files|Archivos|Fichiers|Arquivos/}));fireEvent.click(screen.getByRole('tab',{name:/Files|Archivos|Fichiers|Arquivos/}));
+     expect(await screen.findByText(/Files are off|Los archivos están desactivados|Les fichiers sont désactivés|Os arquivos estão desativados/)).toBeInTheDocument();
+     fireEvent.click(screen.getAllByRole('button',{name:/^(Allow|Permitir|Autoriser)$/})[0]);
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({computer:{browser:true,files:true,shell:false}})})));
+   });
+   it('saves each switch in the grants and can turn the whole computer off',async()=>{
+     vi.mocked(request).mockImplementation(async(_path,_method,body)=>(body as {operation?:string}|undefined)?.operation==='status'?{state:'stopped'}:{});
+     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
+     fireEvent.click(screen.getByRole('checkbox',{name:/Terminal|Terminal commands|Comandos de terminal|Commandes du terminal/}));
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({computer:{browser:true,files:true,shell:false}})})));
+     fireEvent.click(screen.getByRole('checkbox',{name:/Enable this computer|Activar este ordenador|Activer cet ordinateur|Ativar este computador/}));
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({capabilities:['vault.read']})})));
+   });
+   it('starts and stops the computer and shows whether it is up',async()=>{
+     let state='stopped';
+     vi.mocked(request).mockImplementation(async(_path,_method,body)=>{const op=(body as {operation?:string}|undefined)?.operation;if(op==='start')state='running';if(op==='stop')state='stopped';return op==='status'||op==='start'||op==='stop'?{state}:{};});
+     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
+     const start=await screen.findByRole('button',{name:/^(Start computer|Encender|Démarrer|Iniciar)/});
+     fireEvent.click(start);
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'start',parameters:{}}));
+     fireEvent.click(await screen.findByRole('button',{name:/^(Stop computer|Apagar|Arrêter|Desligar)/}));
+     await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/computer','POST',{operation:'stop',parameters:{}}));
+   });
    it('keeps the terminal for the person who holds the wheel',()=>{
-     render(<ManyComputer manyId="many-test" control="agent" live={false}/>);
+     render(<ManyComputer manyId="many-test" many={computerMany} control="agent" live={false} perform={perform}/>);
      fireEvent.mouseDown(screen.getByRole('tab',{name:'Terminal'}));
      fireEvent.click(screen.getByRole('tab',{name:'Terminal'}));
      expect(screen.getByText(/The terminal is yours|El terminal es tuyo|Le terminal est à vous|O terminal é seu/)).toBeInTheDocument();

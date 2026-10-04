@@ -83,6 +83,31 @@
     },
     "activity": {
       "empty": "No recent activity from Many yet."
+    },
+    "permissions": {
+      "title": "Computer permissions",
+      "hint": "You decide what this computer may be used for. Each switch applies to Many and to you.",
+      "enabled": "Enable this computer",
+      "browser": "Browser",
+      "files": "Workspace files",
+      "shell": "Terminal commands",
+      "pausesWork": "Changing a permission pauses what Many is doing right now.",
+      "allow": "Allow",
+      "offHint": "You can turn it back on any time; whatever Many is doing right now will pause.",
+      "off": {
+        "browserTitle": "The browser is off",
+        "filesTitle": "Files are off",
+        "shellTitle": "The terminal is off"
+      }
+    },
+    "power": {
+      "running": "On",
+      "stopped": "Off",
+      "checking": "Checking…",
+      "unknown": "State unknown",
+      "start": "Start computer",
+      "stop": "Stop computer",
+      "stopHint": "Stopping keeps the files and the browser profile. It starts by itself when used and stops after 15 minutes unused."
     }
   },
   "message": "Message",
@@ -183,7 +208,9 @@
     "mcp_server_not_found": "That service is not connected.",
     "mcp_tool_unknown": "That tool does not exist on the service.",
     "connection_changed": "The service changed after this was proposed. Ask for it again.",
-    "read_only_tool_needs_no_review": "That tool only reads, so it needs no approval."
+    "read_only_tool_needs_no_review": "That tool only reads, so it needs no approval.",
+    "many_paused": "Many is paused. Resume it to give it work.",
+    "computer_permission_denied": "That computer permission is off."
   },
   "actions": {
     "pending": "Needs review",
@@ -402,7 +429,6 @@
   },
   "savedCredential": "a saved sign-in",
   "steps": {
-    "recent": "Recent steps",
     "failed": "didn't work",
     "searchLibrary": "Searching the library",
     "readLibrary": "Reading from the library",
@@ -418,5 +444,20 @@
     "mcpTools": "Checking a connected service",
     "mcpCall": "Asking a connected service: {{detail}}",
     "generic": "Working on it…"
+  },
+  "toolCard": {
+    "working": "Working",
+    "finished": "Done",
+    "failed": "Didn't work",
+    "openComputer": "Open the computer",
+    "liveView": "Live view of the computer"
+  },
+  "pause": {
+    "pause": "Pause this Many",
+    "resume": "Resume",
+    "pauseAll": "Pause all",
+    "resumeAll": "Resume all",
+    "paused": "Many is paused",
+    "pausedHint": "It takes no new work and what it was doing is stopped. Resume it to give it tasks again."
   }
 }

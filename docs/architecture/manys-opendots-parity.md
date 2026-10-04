@@ -1,0 +1,53 @@
+# Manys and OpenDots: how the agent is shown, controlled and permitted
+
+[OpenDots](https://github.com/CopilotKit/OpenDots) is the reference for how a person works with
+always-on agents that have their own computer. This is how each of its ideas exists in Dome
+(`app/components/manys`, `electron/ipc/agents`) and dome-provider (`lib/manys`), and where Dome
+differs on purpose because it runs for many users at once.
+
+## Talking to an agent
+
+| OpenDots | Manys |
+| --- | --- |
+| A run streams AG-UI events (text deltas, tool calls) over HTTP | The worker writes `run_text` and `task_step` events; the provider serves them as SSE from a Postgres cursor; the main process relays them (`manys:events:*`) and `liveRuns.ts` folds them into a turn |
+| Text appears as it is written | Same, as short windows of text (`run-stream.ts`): bounded writes, best effort, deleted when the task finishes because the saved message is the record |
+| Reconnect and keep the conversation | The feed resumes from the last event delivered; the first connection starts from now (`after=latest`) |
+| Stop the response | Cancel the task; its lease is fenced so a late result is discarded |
+| A tool call renders as a card in the thread, the latest browser call shows a live view | `ManyToolCard` per call (paired by call id), the latest computer call embeds a read-only live view |
+| Human-in-the-loop review card | `ManyActionCard` in the thread at the point of `propose_action`, bound to the digest it was shown |
+
+Differences: OpenDots is one process with SQLite. Here events are durable per tenant (RLS), any
+worker replica can run a turn, and the feed is a cursor so a slow or reconnecting client loses
+nothing. Event data never carries arguments, content or credentials.
+
+## Seeing and controlling the computer
+
+| OpenDots | Manys |
+| --- | --- |
+| Browser, Files, Terminal, Activity tabs | `ManyComputer`: screen, terminal, files, activity |
+| Live screen, click, type, keys | The computer's socket: mouse, wheel, keyboard and paste go straight to the page; the main process holds the session token |
+| Terminal: one bounded command | A real PTY (bash) per Many with scrollback, resize and Ctrl+C, only while the person holds the wheel |
+| Take over / return control | Same, plus a fresh snapshot is required before the agent continues |
+| Start / stop computer | Status, start and stop; stopping keeps files and the browser profile |
+
+## Permissions
+
+| OpenDots | Manys |
+| --- | --- |
+| Enabled / browser / files / shell per Dot | `grants.computer {browser, files, shell}` plus the `computer.read` and `computer.write` capabilities |
+| Applies to the agent and the owner | One map (`operationKind`) is checked for the agent's reads, approved actions at execution time, the person's operations, and the screen and terminal sockets |
+| Revoking aborts in-flight calls within ~100 ms | Changing grants fences running work in the database (lease fence, dispatched actions become `outcome_unknown`) so it holds across replicas, with no in-process watcher |
+| Global pause | Per-Many pause (`grants.paused`) and a pause-all from the overview; a paused Many takes no new work and queued work is paused instead of run |
+| Audit with actor | Append-only audit of every governed call, plus `computer_activity` events for what the person did |
+
+Differences: in OpenDots the agent acts on the computer directly once permitted. Here reads are
+direct, and every write (click, type, navigate, shell, files) is a proposal the person reviews,
+bound to the grant revision, expiring, executed once, and never re-sent when the outcome is
+uncertain. Secrets stay in the credential vault and are typed only after approval and only on the
+sites they belong to.
+
+## Not covered yet
+
+- Voice calls and Slack: both need provider credentials (a realtime speech provider, a Slack app).
+- Learned skills delivery.
+- Spaces and the page editor: Dome's library and notes play that role.
