@@ -24,11 +24,16 @@ nothing. Event data never carries arguments, content or credentials.
 
 | OpenDots | Manys |
 | --- | --- |
-| Browser, Files, Terminal, Activity tabs | `ManyComputer`: screen, terminal, files, activity |
-| Live screen, click, type, keys | The computer's socket: mouse, wheel, keyboard and paste go straight to the page; the main process holds the session token |
+| Browser, Files, Terminal, Activity tabs | `ManyComputer`: the whole desktop first, then terminal, files, browser and activity |
+| Live screen, click, type, keys | The computer's sockets: the whole Linux desktop over VNC (noVNC in the renderer, bytes relayed by the main process, which holds the session token) and the browser's own screencast for the inline preview and the Browser tab |
 | Terminal: one bounded command | A real PTY (bash) per Many with scrollback, resize and Ctrl+C, only while the person holds the wheel |
 | Take over / return control | Same, plus a fresh snapshot is required before the agent continues |
 | Start / stop computer | Status, start and stop; stopping keeps files and the browser profile |
+
+The desktop is a shared machine: the Many works on it, and the person sees and, holding the wheel,
+drives the same Chromium, terminal, files and any app. Opened without the wheel the socket is view
+only (the computer filters the VNC client's messages) and it is reopened when the wheel changes
+hands. It sits behind the shell permission because it is the whole machine.
 
 ## Permissions
 

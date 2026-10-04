@@ -33,7 +33,8 @@
       "screen": "Écran",
       "terminal": "Terminal",
       "files": "Fichiers",
-      "activity": "Activité"
+      "activity": "Activité",
+      "browser": "Navigateur"
     },
     "screen": {
       "connecting": "Connexion à l'ordinateur…",
@@ -119,6 +120,13 @@
       "hint": "Cliquez et écrivez sur l'écran. Échap ferme la vue agrandie ; la main reste à vous jusqu'à ce que vous la rendiez.",
       "open": "Vous regardez l'écran agrandi.",
       "close": "Revenir ici"
+    },
+    "desktop": {
+      "watch": "Bureau de l'ordinateur, lecture seule",
+      "human": "Bureau de l'ordinateur. Vous avez la main : cliquez, saisissez et faites défiler.",
+      "connecting": "Connexion au bureau…",
+      "lost": "La connexion au bureau a été perdue.",
+      "lostHint": "Si cet ordinateur a été démarré avant l'existence du bureau, éteignez-le puis rallumez-le depuis l'engrenage."
     }
   },
   "message": "Message",

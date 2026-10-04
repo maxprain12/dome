@@ -179,6 +179,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@mozilla/readability": "^0.6.0",
     "@napi-rs/canvas": "^0.1.100",
+    "@novnc/novnc": "^1.7.0",
     "@sentry/electron": "^7.13.0",
     "@shadcn/react": "^0.2.1",
     "@sinclair/typebox": "^0.34.49",

@@ -5,6 +5,23 @@ import { request, type CloudMany } from '@/lib/manys/api';
 
 vi.mock('@/lib/manys/api', () => ({ request: vi.fn() }));
 
+// noVNC needs a real canvas and WebCodecs; the panel only needs to hand it a channel and a mode.
+const views = vi.hoisted(() => [] as Array<{ channel: unknown; viewOnly: boolean; disconnected: boolean }>);
+vi.mock('@novnc/novnc', () => ({
+  default: class FakeRfb extends EventTarget {
+    viewOnly = false;
+    disconnected = false;
+    constructor(_target: HTMLElement, public channel: unknown) {
+      super();
+      views.push(this as unknown as (typeof views)[number]);
+      queueMicrotask(() => this.dispatchEvent(new Event('connect')));
+    }
+    disconnect() { this.disconnected = true; }
+    clipboardPasteFrom() {}
+  },
+}));
+const desktopLabel = /computer's desktop|escritorio del ordenador|bureau de l'ordinateur|área de trabalho do computador/i;
+
 const many: CloudMany = { id: 'many-test', name: 'Peregrini', instructions: 'help', grant_revision: 1, grants: { projects: [], resources: [], capabilities: ['vault.read', 'computer.read', 'computer.write'] } };
 const perform = vi.fn(async (fn: () => Promise<unknown>) => { await fn(); });
 const take = /^(Take control|Tomar el control|Prendre la main|Assumir o controle)$/;
@@ -25,6 +42,7 @@ beforeEach(() => {
     return op === 'status' || op === 'start' || op === 'stop' ? { state: power } : {};
   });
   listeners.length = 0;
+  views.length = 0;
   (window as unknown as { electron: unknown }).electron = {
     invoke: vi.fn(async (channel: string, payload?: { channel?: string }) => {
       if (channel !== 'manys:channel:open') return { success: true };
@@ -37,9 +55,12 @@ beforeEach(() => {
 });
 
 describe('the computer panel', () => {
-  it('puts the screen first and says who has the computer, with the way to take it', async () => {
+  it('puts the whole desktop first, view only, and says who has the computer, with the way to take it', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    expect(await screen.findByLabelText(/Live computer screen|Pantalla del ordenador en vivo|Écran de l'ordinateur en direct|Tela do computador ao vivo/)).toBeInTheDocument();
+    expect(await screen.findByLabelText(desktopLabel)).toBeInTheDocument();
+    await waitFor(() => expect(views).toHaveLength(1));
+    expect(views[0].viewOnly).toBe(true);
+    expect(window.electron.invoke).toHaveBeenCalledWith('manys:channel:open', { manyId: 'many-test', channel: 'desktop' });
     expect(screen.getByText(/pauses its task|pausa su tarea|met sa tâche en pause|pausa a tarefa/)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: take }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: handBack })).toBeNull();
@@ -49,15 +70,15 @@ describe('the computer panel', () => {
     power = 'stopped';
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
     expect(await screen.findByText(/The computer is off|El ordenador está apagado|L'ordinateur est éteint|O computador está desligado/)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Live computer screen|Pantalla del ordenador en vivo/)).toBeNull();
+    expect(screen.queryByLabelText(desktopLabel)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^(Start computer|Encender ordenador|Démarrer l'ordinateur|Iniciar computador)$/ }));
     await waitFor(() => expect(computerOps()).toContain('start'));
-    expect(await screen.findByLabelText(/Live computer screen|Pantalla del ordenador en vivo|Écran de l'ordinateur en direct|Tela do computador ao vivo/)).toBeInTheDocument();
+    expect(await screen.findByLabelText(desktopLabel)).toBeInTheDocument();
   });
 
   it('takes the wheel and opens the expanded screen, then hands it back', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    await screen.findByLabelText(/Live computer screen|Pantalla del ordenador en vivo/);
+    await screen.findByLabelText(desktopLabel);
     fireEvent.click(screen.getAllByRole('button', { name: take })[0]);
     await waitFor(() => expect(computerOps()).toContain('enter'));
     const viewer = await screen.findByRole('dialog', { name: /Peregrini/ });
@@ -77,14 +98,18 @@ describe('the computer panel', () => {
 
   it('asks for the wheel again, once, when the computer says it was never taken, and tells the person in their language', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="human" perform={perform} />);
-    await screen.findByLabelText(/computer screen|pantalla del ordenador|écran de l'ordinateur|tela do computador/i);
-    await waitFor(() => expect(channels.stream).toBeDefined());
-    const refuse = () => act(() => listeners.forEach((listener) => listener({ channelId: channels.stream, type: 'message', data: JSON.stringify({ type: 'error', error: 'Take control before driving the computer yourself.' }) })));
+    await screen.findByLabelText(desktopLabel);
+    await waitFor(() => expect(channels.desktop).toBeDefined());
+    await waitFor(() => expect(views).toHaveLength(1));
+    expect(views[0].viewOnly).toBe(false);
+    const refuse = () => act(() => listeners.forEach((listener) => listener({ channelId: channels.desktop, type: 'message', data: JSON.stringify({ type: 'error', error: 'take_control_first' }) })));
     refuse();
     await waitFor(() => expect(computerOps().filter((op) => op === 'enter')).toHaveLength(1));
+    // The desktop reconnects with the wheel the computer now agrees about.
+    await waitFor(() => expect(views).toHaveLength(2));
+    expect(views[0].disconnected).toBe(true);
     refuse();
     expect(computerOps().filter((op) => op === 'enter')).toHaveLength(1);
-    expect(screen.queryByText(/Take control before driving/)).toBeNull();
   });
 
   it('shows the terminal only to whoever holds the wheel', async () => {
@@ -98,13 +123,16 @@ describe('the computer panel', () => {
     fireEvent.mouseDown(await screen.findByRole('tab', { name: /Files|Archivos|Fichiers|Arquivos/ }));
     fireEvent.click(screen.getByRole('tab', { name: /Files|Archivos|Fichiers|Arquivos/ }));
     expect(await screen.findByText(/Files are off|Los archivos están desactivados|Les fichiers sont désactivés|Os arquivos estão desativados/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /^(Allow|Permitir|Autoriser)$/ })[0]);
+    // The desktop is the machine itself, so it is behind the shell permission: it offers that one first, then the files.
+    expect(screen.queryByLabelText(desktopLabel)).toBeNull();
+    expect(views).toHaveLength(0);
+    fireEvent.click(screen.getAllByRole('button', { name: /^(Allow|Permitir|Autoriser)$/ }).at(-1)!);
     await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ computer: { browser: true, files: true, shell: false } }) })));
   });
 
   it('keeps permissions and power behind the gear, and saves each switch in the grants', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    await screen.findByLabelText(/Live computer screen|Pantalla del ordenador en vivo/);
+    await screen.findByLabelText(desktopLabel);
     expect(screen.queryByRole('checkbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Computer permissions|Permisos del ordenador|Autorisations de l'ordinateur|Permissões do computador/ }));
     fireEvent.click(await screen.findByRole('checkbox', { name: /Terminal commands|Comandos de terminal|Commandes du terminal/ }));
@@ -115,7 +143,7 @@ describe('the computer panel', () => {
 
   it('stops the computer from the settings', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    await screen.findByLabelText(/Live computer screen|Pantalla del ordenador en vivo/);
+    await screen.findByLabelText(desktopLabel);
     fireEvent.click(screen.getByRole('button', { name: /Computer permissions|Permisos del ordenador|Autorisations de l'ordinateur|Permissões do computador/ }));
     fireEvent.click(await screen.findByRole('button', { name: /^(Stop computer|Apagar ordenador|Arrêter l'ordinateur|Desligar computador)$/ }));
     await waitFor(() => expect(computerOps()).toContain('stop'));

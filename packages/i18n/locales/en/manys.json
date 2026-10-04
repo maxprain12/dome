@@ -33,7 +33,8 @@
       "screen": "Screen",
       "terminal": "Terminal",
       "files": "Files",
-      "activity": "Activity"
+      "activity": "Activity",
+      "browser": "Browser"
     },
     "screen": {
       "connecting": "Connecting to the computer…",
@@ -119,6 +120,13 @@
       "hint": "Click and type on the screen. Esc closes the expanded view; the wheel stays yours until you hand it back.",
       "open": "Watching the expanded screen.",
       "close": "Back here"
+    },
+    "desktop": {
+      "watch": "The computer's desktop, read only",
+      "human": "The computer's desktop. You have control: click, type and scroll.",
+      "connecting": "Connecting to the desktop…",
+      "lost": "The connection to the desktop was lost.",
+      "lostHint": "If this computer was started before the desktop existed, switch it off and on again from the gear."
     }
   },
   "message": "Message",

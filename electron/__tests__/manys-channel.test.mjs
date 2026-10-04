@@ -62,6 +62,27 @@ test('opens a wss socket with the session token and relays frames to the window 
   assert.equal(sent.at(-1)[2].code, 1006);
 });
 
+test('relays a desktop as bytes in both directions and keeps text channels text-only', async () => {
+  const { call, sent, makeSender } = setup();
+  const sender = makeSender(1);
+  const opened = await call('manys:channel:open', sender, { manyId: MANY, channel: 'desktop' });
+  assert.equal(opened.success, true);
+  assert.equal(FakeSocket.last.url, `wss://dome-provider.test/api/v1/manys/${MANY}/computer/desktop`);
+  assert.equal(FakeSocket.last.binaryType, 'arraybuffer');
+  FakeSocket.last.onmessage({ data: new Uint8Array([1, 2, 3]).buffer });
+  FakeSocket.last.onmessage({ data: '{"type":"error","error":"control_released"}' });
+  assert.deepEqual(sent.map(([, , payload]) => payload.type), ['binary', 'message']);
+  assert.deepEqual([...sent[0][2].bytes], [1, 2, 3]);
+  const bytes = new Uint8Array([5, 0, 0, 0, 10, 0, 20]);
+  assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes })).success, true);
+  assert.deepEqual(FakeSocket.last.sent, [bytes]);
+  assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes: new Uint8Array(0) })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes: new Uint8Array(256 * 1024 + 1) })).error, 'invalid_request');
+
+  const text = await call('manys:channel:open', sender, { manyId: MANY, channel: 'terminal' });
+  assert.equal((await call('manys:channel:send', sender, { channelId: text.data.channelId, bytes })).error, 'invalid_request');
+});
+
 test('refuses unknown windows, malformed requests and a missing connection', async () => {
   const { call, makeSender } = setup();
   assert.equal((await call('manys:channel:open', makeSender(99), { manyId: MANY, channel: 'stream' })).error, 'unauthorized');

@@ -33,7 +33,8 @@
       "screen": "Tela",
       "terminal": "Terminal",
       "files": "Arquivos",
-      "activity": "Atividade"
+      "activity": "Atividade",
+      "browser": "Navegador"
     },
     "screen": {
       "connecting": "Conectando ao computador…",
@@ -119,6 +120,13 @@
       "hint": "Clique e digite na tela. Esc fecha a visão ampliada; o controle continua seu até você devolver.",
       "open": "Vendo a tela ampliada.",
       "close": "Voltar aqui"
+    },
+    "desktop": {
+      "watch": "Área de trabalho do computador, somente leitura",
+      "human": "Área de trabalho do computador. Você tem o controle: clique, digite e role.",
+      "connecting": "Conectando à área de trabalho…",
+      "lost": "A conexão com a área de trabalho foi perdida.",
+      "lostHint": "Se este computador foi ligado antes de a área de trabalho existir, desligue e ligue de novo pela engrenagem."
     }
   },
   "message": "Mensagem",
