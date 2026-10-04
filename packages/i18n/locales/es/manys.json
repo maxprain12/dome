@@ -102,7 +102,15 @@
     "not_found": "Ese elemento ya no existe.",
     "policy_denied": "Una regla que definiste bloqueó esa acción.",
     "policy_unavailable": "No se pudieron comprobar las reglas, así que no se hizo la acción.",
-    "policy_limit": "Alcanzaste el límite de 100 reglas."
+    "policy_limit": "Alcanzaste el límite de 100 reglas.",
+    "credentials_unconfigured": "Guardar accesos todavía no está configurado en el servidor.",
+    "credential_limit": "Alcanzaste el límite de 50 accesos guardados.",
+    "credential_host_mismatch": "El navegador está en un sitio distinto del que permite este acceso, así que no se escribió nada.",
+    "host_unverified": "El navegador no indicó en qué sitio está, así que no se escribió nada.",
+    "credential_not_found": "Ese acceso guardado ya no existe.",
+    "credential_operation_denied": "Un acceso guardado solo se puede escribir en un campo.",
+    "credential_unreadable": "No se pudo abrir ese acceso guardado. Guárdalo de nuevo.",
+    "credential_field_missing": "Ese acceso no tiene usuario."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -287,5 +295,25 @@
       "denied": "Bloqueada",
       "observed_denied": "La bloquearía"
     }
-  }
+  },
+  "access": {
+    "tab": "Acceso",
+    "credentials": {
+      "title": "Accesos guardados",
+      "intro": "Datos de acceso que este Many puede usar sin verlos nunca. Se escriben solo después de que apruebes y solo en los sitios que indiques.",
+      "none": "No hay accesos guardados.",
+      "label": "Nombre",
+      "labelPlaceholder": "p. ej. Correo del trabajo",
+      "username": "Usuario",
+      "secret": "Contraseña o clave",
+      "secretHint": "Se envía una vez y no se vuelve a mostrar. Para cambiarla, elimina el acceso y guárdalo de nuevo.",
+      "hosts": "Sitios web donde vale",
+      "hostsHint": "Separa varios con comas. Usa *. al principio para subdominios.",
+      "save": "Guardar acceso",
+      "delete": "Eliminar {{name}}",
+      "lastUsed": "Último uso {{when}}",
+      "neverUsed": "Sin usar todavía"
+    }
+  },
+  "savedCredential": "un acceso guardado"
 }

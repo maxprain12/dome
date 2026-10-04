@@ -20,6 +20,7 @@ const schemas = {
   vault_read: Type.Object({id:Type.String()}),
   vault_blob: Type.Object({id:Type.String()}),
   vault_write: Type.Object({id:Type.String(),expectedRevision:Type.Number(),content:Type.String({maxLength:500000}),title:Type.Optional(Type.String())}),
+  credentials_list: Type.Object({}),
   memory_read: Type.Object({}),
   memory_write: Type.Object({notes:Type.String({maxLength:60000})}),
   checkpoint: Type.Object({plan:Type.String(),progress:Type.String()}),
@@ -52,7 +53,7 @@ export async function run(input:RuntimeInput):Promise<void> {
     await session.appendMessage({role:'toolResult',toolCallId:id,toolName:call.name,content:[{type:'text',text:JSON.stringify({interrupted:true,action:action??null,instruction:'Do not repeat an external write. Inspect the reviewed action and its receipt, or ask for reconciliation.'})}],isError:!action||action.state!=='succeeded',timestamp:Date.now()});
   }
   const tools:AgentTool[]=Object.entries(schemas).map(([name,parameters])=>({
-    name,label:name,description: name==='propose_action'?'Persist an exact action for human review. Computer writes use tool=computer and parameters={operation,parameters}; connectionId and accountId are the assigned computer ID, targetVersion is its generation.':name.replaceAll('_',' '),
+    name,label:name,description: name==='propose_action'?'Persist an exact action for human review. Computer writes use tool=computer and parameters={operation,parameters}; connectionId and accountId are the assigned computer ID, targetVersion is its generation.':name==='credentials_list'?'List saved sign-in credentials by id, label, username and the sites they work on. Values are never shown.':name.replaceAll('_',' '),
     parameters,executionMode:'sequential',
     execute:async(id,args)=>{
       const result=await input.call(id,name,args as Record<string,unknown>);
@@ -65,7 +66,7 @@ export async function run(input:RuntimeInput):Promise<void> {
   const harness=new AgentHarness({
     env:new NodeExecutionEnv({cwd}),session,tools,model:{...model,maxTokens:2048},
     autoCompaction:false,shouldStopAfterTurn:({newMessages})=>newMessages.filter(m=>m.role==='assistant').length>=8,
-    systemPrompt:`You are a persistent Many collaborator. ${input.instructions}\nYour work is a task independent of this conversation. Save checkpoints, use ask_user when missing data and finish_task for an explicit result. Streaming ending does not complete a task. External sends, publishing, purchases, deletion, shell and browser writes require propose_action and human review. When using tool=computer, set capability=external.send, external.publish, external.purchase or external.delete for those respective intentions; the computer.write grant is also required. Use capability=computer.write for ordinary navigation and file edits. Read available approval proposals and execute only the exact approved action ID. Never retry outcome_unknown; pause for reconciliation. Use unchanged=true only for a recurring check without new information. All vault accesses are grant limited. Context: ${JSON.stringify(input.resumeContext)}`,
+    systemPrompt:`You are a persistent Many collaborator. ${input.instructions}\nYour work is a task independent of this conversation. Save checkpoints, use ask_user when missing data and finish_task for an explicit result. Streaming ending does not complete a task. External sends, publishing, purchases, deletion, shell and browser writes require propose_action and human review. When using tool=computer, set capability=external.send, external.publish, external.purchase or external.delete for those respective intentions; the computer.write grant is also required. Use capability=computer.write for ordinary navigation and file edits. Read available approval proposals and execute only the exact approved action ID. Never retry outcome_unknown; pause for reconciliation. Never ask for or type a password yourself. To sign in, call credentials_list, then propose a type operation whose text is {{credential:ID}} (or {{credential:ID:username}}); the value is filled in only after approval and only on that credential's sites. Use unchanged=true only for a recurring check without new information. All vault accesses are grant limited. Context: ${JSON.stringify(input.resumeContext)}`,
     getApiKeyAndHeaders:async()=>({apiKey:input.apiKey}),streamOptions:{maxRetries:0,timeoutMs:120000},
   });
   harness.on('before_provider_request',async()=>{input.signal.throwIfAborted();await input.beforeRequest();return undefined;});

@@ -102,7 +102,15 @@
     "not_found": "That item no longer exists.",
     "policy_denied": "A rule you set blocked that action.",
     "policy_unavailable": "Rules could not be checked, so the action was not done.",
-    "policy_limit": "You reached the limit of 100 rules."
+    "policy_limit": "You reached the limit of 100 rules.",
+    "credentials_unconfigured": "Saving sign-ins is not set up on the server yet.",
+    "credential_limit": "You reached the limit of 50 saved sign-ins.",
+    "credential_host_mismatch": "The browser is on a different site than this sign-in allows, so nothing was typed.",
+    "host_unverified": "The browser did not say which site it is on, so nothing was typed.",
+    "credential_not_found": "That saved sign-in no longer exists.",
+    "credential_operation_denied": "A saved sign-in can only be typed into a field.",
+    "credential_unreadable": "That saved sign-in could not be opened. Save it again.",
+    "credential_field_missing": "That sign-in has no username."
   },
   "actions": {
     "pending": "Needs review",
@@ -287,5 +295,25 @@
       "denied": "Blocked",
       "observed_denied": "Would block"
     }
-  }
+  },
+  "access": {
+    "tab": "Access",
+    "credentials": {
+      "title": "Saved sign-ins",
+      "intro": "Sign-in details this Many can use without ever seeing them. They are typed only after you approve, and only on the sites you list.",
+      "none": "No saved sign-ins.",
+      "label": "Name",
+      "labelPlaceholder": "e.g. Work email",
+      "username": "Username",
+      "secret": "Password or key",
+      "secretHint": "It is sent once and never shown again. To change it, delete the sign-in and save it again.",
+      "hosts": "Websites where it works",
+      "hostsHint": "Separate several with commas. Use *. at the start for subdomains.",
+      "save": "Save sign-in",
+      "delete": "Delete {{name}}",
+      "lastUsed": "Last used {{when}}",
+      "neverUsed": "Not used yet"
+    }
+  },
+  "savedCredential": "a saved sign-in"
 }

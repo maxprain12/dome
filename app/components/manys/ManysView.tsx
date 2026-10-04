@@ -14,6 +14,7 @@ import {
   PanelRightIcon,
   Refresh01Icon,
   FileSearchIcon,
+  Key01Icon,
   RepeatIcon,
   SentIcon,
   Shield01Icon,
@@ -387,6 +388,10 @@ export default function ManysView() {
                     <DropdownMenuItem onClick={() => openInspector('routines')}>
                       <HugeiconsIcon icon={RepeatIcon} aria-hidden />
                       {t('manys.recurrences')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInspector('access')}>
+                      <HugeiconsIcon icon={Key01Icon} aria-hidden />
+                      {t('manys.access.tab')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openInspector('governance')}>
                       <HugeiconsIcon icon={FileSearchIcon} aria-hidden />
