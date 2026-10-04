@@ -737,6 +737,9 @@ const ALLOWED_CHANNELS = {
     'browser-extension:revoke',
     'manys:request',
     'manys:cloud-providers',
+    'manys:channel:open',
+    'manys:channel:send',
+    'manys:channel:close',
     'remote-many:status',
     'remote-many:set-enabled',
     'remote-many:pair-start',
@@ -746,6 +749,7 @@ const ALLOWED_CHANNELS = {
   ],
   // Canales para on/once (main → renderer)
   on: [
+    'manys:channel:event',
     'native-browser:opened',
     'native-browser:changed',
     // GitHub project sync (main → renderer broadcasts)
