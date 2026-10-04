@@ -48,6 +48,7 @@ import ManyInspector, { type InspectorTab } from './ManyInspector';
 import ManyRoster, { pendingCount } from './ManyRoster';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManysOverview, { type ManyTemplate } from './ManysOverview';
+import { stepDetail, stepKey, useManySteps } from '@/lib/manys/steps';
 import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
@@ -174,6 +175,9 @@ export default function ManysView() {
   const lastFailed = summary?.lastFailed ?? null;
   const inFlight = detail?.tasks.filter((task) => task !== lastFailed && (task.state === 'running' || task.state === 'queued')) ?? [];
   const working = inFlight.length > 0;
+  const steps = useManySteps(selected, working);
+  const currentStep = [...steps].reverse().find((step) => !step.done) ?? steps[steps.length - 1];
+  const earlierSteps = steps.filter((step) => step !== currentStep).slice(-4);
   const spokenResults = detail?.tasks.filter((task) => {
     const text = task.result?.text;
     return !!text && !detail.messages.some((message) => message.content === text);
@@ -551,9 +555,19 @@ export default function ManysView() {
                             <Bubble variant="muted" align="start">
                               <BubbleContent className="flex items-center gap-2 text-muted-foreground">
                                 <span aria-hidden="true" className="size-[7px] shrink-0 animate-pulse rounded-full bg-success" />
-                                {t('manys.working')}
+                                {currentStep ? t(`manys.steps.${stepKey(currentStep.tool)}`, { detail: stepDetail(currentStep) }) : t('manys.working')}
                               </BubbleContent>
                             </Bubble>
+                            {earlierSteps.length > 0 && (
+                              <ol className="flex flex-col gap-0.5 px-1 text-xs text-muted-foreground" aria-label={t('manys.steps.recent')}>
+                                {earlierSteps.map((step) => (
+                                  <li key={step.id} className={cn('truncate', step.ok === false && 'text-destructive')}>
+                                    {t(`manys.steps.${stepKey(step.tool)}`, { detail: stepDetail(step) })}
+                                    {step.ok === false && ` · ${t('manys.steps.failed')}`}
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
                             <Button type="button" variant="ghost" size="sm" className="self-start" disabled={busy} onClick={() => { void cancelTasks(inFlight); }}>
                               {t('manys.stopReply')}
                             </Button>
