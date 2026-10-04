@@ -81,7 +81,27 @@
     "computer_unavailable": "L’ordinateur est indisponible.",
     "queue_limit": "La file a atteint sa limite.",
     "invalid_runtime": "Choisissez comment cet agent s’exécute dans le cloud.",
-    "provider_not_cloud_compatible": "Ce fournisseur ne peut pas exécuter un agent cloud."
+    "provider_not_cloud_compatible": "Ce fournisseur ne peut pas exécuter un agent cloud.",
+    "provider_key_unusable": "La clé enregistrée ne peut pas être utilisée dans le cloud. Enregistrez-la de nouveau dans les Réglages.",
+    "provider_base_url_missing": "Le fournisseur n’a pas d’adresse accessible depuis le cloud.",
+    "provider_base_url_rejected": "L’adresse du fournisseur n’est pas autorisée pour un agent cloud.",
+    "upstream_unconfigured": "Les crédits Dome ne sont pas disponibles sur ce déploiement.",
+    "model_not_in_plan": "Votre offre n’inclut pas ce modèle.",
+    "runtime_unconfigured": "L’environnement cloud n’est pas disponible pour le moment.",
+    "runtime_version_mismatch": "L’environnement cloud est en cours de mise à jour. Réessayez dans un instant.",
+    "runtime_ended_without_outcome": "L’agent s’est arrêté sans terminer.",
+    "computer_capacity_unavailable": "Aucun ordinateur n’est libre pour le moment. Réessayez dans un instant.",
+    "human_controls_computer": "Vous avez le contrôle de l’ordinateur.",
+    "take_control_required": "Prenez d’abord le contrôle de l’ordinateur.",
+    "control_unavailable": "L’ordinateur n’a pas cédé le contrôle.",
+    "browser_url_rejected": "Cette adresse ne peut pas être ouverte.",
+    "rate_limited": "Trop de requêtes. Patientez un instant.",
+    "storage_quota_exceeded": "Votre quota de stockage est plein.",
+    "session_size_limit": "Cette conversation est trop longue pour que l’agent continue.",
+    "session_entry_count_limit": "Cette conversation est trop longue pour que l’agent continue.",
+    "session_entry_limit": "Un message de cette conversation est trop volumineux.",
+    "task_terminal": "Cette tâche est déjà terminée.",
+    "not_found": "Cet élément n’existe plus."
   },
   "actions": {
     "pending": "À vérifier",
@@ -218,5 +238,7 @@
   "delete": "Supprimer le Many",
   "deleteTitle": "Supprimer {{name}} ?",
   "deleteBody": "Il cesse de travailler dans le cloud et sa conversation, ses tâches et ses routines sont supprimées. Cette action est irréversible.",
-  "options": "Options de {{name}}"
+  "options": "Options de {{name}}",
+  "expiresInMinutes": "Expire dans {{minutes}} min",
+  "expired": "Expirée"
 }

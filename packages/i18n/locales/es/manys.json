@@ -81,7 +81,27 @@
     "computer_unavailable": "El ordenador no está disponible ahora.",
     "queue_limit": "La cola ha alcanzado su límite.",
     "invalid_runtime": "Elige cómo corre este agente en la nube.",
-    "provider_not_cloud_compatible": "Ese proveedor no puede ejecutar un agente en la nube."
+    "provider_not_cloud_compatible": "Ese proveedor no puede ejecutar un agente en la nube.",
+    "provider_key_unusable": "La clave guardada no se puede usar en la nube. Vuelve a guardarla en Ajustes.",
+    "provider_base_url_missing": "El proveedor no tiene una dirección a la que llegue la nube.",
+    "provider_base_url_rejected": "La dirección del proveedor no está permitida para un agente en la nube.",
+    "upstream_unconfigured": "Los créditos de Dome no están disponibles en este despliegue.",
+    "model_not_in_plan": "Tu plan no incluye este modelo.",
+    "runtime_unconfigured": "El entorno en la nube no está disponible ahora.",
+    "runtime_version_mismatch": "El entorno en la nube se está actualizando. Inténtalo en un momento.",
+    "runtime_ended_without_outcome": "El agente se detuvo sin terminar.",
+    "computer_capacity_unavailable": "No hay ningún ordenador libre ahora. Inténtalo en un momento.",
+    "human_controls_computer": "Tienes el control del ordenador.",
+    "take_control_required": "Toma primero el control del ordenador.",
+    "control_unavailable": "El ordenador no cedió el control.",
+    "browser_url_rejected": "Esa dirección no se puede abrir.",
+    "rate_limited": "Demasiadas peticiones. Espera un momento.",
+    "storage_quota_exceeded": "Tu cuota de almacenamiento está llena.",
+    "session_size_limit": "Esta conversación es demasiado larga para que el agente continúe.",
+    "session_entry_count_limit": "Esta conversación es demasiado larga para que el agente continúe.",
+    "session_entry_limit": "Un mensaje de esta conversación es demasiado grande.",
+    "task_terminal": "Esta tarea ya terminó.",
+    "not_found": "Ese elemento ya no existe."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -218,5 +238,7 @@
   "delete": "Eliminar Many",
   "deleteTitle": "¿Eliminar {{name}}?",
   "deleteBody": "Deja de trabajar en la nube y se eliminan su conversación, tareas y rutinas. Esta acción no se puede deshacer.",
-  "options": "Opciones de {{name}}"
+  "options": "Opciones de {{name}}",
+  "expiresInMinutes": "Caduca en {{minutes}} min",
+  "expired": "Caducada"
 }

@@ -84,7 +84,7 @@ describe('Many’s durable interaction',()=>{
    await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
  });
  it('types into the computer as visible text',()=>{
-   render(<ManyComputer manyId="many-test" control="human"/>);
+   render(<ManyComputer manyId="many-test" control="human" live={false}/>);
    const field=screen.getByLabelText(/Type into the browser|Escribir en el navegador|Saisir dans le navigateur|Escrever no navegador/);
    expect(field).toHaveAttribute('type','text');
  });

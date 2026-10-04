@@ -21,11 +21,13 @@ interface ManyInspectorProps {
   onTab: (tab: InspectorTab) => void;
   detail: ManyDetail;
   busy: boolean;
+  /** The agent is working now, so the screen refreshes by itself. */
+  live: boolean;
   perform: (fn: () => Promise<unknown>) => Promise<void>;
 }
 
 /** Right panel of Many's A: segmented tabs, then the selected tab's content. */
-export default function ManyInspector({ tab, onTab, detail, busy, perform }: ManyInspectorProps) {
+export default function ManyInspector({ tab, onTab, detail, busy, live, perform }: ManyInspectorProps) {
   const { t } = useTranslation();
   const manyId = detail.many.id;
   return (
@@ -43,7 +45,7 @@ export default function ManyInspector({ tab, onTab, detail, busy, perform }: Man
         </Tabs>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 pb-4">
-        {tab === 'computer' && <ManyComputer key={manyId} manyId={manyId} control={detail.computer?.control ?? 'agent'} />}
+        {tab === 'computer' && <ManyComputer key={manyId} manyId={manyId} control={detail.computer?.control ?? 'agent'} live={live} />}
         {tab === 'context' && (
           <ManySettings key={manyId} many={detail.many} onSave={(value) => perform(() => request(`/${manyId}`, 'PATCH', value))} />
         )}

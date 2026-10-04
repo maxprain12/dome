@@ -47,7 +47,7 @@ import ManyInspector, { type InspectorTab } from './ManyInspector';
 import ManyRoster, { pendingCount } from './ManyRoster';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManysOverview, { type ManyTemplate } from './ManysOverview';
-import { STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
 const TASK_BADGE: Partial<Record<Task['state'], 'ok' | 'warn' | 'outline'>> = {
@@ -81,20 +81,32 @@ export default function ManysView() {
     localStorage.setItem('manys:focus', value ? '1' : '0');
   };
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (everyMany = true) => {
     try {
       const result = await request<{ manys: CloudMany[] }>('');
       setManys(result.manys);
       setLoaded(true);
-      const next: Record<string, ManyDetail> = {};
-      await Promise.all(result.manys.slice(0, 24).map(async (many) => {
+      // The list is one cheap query. Each detail is nine, so only the open Many is read on every
+      // tick and the rest of the team every few ticks.
+      const wanted = everyMany
+        ? result.manys.slice(0, 24)
+        : result.manys.filter((many) => many.id === currentSelected.current);
+      const fetched: Record<string, ManyDetail> = {};
+      await Promise.all(wanted.map(async (many) => {
         try {
-          next[many.id] = await request<ManyDetail>(`/${many.id}`);
+          fetched[many.id] = await request<ManyDetail>(`/${many.id}`);
         } catch {
           /* one unreachable Many must not blank the roster or the team view */
         }
       }));
-      setDetails(next);
+      setDetails((current) => {
+        const kept: Record<string, ManyDetail> = {};
+        for (const many of result.manys) {
+          const detail = fetched[many.id] ?? current[many.id];
+          if (detail) kept[many.id] = detail;
+        }
+        return kept;
+      });
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');
@@ -103,9 +115,11 @@ export default function ManysView() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(true);
+    let tick = 0;
     const timer = setInterval(() => {
-      void refresh();
+      tick += 1;
+      void refresh(tick % 4 === 0);
     }, 5000);
     return () => clearInterval(timer);
   }, [refresh, selected]);
@@ -119,7 +133,7 @@ export default function ManysView() {
     setBusy(true);
     try {
       await fn();
-      await refresh();
+      await refresh(true);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');
@@ -163,7 +177,7 @@ export default function ManysView() {
   const questions = summary?.questions ?? [];
   const lastFailed = summary?.lastFailed ?? null;
   const composerTasks = detail?.tasks.filter((task) => (
-    task.state === 'running' || task.state === 'paused' || task.state === 'waiting_approval'
+    task !== lastFailed && (task.state === 'running' || task.state === 'paused' || task.state === 'waiting_approval')
   )) ?? [];
   const spokenResults = detail?.tasks.filter((task) => {
     const text = task.result?.text;
@@ -171,6 +185,8 @@ export default function ManysView() {
   }) ?? [];
   const chatOnly = focus && !!selected;
   const controlNow = detail?.computer?.control;
+  const lastComputerUse = detail?.computer?.last_activity ? Date.parse(detail.computer.last_activity) : 0;
+  const computerActive = Date.now() - lastComputerUse < 120000;
   useEffect(() => {
     if (controlNow === 'human') setInspector((current) => current ?? 'computer');
   }, [controlNow]);
@@ -254,7 +270,7 @@ export default function ManysView() {
               {t(`manys.errors.${error}`, { defaultValue: t('manys.errors.request_failed') })}
               {draft.trim() ? ` ${t('manys.errors.draft_saved')}` : ''}
             </span>
-            <Button size="sm" variant="outline" onClick={() => { void refresh(); }}>{t('manys.retry')}</Button>
+            <Button size="sm" variant="outline" onClick={() => { void refresh(true); }}>{t('manys.retry')}</Button>
           </div>
         )}
         {!selected && !loaded && (
@@ -450,11 +466,6 @@ export default function ManysView() {
                                 </BubbleContent>
                               </Bubble>
                               {queued && <Badge variant="outline" className="self-start">{t('manys.states.queued')}</Badge>}
-                              {isLastForTask && task?.checkpoint?.reason && (
-                                <p className="text-sm text-muted-foreground">
-                                  {t(`manys.errors.${task.checkpoint.reason}`, { defaultValue: task.checkpoint.reason })}
-                                </p>
-                              )}
                               {resources.map((id) => (
                                 <Button key={id} variant="link" className="self-start" onClick={() => { void openResource(id); }}>{t('manys.openResource')}</Button>
                               ))}
@@ -490,12 +501,17 @@ export default function ManysView() {
                                 <HugeiconsIcon icon={Alert02Icon} className="size-[18px] shrink-0 text-destructive" aria-hidden />
                                 <span className="text-sm font-semibold tracking-[-0.01em]">{t('manys.failedTitle')}</span>
                               </div>
-                              <p className="mb-3 text-muted-foreground">{t('manys.failedBody')}</p>
+                              <p className="mb-3 text-muted-foreground">{t(`manys.errors.${lastFailed.checkpoint?.reason ?? ''}`, { defaultValue: t('manys.failedBody') })}</p>
                               <div className="flex flex-wrap items-center gap-2">
-                                <Button type="button" disabled={busy} onClick={() => { void perform(() => delegateToMany(selected, lastFailed.prompt)); }}>
+                                <Button type="button" disabled={busy} onClick={() => { void perform(() => retryTask(selected, lastFailed)); }}>
                                   <HugeiconsIcon icon={Refresh01Icon} aria-hidden />
                                   {t('manys.retry')}
                                 </Button>
+                                {lastFailed.state === 'paused' && (
+                                  <Button type="button" variant="outline" disabled={busy} onClick={() => patchTask(lastFailed.id, { action: 'cancel' })}>
+                                    {t('manys.cancelTask')}
+                                  </Button>
+                                )}
                                 <span className="grow" />
                                 <Button type="button" size="sm" variant="ghost" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((value) => !value)}>
                                   {t('manys.technicalDetails')}
@@ -623,7 +639,7 @@ export default function ManysView() {
               </footer>
             </div>
             {inspector && !chatOnly && (
-              <ManyInspector tab={inspector} onTab={setInspector} detail={detail} busy={busy} perform={perform} />
+              <ManyInspector tab={inspector} onTab={setInspector} detail={detail} busy={busy} live={status === 'running' && computerActive} perform={perform} />
             )}
           </div>
         )}

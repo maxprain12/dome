@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { delegateToMany, request, type Action, type CloudMany, type ManyDetail, type Task } from '@/lib/manys/api';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManyOptionsMenu from './ManyOptionsMenu';
-import { STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 export const MANY_TEMPLATES = ['person', 'competitor', 'meeting'] as const;
 export type ManyTemplate = (typeof MANY_TEMPLATES)[number];
@@ -100,7 +100,7 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
       case 'failed':
         return (
           <>
-            <Button size="sm" disabled={busy} onClick={() => { void perform(() => delegateToMany(many, need.task.prompt)); }}><HugeiconsIcon icon={Refresh01Icon} aria-hidden />{t('manys.retry')}</Button>
+            <Button size="sm" disabled={busy} onClick={() => { void perform(() => retryTask(many, need.task)); }}><HugeiconsIcon icon={Refresh01Icon} aria-hidden />{t('manys.retry')}</Button>
             <Button size="sm" variant="outline" onClick={() => onOpen(many)}>{t('manys.viewDetail')}</Button>
           </>
         );
@@ -179,7 +179,7 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
         <div className="flex flex-wrap items-stretch gap-3">
           {summaries.map(({ many, detail, summary }) => {
             const status = summary?.status ?? 'idle';
-            const lastTask = detail?.tasks[detail.tasks.length - 1];
+            const lastTask = detail?.tasks[0];
             const capabilities = many.grants.capabilities;
             const draft = drafts[many.id] ?? '';
             const routine = detail?.recurrences[0];
@@ -204,7 +204,7 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
                   <div className="flex items-center gap-2 rounded-[10px] bg-muted px-2.5 py-2 text-xs">
                     <HugeiconsIcon icon={Alert02Icon} className="size-3 shrink-0 text-destructive" aria-hidden />
                     <span className="min-w-0 grow">{t('manys.failedStrip')}</span>
-                    <Button size="xs" variant="outline" disabled={busy} onClick={() => { void perform(() => delegateToMany(many.id, summary.lastFailed?.prompt ?? '')); }}>
+                    <Button size="xs" variant="outline" disabled={busy} onClick={() => { if (summary.lastFailed) void perform(() => retryTask(many.id, summary.lastFailed as Task)); }}>
                       <HugeiconsIcon icon={Refresh01Icon} aria-hidden />
                       {t('manys.retry')}
                     </Button>

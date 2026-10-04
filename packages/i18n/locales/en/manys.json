@@ -81,7 +81,27 @@
     "computer_unavailable": "The computer is currently unavailable.",
     "queue_limit": "The queue has reached its limit.",
     "invalid_runtime": "Choose how this agent runs in the cloud.",
-    "provider_not_cloud_compatible": "That provider cannot run a cloud agent."
+    "provider_not_cloud_compatible": "That provider cannot run a cloud agent.",
+    "provider_key_unusable": "The saved key cannot be used in the cloud. Save it again in Settings.",
+    "provider_base_url_missing": "The provider has no address the cloud can reach.",
+    "provider_base_url_rejected": "The provider address is not allowed for a cloud agent.",
+    "upstream_unconfigured": "Dome credits are not available on this deployment.",
+    "model_not_in_plan": "Your plan does not include this model.",
+    "runtime_unconfigured": "The cloud runtime is not available right now.",
+    "runtime_version_mismatch": "The cloud runtime is being updated. Try again shortly.",
+    "runtime_ended_without_outcome": "The agent stopped without finishing.",
+    "computer_capacity_unavailable": "No computer is free right now. Try again shortly.",
+    "human_controls_computer": "You have control of the computer.",
+    "take_control_required": "Take control of the computer first.",
+    "control_unavailable": "The computer did not hand over control.",
+    "browser_url_rejected": "That address cannot be opened.",
+    "rate_limited": "Too many requests. Wait a moment.",
+    "storage_quota_exceeded": "Your storage quota is full.",
+    "session_size_limit": "This conversation is too long for the agent to continue.",
+    "session_entry_count_limit": "This conversation is too long for the agent to continue.",
+    "session_entry_limit": "A message in this conversation is too large.",
+    "task_terminal": "This task has already ended.",
+    "not_found": "That item no longer exists."
   },
   "actions": {
     "pending": "Needs review",
@@ -218,5 +238,7 @@
   "delete": "Delete Many",
   "deleteTitle": "Delete {{name}}?",
   "deleteBody": "It stops working in the cloud and its conversation, tasks and routines are removed. This cannot be undone.",
-  "options": "Options for {{name}}"
+  "options": "Options for {{name}}",
+  "expiresInMinutes": "Expires in {{minutes}} min",
+  "expired": "Expired"
 }

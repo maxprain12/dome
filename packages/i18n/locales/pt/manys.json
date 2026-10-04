@@ -81,7 +81,27 @@
     "computer_unavailable": "O computador não está disponível.",
     "queue_limit": "A fila atingiu o limite.",
     "invalid_runtime": "Escolha como este agente corre na nuvem.",
-    "provider_not_cloud_compatible": "Esse provedor não pode executar um agente na nuvem."
+    "provider_not_cloud_compatible": "Esse provedor não pode executar um agente na nuvem.",
+    "provider_key_unusable": "A chave salva não pode ser usada na nuvem. Salve-a novamente em Ajustes.",
+    "provider_base_url_missing": "O provedor não tem um endereço que a nuvem alcance.",
+    "provider_base_url_rejected": "O endereço do provedor não é permitido para um agente na nuvem.",
+    "upstream_unconfigured": "Os créditos da Dome não estão disponíveis nesta instalação.",
+    "model_not_in_plan": "Seu plano não inclui este modelo.",
+    "runtime_unconfigured": "O ambiente na nuvem não está disponível agora.",
+    "runtime_version_mismatch": "O ambiente na nuvem está sendo atualizado. Tente novamente em instantes.",
+    "runtime_ended_without_outcome": "O agente parou sem terminar.",
+    "computer_capacity_unavailable": "Nenhum computador está livre agora. Tente novamente em instantes.",
+    "human_controls_computer": "Você tem o controle do computador.",
+    "take_control_required": "Assuma primeiro o controle do computador.",
+    "control_unavailable": "O computador não cedeu o controle.",
+    "browser_url_rejected": "Esse endereço não pode ser aberto.",
+    "rate_limited": "Muitas solicitações. Aguarde um momento.",
+    "storage_quota_exceeded": "Sua cota de armazenamento está cheia.",
+    "session_size_limit": "Esta conversa é longa demais para o agente continuar.",
+    "session_entry_count_limit": "Esta conversa é longa demais para o agente continuar.",
+    "session_entry_limit": "Uma mensagem desta conversa é grande demais.",
+    "task_terminal": "Esta tarefa já terminou.",
+    "not_found": "Esse item não existe mais."
   },
   "actions": {
     "pending": "Precisa de revisão",
@@ -218,5 +238,7 @@
   "delete": "Excluir Many",
   "deleteTitle": "Excluir {{name}}?",
   "deleteBody": "Ele deixa de trabalhar na nuvem e sua conversa, tarefas e rotinas são removidas. Esta ação não pode ser desfeita.",
-  "options": "Opções de {{name}}"
+  "options": "Opções de {{name}}",
+  "expiresInMinutes": "Expira em {{minutes}} min",
+  "expired": "Expirada"
 }
