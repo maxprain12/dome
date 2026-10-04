@@ -5,6 +5,15 @@
   "create": "Créer",
   "retry": "Réessayer",
   "intro": "Créez un collaborateur qui travaille dans le cloud même lorsque Dome est fermé. Partagez uniquement le contexte nécessaire.",
+  "unknown_provider": "Fournisseur inconnu",
+  "runtime": {
+    "legend": "Comment cet agent s’exécute dans le cloud",
+    "provider_key": "Clé d’API enregistrée",
+    "provider_empty": "Aucun fournisseur cloud enregistré",
+    "dome_credits": "Crédits Dome",
+    "credits_hint": "Modèles de Dome",
+    "choose_provider": "Fournisseur enregistré"
+  },
   "cloud": "Cloud",
   "conversation": "Conversation",
   "tasks": "Tâches",
@@ -65,7 +74,9 @@
     "approval_stale": "La proposition a expiré ou ses permissions ont changé.",
     "reconciliation_required": "Vérifiez le résultat incertain avant de continuer.",
     "computer_unavailable": "L’ordinateur est indisponible.",
-    "queue_limit": "La file a atteint sa limite."
+    "queue_limit": "La file a atteint sa limite.",
+    "invalid_runtime": "Choisissez comment cet agent s’exécute dans le cloud.",
+    "provider_not_cloud_compatible": "Ce fournisseur ne peut pas exécuter un agent cloud."
   },
   "actions": {
     "pending": "À vérifier",

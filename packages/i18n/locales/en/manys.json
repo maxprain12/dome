@@ -5,6 +5,15 @@
   "create": "Create",
   "retry": "Retry",
   "intro": "Create a collaborator that works in the cloud even when Dome is closed. Share only the context it needs.",
+  "unknown_provider": "Unknown provider",
+  "runtime": {
+    "legend": "How this agent runs in the cloud",
+    "provider_key": "Saved API key",
+    "provider_empty": "No saved cloud provider",
+    "dome_credits": "Dome credits",
+    "credits_hint": "Dome’s models",
+    "choose_provider": "Saved provider"
+  },
   "cloud": "Cloud",
   "conversation": "Conversation",
   "tasks": "Tasks",
@@ -65,7 +74,9 @@
     "approval_stale": "This proposal expired or its permissions changed.",
     "reconciliation_required": "Reconcile the uncertain action before continuing.",
     "computer_unavailable": "The computer is currently unavailable.",
-    "queue_limit": "The queue has reached its limit."
+    "queue_limit": "The queue has reached its limit.",
+    "invalid_runtime": "Choose how this agent runs in the cloud.",
+    "provider_not_cloud_compatible": "That provider cannot run a cloud agent."
   },
   "actions": {
     "pending": "Needs review",

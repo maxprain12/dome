@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sources": ["dome_credits", "provider_key"],
+  "createBody": {
+    "runtime": {
+      "source": "dome_credits | provider_key",
+      "provider": "Saved provider id when source is provider_key. Never an API key."
+    }
+  }
+}

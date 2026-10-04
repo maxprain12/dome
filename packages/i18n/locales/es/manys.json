@@ -5,6 +5,15 @@
   "create": "Crear",
   "retry": "Reintentar",
   "intro": "Crea un colaborador que trabaja en la nube aunque cierres Dome. Comparte solo el contexto que necesita.",
+  "unknown_provider": "Proveedor desconocido",
+  "runtime": {
+    "legend": "Cómo corre este agente en la nube",
+    "provider_key": "Clave de API guardada",
+    "provider_empty": "Ningún proveedor en la nube guardado",
+    "dome_credits": "Créditos de Dome",
+    "credits_hint": "Modelos de Dome",
+    "choose_provider": "Proveedor guardado"
+  },
   "cloud": "Cloud",
   "conversation": "Conversación",
   "tasks": "Tareas",
@@ -65,7 +74,9 @@
     "approval_stale": "La propuesta ha caducado o han cambiado sus permisos.",
     "reconciliation_required": "Reconcilia la acción incierta antes de continuar.",
     "computer_unavailable": "El ordenador no está disponible ahora.",
-    "queue_limit": "La cola ha alcanzado su límite."
+    "queue_limit": "La cola ha alcanzado su límite.",
+    "invalid_runtime": "Elige cómo corre este agente en la nube.",
+    "provider_not_cloud_compatible": "Ese proveedor no puede ejecutar un agente en la nube."
   },
   "actions": {
     "pending": "Necesita revisión",
