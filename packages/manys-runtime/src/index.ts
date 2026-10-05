@@ -36,14 +36,14 @@ const schemas = {
   computer_read: Type.Object({}),
   computer_snapshot: Type.Object({}),
   computer_screenshot: Type.Object({}),
-  computer_click: Type.Object({ref:Type.String({minLength:1,maxLength:100}),snapshotId:Type.Integer({minimum:0})}),
-  computer_type: Type.Object({...{ref:Type.String({minLength:1,maxLength:100}),snapshotId:Type.Integer({minimum:0})},text:Type.String({maxLength:16000}),submit:Type.Optional(Type.Boolean())}),
-  computer_key: Type.Object({key:Type.String({minLength:1,maxLength:100})}),
-  computer_scroll: Type.Object({deltaY:Type.Number({minimum:-10000,maximum:10000})}),
+  computer_click: Type.Object({ref:Type.String({maxLength:100}),snapshotId:Type.Number()}),
+  computer_type: Type.Object({...{ref:Type.String({maxLength:100}),snapshotId:Type.Number()},text:Type.String({maxLength:16000}),submit:Type.Optional(Type.Boolean())}),
+  computer_key: Type.Object({key:Type.String({maxLength:100})}),
+  computer_scroll: Type.Object({deltaY:Type.Number()}),
   computer_files_list: Type.Object({path:Type.Optional(Type.String({maxLength:1024}))}),
-  computer_files_read: Type.Object({path:Type.String({minLength:1,maxLength:1024})}),
-  computer_files_write: Type.Object({path:Type.String({minLength:1,maxLength:1024}),contents:Type.String({maxLength:100000}),append:Type.Optional(Type.Boolean())}),
-  computer_exec: Type.Object({command:Type.String({minLength:1,maxLength:8000}),timeoutMs:Type.Optional(Type.Integer({minimum:1000,maximum:60000}))}),
+  computer_files_read: Type.Object({path:Type.String({maxLength:1024})}),
+  computer_files_write: Type.Object({path:Type.String({maxLength:1024}),contents:Type.String({maxLength:100000}),append:Type.Optional(Type.Boolean())}),
+  computer_exec: Type.Object({command:Type.String({maxLength:8000}),timeoutMs:Type.Optional(Type.Number())}),
   propose_action: Type.Object({capability:Type.String(),tool:Type.String(),parameters:Type.Record(Type.String(),Type.Unknown()),connectionId:Type.String(),accountId:Type.String(),targetVersion:Type.String()}),
   execute_approved: Type.Object({actionId:Type.String()}),
 };
@@ -125,7 +125,11 @@ export async function run(input:RuntimeInput):Promise<void> {
     if(event.type==='message_update'&&event.assistantMessageEvent.type==='text_delta'&&liveId)live(event.assistantMessageEvent.delta);
     if(event.type==='message_end'&&event.message.role==='assistant') {
       if(liveId)live('',true);
-      if(['error','aborted'].includes(event.message.stopReason))throw new Error('model_outcome_unknown');
+      if(['error','aborted'].includes(event.message.stopReason)) {
+        // What the model service said, so a failure can be understood instead of only "outcome unknown".
+        const detail=String(event.message.errorMessage??'').replace(/\s+/g,' ').slice(0,300);
+        throw new Error(detail?`model_outcome_unknown: ${detail}`:'model_outcome_unknown');
+      }
       const usage=event.message.usage;
       await input.usage(usage.input+usage.cacheRead+usage.cacheWrite,usage.output);
       reply=event.message.stopReason==='stop'?event.message.content.flatMap(part=>part.type==='text'?[part.text]:[]).join('').trim():'';
