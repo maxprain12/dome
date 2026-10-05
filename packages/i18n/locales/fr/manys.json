@@ -181,7 +181,7 @@
     "model_not_in_plan": "Votre offre n’inclut pas ce modèle.",
     "runtime_unconfigured": "L’environnement cloud n’est pas disponible pour le moment.",
     "runtime_version_mismatch": "L’environnement cloud est en cours de mise à jour. Réessayez dans un instant.",
-    "runtime_ended_without_outcome": "L’agent s’est arrêté sans terminer.",
+    "runtime_ended_without_outcome": "Limite d'étapes atteinte pour ce tour. Écris « continue » pour qu'il reprenne là où il s'est arrêté.",
     "computer_capacity_unavailable": "Aucun ordinateur n’est libre pour le moment. Réessayez dans un instant.",
     "human_controls_computer": "Vous avez le contrôle de l’ordinateur.",
     "take_control_required": "Prenez d’abord le contrôle de l’ordinateur.",
@@ -220,7 +220,8 @@
     "connection_changed": "Le service a changé après la proposition. Demandez-la de nouveau.",
     "read_only_tool_needs_no_review": "Cet outil ne fait que lire, il n’a donc pas besoin d’approbation.",
     "many_paused": "Many est en pause. Reprenez-le pour lui donner du travail.",
-    "computer_permission_denied": "Cette autorisation de l'ordinateur est désactivée."
+    "computer_permission_denied": "Cette autorisation de l'ordinateur est désactivée.",
+    "credential_ambiguous": "Deux accès portent ce nom."
   },
   "actions": {
     "pending": "À vérifier",

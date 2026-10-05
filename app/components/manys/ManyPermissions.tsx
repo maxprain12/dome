@@ -16,14 +16,13 @@ interface RowProps {
   onChange: (checked: boolean) => void;
 }
 
+/** One line: the name and its switch. The longer explanation is the tooltip, not text on the panel. */
 function Row({ id, label, hint, checked, disabled, onChange }: RowProps) {
   return (
-    <div className="flex items-start gap-3">
-      <Switch id={id} size="sm" checked={checked} disabled={disabled} onCheckedChange={(value) => onChange(value === true)} className="mt-0.5" />
-      <label htmlFor={id} className="min-w-0 grow cursor-pointer">
-        <span className="block font-medium">{label}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
-      </label>
+    <div className="flex items-center justify-between gap-3" title={hint}>
+      <label htmlFor={id} className="min-w-0 grow cursor-pointer truncate">{label}</label>
+      <Switch id={id} size="sm" checked={checked} disabled={disabled} aria-describedby={`${id}-hint`} onCheckedChange={(value) => onChange(value === true)} />
+      <span id={`${id}-hint`} className="sr-only">{hint}</span>
     </div>
   );
 }
@@ -42,7 +41,7 @@ interface Props {
 export default function ManyPermissions({ grants, busy, onChange }: Props) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="flex flex-col gap-2.5">
       <Row id="perm-library" label={t('manys.perm.library')} hint={t('manys.perm.libraryHint')} checked={hasCapability(grants, 'vault.read')} disabled={busy} onChange={(on) => onChange(withCapabilities(grants, LIBRARY, on))} />
       <Row id="perm-web" label={t('manys.perm.web')} hint={t('manys.perm.webHint')} checked={hasCapability(grants, 'web.read')} disabled={busy} onChange={(on) => onChange(withCapabilities(grants, ['web.read'], on))} />
       <Row id="perm-computer" label={t('manys.perm.computer')} hint={t('manys.perm.computerHint')} checked={computerEnabled(grants)} disabled={busy} onChange={(on) => onChange(withComputerOn(grants, on))} />
