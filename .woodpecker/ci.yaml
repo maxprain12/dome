@@ -5,14 +5,14 @@ when:
 
 steps:
   - name: typecheck
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run typecheck
 
   - name: lint-and-contracts
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile --ignore-scripts
@@ -54,7 +54,7 @@ steps:
       - pnpm run test:execution-log-display
 
   - name: sonar-diff
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     when:
       - event: pull_request
     commands:
@@ -64,14 +64,14 @@ steps:
       - pnpm run check:sonar-patterns -- --diff="origin/$$CI_COMMIT_TARGET_BRANCH"
 
   - name: vite-build
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run build
 
   - name: electron-smoke
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libnspr4 libasound2 libgbm1 libxss1 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libx11-xcb1 libxcb-dri3-0
       - npm i -g pnpm@11.8.0
@@ -86,14 +86,14 @@ steps:
       - DOME_RECOVERY_SKIP_CAPTURE=1 xvfb-run --auto-servernum pnpm exec electron --no-sandbox scripts/smoke-renderer-recovery.cjs
 
   - name: depcruise
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run depcruise
 
   - name: architecture
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - |
         found=0
@@ -109,7 +109,7 @@ steps:
         echo "Architecture check passed."
 
   - name: browser-extension
-    image: node:24-bookworm
+    image: node:24.21.0-bookworm
     commands:
       - apt-get update && apt-get install -y xvfb
       - npm i -g pnpm@11.8.0

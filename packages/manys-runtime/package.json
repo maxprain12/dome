@@ -6,5 +6,5 @@
   "exports": { ".": "./dist/index.js" },
   "files": ["dist"],
   "scripts": { "build": "tsc -b", "typecheck": "tsc --noEmit" },
-  "dependencies": { "@dome/agent-core": "workspace:*", "@dome/ai": "workspace:*", "@sinclair/typebox": "^0.34.41" }
+  "dependencies": { "@dome/agent-core": "workspace:*", "@dome/ai": "workspace:*", "@sinclair/typebox": "^0.34.52" }
 }
