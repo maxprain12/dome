@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowRight01Icon, FileSearchIcon, Key01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +12,7 @@ import ManyPermissions from './ManyPermissions';
 
 const labelClass = 'mb-1.5 block text-xs leading-[1.3] font-semibold';
 
-export default function ManySettings({ many, busy, onSave, onGrants }: { many: CloudMany; busy: boolean; onSave: (value: Record<string, unknown>) => Promise<void>; onGrants: (grants: Grants) => void }) {
+export default function ManySettings({ many, busy, onSave, onGrants, onAdvanced }: { many: CloudMany; busy: boolean; onSave: (value: Record<string, unknown>) => Promise<void>; onGrants: (grants: Grants) => void; onAdvanced?: (tab: 'access' | 'governance') => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(many.name);
   const [instructions, setInstructions] = useState(many.instructions);
@@ -66,6 +68,24 @@ export default function ManySettings({ many, busy, onSave, onGrants }: { many: C
       <h2 className="text-sm font-semibold">{t('manys.permissions')}</h2>
       <ManyPermissions grants={many.grants} busy={busy} onChange={onGrants} />
     </section>
+    {onAdvanced && (
+      <section aria-label={t('manys.inspector.advanced')} className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">{t('manys.inspector.advanced')}</h2>
+        <p className="text-muted-foreground">{t('manys.inspector.advancedHint')}</p>
+        <div className="dome-card flex flex-col p-1">
+          <button type="button" className="dome-rowbtn" onClick={() => onAdvanced('access')}>
+            <HugeiconsIcon icon={Key01Icon} className="size-4 shrink-0" aria-hidden />
+            <span className="grow">{t('manys.access.tab')}</span>
+            <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </button>
+          <button type="button" className="dome-rowbtn" onClick={() => onAdvanced('governance')}>
+            <HugeiconsIcon icon={FileSearchIcon} className="size-4 shrink-0" aria-hidden />
+            <span className="grow">{t('manys.governance.tab')}</span>
+            <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </button>
+        </div>
+      </section>
+    )}
     </div>
   );
 }
