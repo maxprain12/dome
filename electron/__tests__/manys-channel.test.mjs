@@ -47,71 +47,58 @@ function setup({ session = { connected: true, accessToken: 'tok-1' }, behaviour 
   return { call, sent, makeSender };
 }
 
-test('opens a wss socket with the session token and relays frames to the window that opened it', async () => {
-  const { call, sent, makeSender } = setup();
-  const sender = makeSender(1);
-  const opened = await call('manys:channel:open', sender, { manyId: MANY, channel: 'terminal' });
-  assert.equal(opened.success, true);
-  assert.equal(FakeSocket.last.url, `wss://dome-provider.test/api/v1/manys/${MANY}/computer/terminal`);
-  assert.deepEqual(FakeSocket.last.headers, { authorization: 'Bearer tok-1' });
-  FakeSocket.last.onmessage({ data: '{"type":"output"}' });
-  FakeSocket.last.onmessage({ data: new Uint8Array(3) });
-  assert.deepEqual(sent, [[1, 'manys:channel:event', { channelId: opened.data.channelId, type: 'message', data: '{"type":"output"}' }]]);
-  FakeSocket.last.close(1006);
-  assert.equal(sent.at(-1)[2].type, 'close');
-  assert.equal(sent.at(-1)[2].code, 1006);
-});
-
-test('relays a desktop as bytes in both directions and keeps text channels text-only', async () => {
+test('opens a wss socket with the session token and relays the desktop to the window that opened it', async () => {
   const { call, sent, makeSender } = setup();
   const sender = makeSender(1);
   const opened = await call('manys:channel:open', sender, { manyId: MANY, channel: 'desktop' });
   assert.equal(opened.success, true);
   assert.equal(FakeSocket.last.url, `wss://dome-provider.test/api/v1/manys/${MANY}/computer/desktop`);
+  assert.deepEqual(FakeSocket.last.headers, { authorization: 'Bearer tok-1' });
   assert.equal(FakeSocket.last.binaryType, 'arraybuffer');
   FakeSocket.last.onmessage({ data: new Uint8Array([1, 2, 3]).buffer });
   FakeSocket.last.onmessage({ data: '{"type":"error","error":"control_released"}' });
+  FakeSocket.last.onmessage({ data: 'x'.repeat(5000) });
   assert.deepEqual(sent.map(([, , payload]) => payload.type), ['binary', 'message']);
   assert.deepEqual([...sent[0][2].bytes], [1, 2, 3]);
   const bytes = new Uint8Array([5, 0, 0, 0, 10, 0, 20]);
   assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes })).success, true);
   assert.deepEqual(FakeSocket.last.sent, [bytes]);
-  assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes: new Uint8Array(0) })).error, 'invalid_request');
-  assert.equal((await call('manys:channel:send', sender, { channelId: opened.data.channelId, bytes: new Uint8Array(256 * 1024 + 1) })).error, 'invalid_request');
-
-  const text = await call('manys:channel:open', sender, { manyId: MANY, channel: 'terminal' });
-  assert.equal((await call('manys:channel:send', sender, { channelId: text.data.channelId, bytes })).error, 'invalid_request');
+  FakeSocket.last.close(1006);
+  assert.equal(sent.at(-1)[2].type, 'close');
+  assert.equal(sent.at(-1)[2].code, 1006);
 });
 
-test('refuses unknown windows, malformed requests and a missing connection', async () => {
+test('refuses unknown windows, other channels, malformed requests and a missing connection', async () => {
   const { call, makeSender } = setup();
-  assert.equal((await call('manys:channel:open', makeSender(99), { manyId: MANY, channel: 'stream' })).error, 'unauthorized');
-  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: 'nope', channel: 'stream' })).error, 'invalid_request');
-  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'shell' })).error, 'invalid_request');
-  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'stream', extra: 1 })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:open', makeSender(99), { manyId: MANY, channel: 'desktop' })).error, 'unauthorized');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: 'nope', channel: 'desktop' })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'terminal' })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'desktop', extra: 1 })).error, 'invalid_request');
   const offline = setup({ session: { connected: false } });
-  assert.equal((await offline.call('manys:channel:open', offline.makeSender(1), { manyId: MANY, channel: 'stream' })).error, 'not_connected');
+  assert.equal((await offline.call('manys:channel:open', offline.makeSender(1), { manyId: MANY, channel: 'desktop' })).error, 'not_connected');
 });
 
 test('reports a socket that never opens', async () => {
   const { call, makeSender } = setup({ behaviour: 'fail' });
-  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'stream' })).error, 'channel_unavailable');
+  assert.equal((await call('manys:channel:open', makeSender(1), { manyId: MANY, channel: 'desktop' })).error, 'channel_unavailable');
 });
 
 test('only the owning window can send or close, and sends are bounded', async () => {
   const { call, makeSender } = setup();
   const owner = makeSender(1);
-  const { data } = await call('manys:channel:open', owner, { manyId: MANY, channel: 'stream' });
+  const { data } = await call('manys:channel:open', owner, { manyId: MANY, channel: 'desktop' });
   const socket = FakeSocket.last;
-  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: '{"type":"key"}' })).success, true);
-  assert.deepEqual(socket.sent, ['{"type":"key"}']);
-  assert.equal((await call('manys:channel:send', makeSender(2), { channelId: data.channelId, data: 'x' })).error, 'channel_closed');
-  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: 'x'.repeat(256 * 1024 + 1) })).error, 'invalid_request');
+  const bytes = new Uint8Array([4, 1, 0, 0]);
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, bytes })).success, true);
+  assert.equal((await call('manys:channel:send', makeSender(2), { channelId: data.channelId, bytes })).error, 'channel_closed');
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, bytes: new Uint8Array(0) })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, bytes: new Uint8Array(256 * 1024 + 1) })).error, 'invalid_request');
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: 'text' })).error, 'invalid_request');
   await call('manys:channel:close', makeSender(2), { channelId: data.channelId });
   assert.equal(socket.closed, null);
   await call('manys:channel:close', owner, { channelId: data.channelId });
   assert.equal(socket.closed, 1000);
-  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, data: 'x' })).error, 'channel_closed');
+  assert.equal((await call('manys:channel:send', owner, { channelId: data.channelId, bytes })).error, 'channel_closed');
 });
 
 test('limits channels per window and closes them when the window goes away', async () => {
@@ -119,10 +106,10 @@ test('limits channels per window and closes them when the window goes away', asy
   const sender = makeSender(1);
   const sockets = [];
   for (let i = 0; i < 4; i += 1) {
-    assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'stream' })).success, true);
+    assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'desktop' })).success, true);
     sockets.push(FakeSocket.last);
   }
-  assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'stream' })).error, 'too_many_channels');
+  assert.equal((await call('manys:channel:open', sender, { manyId: MANY, channel: 'desktop' })).error, 'too_many_channels');
   sender.destroy();
   assert.deepEqual(sockets.map((socket) => socket.closed), [1001, 1001, 1001, 1001]);
 });

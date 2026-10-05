@@ -31,13 +31,12 @@ interface ManyRosterProps {
   presetName: string;
   onNewOpenChange: (open: boolean) => void;
   onSelect: (id: string) => void;
-  onOpenLocal: () => void;
   onDelete: (many: CloudMany) => void;
   onCreate: (input: { name: string; runtime: ManyCloudRuntime }) => Promise<boolean>;
 }
 
 /** Left column of Many’s A: search, team, "needs you" group, rest, and the new-Many popover. */
-export default function ManyRoster({ manys, details, loaded, selected, busy, newOpen, presetName, onNewOpenChange, onSelect, onOpenLocal, onDelete, onCreate }: ManyRosterProps) {
+export default function ManyRoster({ manys, details, loaded, selected, busy, newOpen, presetName, onNewOpenChange, onSelect, onDelete, onCreate }: ManyRosterProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
@@ -88,9 +87,6 @@ export default function ManyRoster({ manys, details, loaded, selected, busy, new
     <aside className="flex max-h-[42vh] min-h-0 w-full shrink-0 flex-col border-b border-border md:h-full md:max-h-none md:w-[264px] md:border-r md:border-b-0">
       <div className="flex items-center justify-between gap-2 pt-4 pr-3 pb-2 pl-4">
         <h1 className="text-base font-semibold tracking-tight">{t('manys.title')}</h1>
-        <Button type="button" variant="ghost" size="sm" onClick={onOpenLocal}>
-          {t('manys.local')}
-        </Button>
       </div>
       <div className="px-3 pb-2">
         <div className="relative">

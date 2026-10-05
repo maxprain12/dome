@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useImperativeHandle,
+  type ReactNode,
   type Ref,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,9 +41,13 @@ interface ManyConversationProps {
   onRegenerate: (messageId: string) => void;
   error: string | null;
   onRetryError: () => void;
-  onReportError: () => void;
+  onReportError?: () => void;
   supportsTools: boolean;
   onPrompt: (text: string) => void;
+  /** Replaces the local welcome for an empty conversation (a Many that is not the local one has its own). */
+  welcome?: ReactNode;
+  /** After the last turn, inside the same flow: cards the surface owns, such as something waiting for the person. */
+  trailing?: ReactNode;
   className?: string;
 }
 
@@ -86,6 +91,8 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
       onReportError,
       supportsTools,
       onPrompt,
+      welcome,
+      trailing,
       className,
     },
     ref,
@@ -105,7 +112,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                 )}
               >
                 {isEmpty ? (
-                  <ManyWelcome variant="panel" supportsTools={supportsTools} onPrompt={onPrompt} />
+                  welcome ?? <ManyWelcome variant="panel" supportsTools={supportsTools} onPrompt={onPrompt} />
                 ) : (
                   <>
                     {messageGroups.map((group, index) => {
@@ -141,6 +148,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                     ) : null}
                   </>
                 )}
+                {trailing}
               </div>
             </MessageScrollerContent>
           </MessageScrollerViewport>

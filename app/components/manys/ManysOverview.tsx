@@ -27,7 +27,6 @@ interface ManysOverviewProps {
   busy: boolean;
   onOpen: (id: string) => void;
   onNew: () => void;
-  onOpenLocal: () => void;
   onDelete: (many: CloudMany) => void;
   onTemplate: (template: ManyTemplate) => void;
   perform: (fn: () => Promise<unknown>) => Promise<void>;
@@ -41,7 +40,7 @@ function operationOf(proposal: unknown): string {
   return '';
 }
 
-export default function ManysOverview({ manys, details, busy, onOpen, onNew, onOpenLocal, onDelete, onTemplate, perform }: ManysOverviewProps) {
+export default function ManysOverview({ manys, details, busy, onOpen, onNew, onDelete, onTemplate, perform }: ManysOverviewProps) {
   const { t } = useTranslation();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
@@ -125,7 +124,6 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onO
             {t(anyWorking ? 'manys.pause.pauseAll' : 'manys.pause.resumeAll')}
           </Button>
         )}
-        <Button type="button" variant="outline" onClick={onOpenLocal}>{t('manys.local')}</Button>
         <Button type="button" onClick={onNew}>
           <HugeiconsIcon icon={Add01Icon} aria-hidden />
           {t('manys.newMany')}

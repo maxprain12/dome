@@ -66,7 +66,14 @@ describe('the computer panel', () => {
     expect(screen.queryByRole('button', { name: handBack })).toBeNull();
   });
 
-  it('offers to turn the computer on when it is off, and shows the screen once it is up', async () => {
+  it('has nothing but the desktop: no terminal, no files, no browser tab', async () => {
+    render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
+    await screen.findByLabelText(desktopLabel);
+    expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.queryByText(/Terminal|Archivos|Files|Fichiers|Arquivos/)).toBeNull();
+  });
+
+  it('offers to turn the computer on when it is off, and shows the desktop once it is up', async () => {
     power = 'stopped';
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
     expect(await screen.findByText(/The computer is off|El ordenador está apagado|L'ordinateur est éteint|O computador está desligado/)).toBeInTheDocument();
@@ -76,7 +83,16 @@ describe('the computer panel', () => {
     expect(await screen.findByLabelText(desktopLabel)).toBeInTheDocument();
   });
 
-  it('takes the wheel and opens the expanded screen, then hands it back', async () => {
+  it('says it is disabled when the permission is off and turns it on from there, with every part', async () => {
+    const off = { ...many, grants: { ...many.grants, capabilities: ['vault.read'] } };
+    render(<ManyComputer manyId="many-test" many={off} control="agent" perform={perform} />);
+    expect(await screen.findByText(/computer is off|ordenador está desactivado|ordinateur est désactivé|computador está desligado/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: take })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^(Turn on computer|Activar ordenador|Activer l'ordinateur|Ligar computador)$/ }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ capabilities: ['vault.read', 'computer.read', 'computer.write'], computer: { browser: true, files: true, shell: true } }) })));
+  });
+
+  it('takes the wheel and opens the expanded desktop, then hands it back', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
     await screen.findByLabelText(desktopLabel);
     fireEvent.click(screen.getAllByRole('button', { name: take })[0]);
@@ -96,7 +112,7 @@ describe('the computer panel', () => {
     expect(screen.getByRole('button', { name: take })).toBeDisabled();
   });
 
-  it('asks for the wheel again, once, when the computer says it was never taken, and tells the person in their language', async () => {
+  it('asks for the wheel again, once, when the computer says it was never taken', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="human" perform={perform} />);
     await screen.findByLabelText(desktopLabel);
     await waitFor(() => expect(channels.desktop).toBeDefined());
@@ -105,36 +121,16 @@ describe('the computer panel', () => {
     const refuse = () => act(() => listeners.forEach((listener) => listener({ channelId: channels.desktop, type: 'message', data: JSON.stringify({ type: 'error', error: 'take_control_first' }) })));
     refuse();
     await waitFor(() => expect(computerOps().filter((op) => op === 'enter')).toHaveLength(1));
-    // The desktop reconnects with the wheel the computer now agrees about.
     await waitFor(() => expect(views).toHaveLength(2));
     expect(views[0].disconnected).toBe(true);
     refuse();
     expect(computerOps().filter((op) => op === 'enter')).toHaveLength(1);
   });
 
-  it('shows the terminal only to whoever holds the wheel', async () => {
-    render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
-    expect(await screen.findByText(/The terminal is yours|El terminal es tuyo|Le terminal est à vous|O terminal é seu/)).toBeInTheDocument();
-  });
-
-  it('says where a permission is off and switches it back on from there', async () => {
-    const restricted = { ...many, grants: { ...many.grants, computer: { browser: true, files: false, shell: false } } };
-    render(<ManyComputer manyId="many-test" many={restricted} control="human" perform={perform} />);
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: /Files|Archivos|Fichiers|Arquivos/ }));
-    fireEvent.click(screen.getByRole('tab', { name: /Files|Archivos|Fichiers|Arquivos/ }));
-    expect(await screen.findByText(/Files are off|Los archivos están desactivados|Les fichiers sont désactivés|Os arquivos estão desativados/)).toBeInTheDocument();
-    // The desktop is the machine itself, so it is behind the shell permission: it offers that one first, then the files.
-    expect(screen.queryByLabelText(desktopLabel)).toBeNull();
-    expect(views).toHaveLength(0);
-    fireEvent.click(screen.getAllByRole('button', { name: /^(Allow|Permitir|Autoriser)$/ }).at(-1)!);
-    await waitFor(() => expect(request).toHaveBeenCalledWith('/many-test', 'PATCH', expect.objectContaining({ grants: expect.objectContaining({ computer: { browser: true, files: true, shell: false } }) })));
-  });
-
-  it('keeps permission switches out of the panel and stops the computer from its header', async () => {
+  it('stops the computer from its header', async () => {
     render(<ManyComputer manyId="many-test" many={many} control="agent" perform={perform} />);
     await screen.findByLabelText(desktopLabel);
     expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.queryByRole('checkbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^(Stop computer|Apagar ordenador|Arrêter l'ordinateur|Desligar computador)$/ }));
     await waitFor(() => expect(computerOps()).toContain('stop'));
   });
