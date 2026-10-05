@@ -29,9 +29,11 @@ function target(value: unknown): string {
  */
 export function describeAction(proposal: unknown, savedCredential: string): ActionSummary | null {
   if (!proposal || typeof proposal !== 'object') return null;
-  const { tool, parameters } = proposal as { tool?: unknown; parameters?: { operation?: unknown; parameters?: Record<string, unknown> } };
+  const { tool, parameters } = proposal as { tool?: unknown; parameters?: { operation?: unknown; parameters?: Record<string, unknown> } & Record<string, unknown> };
   if (tool !== 'computer' || !parameters || typeof parameters.operation !== 'string') return null;
-  const args = parameters.parameters ?? {};
+  // Older proposals were stored flattened ({ operation, url }); newer ones nest the arguments.
+  const { operation: _operation, parameters: nested, ...flat } = parameters;
+  const args = (nested && typeof nested === 'object' ? nested : flat) as Record<string, unknown>;
   switch (parameters.operation) {
     case 'navigate': return { key: 'navigate', values: { target: target(args.url) } };
     case 'click': return { key: 'click', values: {} };

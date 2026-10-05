@@ -468,10 +468,10 @@
     "webHint": "Search and read public pages",
     "computerTitle": "Its computer",
     "computer": "Use its computer",
-    "computerHint": "A desktop with a browser, a terminal and files",
+    "computerHint": "A desktop with a browser, a terminal and files. It uses them without asking you for each action.",
     "outsideTitle": "Acting outside Dome",
     "outside": "Send, publish, buy and delete",
-    "outsideHint": "It always asks for your approval first",
+    "outsideHint": "It is told to ask for your OK first. That is an instruction to the agent, not a technical block.",
     "applies": "Each change applies at once and pauses what Many is doing now."
   },
   "activeTasks": "Active tasks: {{count}}",
