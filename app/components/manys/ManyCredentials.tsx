@@ -29,7 +29,7 @@ export default function ManyCredentials({ manyId }: { manyId: string }) {
   const load = useCallback(async () => {
     try {
       const result = await request<{ credentials: Credential[] }>(`/${manyId}/credentials`);
-      setCredentials(result.credentials);
+      setCredentials(result.credentials ?? []);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'service_unavailable');

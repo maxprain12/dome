@@ -11,7 +11,7 @@ const detail: ManyDetail = {
 };
 
 beforeEach(() => {
-  vi.mocked(request).mockReset().mockResolvedValue({ state: 'running' });
+  vi.mocked(request).mockReset().mockImplementation(async (path: string) => (path.endsWith('/credentials') ? { credentials: [] } : { state: 'running' }) as never);
 });
 
 describe('the inspector tabs', () => {
