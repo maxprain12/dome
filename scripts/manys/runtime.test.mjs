@@ -85,3 +85,24 @@ test('a stream callback that throws never fails the run',async()=>{
     assert.deepEqual(calls.map(c=>c.name),['finish_task']);assert.equal(calls[0].args.text,'Hi.');
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('old large tool results are left out of later requests so a long task does not outgrow the budget',async()=>{
+  let turn=0;const sizes=[];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;sizes.push(body.length);
+    const name=turn++<4?'vault_read':'finish_task';const args=name==='vault_read'?{id:'r'+turn}:{text:'Done'};
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',tool_calls:[{index:0,id:'step-'+turn,type:'function',function:{name,arguments:JSON.stringify(args)}}]},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'tool_calls'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:10,total_tokens:35}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const calls=[];
+  try {
+    await run({taskId:'task-long',prompt:'Read four notes',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+      saveEntry:async()=>undefined,beforeRequest:async()=>undefined,usage:async()=>undefined,call:async(id,name,args)=>{calls.push(name);return name==='vault_read'?{text:'x'.repeat(9000)}:{ok:true};}});
+    // Four 9,000-character results would be 36,000 characters of text: over the request limit without trimming.
+    assert.deepEqual(calls,['vault_read','vault_read','vault_read','vault_read','finish_task']);
+    assert.ok(Math.max(...sizes)<32768,`largest request was ${Math.max(...sizes)} characters`);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
