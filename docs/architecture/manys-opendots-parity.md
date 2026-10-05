@@ -24,7 +24,7 @@ nothing. Event data never carries arguments, content or credentials.
 
 | OpenDots | Manys |
 | --- | --- |
-| Browser, Files, Terminal, Activity tabs | `ManyComputer`: the whole desktop first, then terminal, files, browser and activity |
+| Browser, Files, Terminal, Activity tabs | `ManyComputer`: one view, the whole desktop (its browser, terminal and files are windows on it) |
 | Live screen, click, type, keys | The computer's sockets: the whole Linux desktop over VNC (noVNC in the renderer, bytes relayed by the main process, which holds the session token) and the browser's own screencast for the inline preview and the Browser tab |
 | Terminal: one bounded command | A real PTY (bash) per Many with scrollback, resize and Ctrl+C, only while the person holds the wheel |
 | Take over / return control | Same, plus a fresh snapshot is required before the agent continues |

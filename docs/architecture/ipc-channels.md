@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-05T09:41:06.690Z
+> Última generación: 2026-10-05T16:17:42.115Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -326,9 +326,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `init:initialize` | `electron/ipc/core/init.cjs:3` |
 | `learn:getKpis` | `electron/ipc/learn/learn.cjs:5` |
 | `learn:getStreak` | `electron/ipc/learn/learn.cjs:17` |
-| `manys:channel:close` | `electron/ipc/agents/manys-channel.cjs:140` |
-| `manys:channel:open` | `electron/ipc/agents/manys-channel.cjs:51` |
-| `manys:channel:send` | `electron/ipc/agents/manys-channel.cjs:122` |
+| `manys:channel:close` | `electron/ipc/agents/manys-channel.cjs:134` |
+| `manys:channel:open` | `electron/ipc/agents/manys-channel.cjs:48` |
+| `manys:channel:send` | `electron/ipc/agents/manys-channel.cjs:119` |
 | `manys:cloud-providers` | `electron/ipc/agents/manys.cjs:22` |
 | `manys:events:subscribe` | `electron/ipc/agents/manys-events.cjs:96` |
 | `manys:events:unsubscribe` | `electron/ipc/agents/manys-events.cjs:110` |

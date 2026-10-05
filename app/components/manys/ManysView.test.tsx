@@ -11,8 +11,8 @@ beforeEach(()=>{localStorage.clear();useLiveRuns.getState().reset();vi.mocked(re
 describe('Many’s durable interaction',()=>{
  it('restores a draft after leaving the view and clears it only after acceptance',async()=>{
    const view=render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
-   const input=await screen.findByLabelText(/^(Message|Mensaje)$/);fireEvent.change(input,{target:{value:'Report'}});expect(localStorage.getItem('manys:draft:many-test')).toBe('Report');
-   view.unmount();render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));expect(await screen.findByLabelText(/^(Message|Mensaje)$/)).toHaveValue('Report');
+   const input=await screen.findByPlaceholderText(/^(Message|Mensaje)$/);fireEvent.change(input,{target:{value:'Report'}});expect(localStorage.getItem('manys:draft:many-test')).toBe('Report');
+   view.unmount();render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));expect(await screen.findByPlaceholderText(/^(Message|Mensaje)$/)).toHaveValue('Report');
    fireEvent.click(screen.getByRole('button',{name:/^(Send|Enviar)$/}));await waitFor(()=>expect(delegateToMany).toHaveBeenCalledWith('many-test','Report'));await waitFor(()=>expect(localStorage.getItem('manys:draft:many-test')).toBeNull());
  });
  it('answers the agent question from the same composer instead of starting another task',async()=>{
@@ -22,21 +22,35 @@ describe('Many’s durable interaction',()=>{
    // Detail load moves this row into the attention group and detaches the button found before that paint.
    expect(await screen.findByText('Which client?')).toBeInTheDocument();
    fireEvent.click(screen.getByRole('button',{name:'Research'}));
-   fireEvent.change(await screen.findByLabelText(/^(Message|Mensaje)$/),{target:{value:'Acme'}});
+   fireEvent.change(await screen.findByPlaceholderText(/Type your answer|Escribe tu respuesta|Écrivez votre réponse|Escreve a tua resposta/),{target:{value:'Acme'}});
    fireEvent.click(screen.getByRole('button',{name:/^(Send|Enviar)$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-q','PATCH',{action:'answer',answer:'Acme'}));
    expect(delegateToMany).not.toHaveBeenCalled();
  });
- it('shows work in progress as a chat bubble with one stop control and no task rows',async()=>{
+ it('answers an access request with a private form that stores the sign-in and tells the agent it can go on',async()=>{
+   const asking={id:'task-a',prompt:'Open Instagram',state:'waiting_input' as const,question:'Instagram needs a sign-in',checkpoint:{access:{label:'Instagram',hosts:['instagram.com']}},result:null};
+   vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:{...detail,tasks:[asking]});
+   render(<ManysView/>);
+   expect(await screen.findByText('Instagram needs a sign-in')).toBeInTheDocument();
+   fireEvent.click(screen.getByRole('button',{name:'Research'}));
+   const secret=await screen.findByLabelText(/Contraseña|Password|Mot de passe|Senha/);
+   expect(secret).toHaveAttribute('type','password');
+   fireEvent.change(await screen.findByLabelText(/^(Usuario|Username|Nom d.utilisateur|Utilizador|Usuário)$/),{target:{value:'ana'}});
+   fireEvent.change(secret,{target:{value:'hunter2'}});
+   fireEvent.click(screen.getByRole('button',{name:/Guardar y continuar|Save and continue|Enregistrer et continuer|Guardar e continuar/}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/credentials','POST',{scope:'many',label:'Instagram',username:'ana',secret:'hunter2',hosts:['instagram.com']}));
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-a','PATCH',expect.objectContaining({action:'answer'})));
+   expect(JSON.stringify(vi.mocked(request).mock.calls.filter(call=>String(call[0]).includes('/tasks/')))).not.toContain('hunter2');
+ });
+ it('shows work in progress with one stop control and no task rows',async()=>{
    const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};
    vi.mocked(request).mockImplementation(async (path,method)=>path===''?{manys:[detail.many]}:method==='PATCH'?{}:{...detail,tasks:[running]});
    render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
-   expect(await screen.findByRole('status')).toBeInTheDocument();
    expect(screen.queryByRole('button',{name:/Cancel task|Cancelar tarea/})).toBeNull();
    fireEvent.click(screen.getByRole('button',{name:/Stop response|Detener respuesta/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test/tasks/task-r','PATCH',{action:'cancel'}));
  });
- it('shows the turn as it happens: the text as it is written and each tool as a card in the thread',async()=>{
+ it('shows the turn as it happens: the text as it is written and each tool inside the reply',async()=>{
    const running={id:'task-live',prompt:'Research',state:'running' as const,question:null,result:null};
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:path.endsWith('/steps')?{steps:[]}:{...detail,tasks:[running],messages:[{id:'u1',role:'user',content:'Research the market',task_id:'task-live'}]});
    useLiveRuns.getState().reset();
@@ -48,11 +62,10 @@ describe('Many’s durable interaction',()=>{
      useLiveRuns.getState().apply({sequence:3,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'start',ok:null}});
    });
    expect(await screen.findByText('Let me look that up.')).toBeInTheDocument();
-   const card=screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/});
-   expect(card).toBeInTheDocument();
-   expect(card).toHaveTextContent(/Working|En curso|En cours|Em andamento/);
+   // The tool is part of the reply, drawn as the local Many draws its activity, and shows it is still working.
+   await waitFor(()=>expect(document.querySelector('[data-slot="collapsible"][data-kind="search"][data-working="true"]')).toBeTruthy());
    act(()=>{useLiveRuns.getState().apply({sequence:4,kind:'task_step',task_id:'task-live',many_id:'many-test',data:{callId:'c1',tool:'web_research',operation:'search',host:null,phase:'end',ok:true}});});
-   await waitFor(()=>expect(screen.getByRole('region',{name:/Searching the web|Buscando en la web|Recherche sur le web|Pesquisando na web/})).toHaveTextContent(/Done|Hecho|Terminé|Concluído/));
+   await waitFor(()=>expect(document.querySelector('[data-slot="collapsible"][data-kind="search"][data-working="true"]')).toBeNull());
  });
  it('puts a proposal in the thread where it was asked and lists it only once',async()=>{
    const waiting={id:'task-p',prompt:'Send it',state:'waiting_approval' as const,question:null,result:null};
@@ -79,7 +92,7 @@ describe('Many’s durable interaction',()=>{
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[pausedMany]}:path.endsWith('/steps')?{steps:[]}:{...detail,many:pausedMany});
    render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
    expect(await screen.findByText(/Many is paused|Many está en pausa|Many est en pause|O Many está em pausa/)).toBeInTheDocument();
-   expect(screen.queryByLabelText(/^(Message|Mensaje)$/)).toBeNull();
+   expect(screen.queryByPlaceholderText(/^(Message|Mensaje)$/)).toBeNull();
    fireEvent.click(screen.getByRole('button',{name:/^(Resume|Reanudar|Reprendre|Retomar)$/}));
    await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({paused:false})})));
  });
@@ -94,7 +107,7 @@ describe('Many’s durable interaction',()=>{
    render(<ManysView/>);fireEvent.click(await screen.findByRole('button',{name:'Research'}));
    expect(await screen.findByText(/Searching the library|Buscando en la biblioteca/)).toBeInTheDocument();
  });
- it('lists collaborators with the Many mark and renders the thread as bubbles',async()=>{
+ it('lists collaborators with the Many mark and renders the thread',async()=>{
    vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many,{...detail.many,id:'many-writer',name:'Writer'}]}:{...detail,messages:[{id:'m-assistant',role:'assistant',content:'Hello from Many',task_id:''},{id:'m-user',role:'user',content:'Hi',task_id:''}]});
    render(<ManysView/>);
    const research=await screen.findByRole('button',{name:'Research'});
@@ -106,10 +119,8 @@ describe('Many’s durable interaction',()=>{
    expect(manyMarkVariant('many-test')).not.toBe(manyMarkVariant('many-writer'));
    expect(manyMarkVariant('')).toBe('lime');
    fireEvent.click(research);
-   expect(await screen.findByText('Hello from Many')).toBeInTheDocument();
-   expect(screen.queryByRole('tab')).toBeNull();
-   expect(screen.getByText('Hi').closest('[data-slot="bubble-content"]')).toBeTruthy();
-   expect(screen.getByText('Hello from Many').closest('[data-slot="bubble-content"]')).toBeTruthy();
+   // The reply is drawn by the local Many's markdown view, which loads on demand.
+   await waitFor(()=>{expect(screen.getByText('Hello from Many')).toBeInTheDocument();expect(screen.getByText('Hi')).toBeInTheDocument();},{timeout:5000});
  });
  it('asks for a saved cloud provider or Dome credits and stores that choice',async()=>{
    vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'},{id:'anthropic',name:'Anthropic'}]);

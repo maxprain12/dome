@@ -47,18 +47,19 @@ interface ManyComposerSurfaceProps {
   onValueChange: (value: string) => void;
   onSend: () => void;
   onStop: () => void;
-  onFiles: (files: File[]) => void;
-  onRemoveImage: (id: string) => void;
-  onRemovePin: (id: string) => void;
+  /** Without it the composer takes no attachments: no button, no paste, no drop. */
+  onFiles?: (files: File[]) => void;
+  onRemoveImage?: (id: string) => void;
+  onRemovePin?: (id: string) => void;
   onRemoveSkill?: (id: string) => void;
-  images: ManyComposerImage[];
-  pins: ManyComposerPin[];
+  images?: ManyComposerImage[];
+  pins?: ManyComposerPin[];
   skills?: ManyComposerSkill[];
   placeholder: string;
   sendLabel: string;
   stopLabel: string;
-  attachLabel: string;
-  removeLabel: string;
+  attachLabel?: string;
+  removeLabel?: string;
   isLoading: boolean;
   disabled?: boolean;
   maxLength?: number;
@@ -95,8 +96,8 @@ export default function ManyComposerSurface({
   onRemoveImage,
   onRemovePin,
   onRemoveSkill,
-  images,
-  pins,
+  images = [],
+  pins = [],
   skills = [],
   placeholder,
   sendLabel,
@@ -135,7 +136,7 @@ export default function ManyComposerSurface({
     const files = Array.from(event.dataTransfer.files).filter((file) =>
       file.type.startsWith('image/'),
     );
-    if (files.length > 0) onFiles(files);
+    if (files.length > 0) onFiles?.(files);
   };
 
   return (
@@ -153,18 +154,20 @@ export default function ManyComposerSurface({
       onDrop={handleDrop}
     >
       <div ref={containerRef} className="relative min-w-0">
-      <Input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept={accept}
-        className="hidden"
-        aria-label={attachLabel}
-        onChange={(event) => {
-          onFiles(Array.from(event.target.files ?? []));
-          event.target.value = '';
-        }}
-      />
+      {onFiles ? (
+        <Input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={accept}
+          className="hidden"
+          aria-label={attachLabel}
+          onChange={(event) => {
+            onFiles(Array.from(event.target.files ?? []));
+            event.target.value = '';
+          }}
+        />
+      ) : null}
       <InputGroup
         data-disabled={disabled || isLoading ? true : undefined}
         className={cn(
@@ -185,7 +188,7 @@ export default function ManyComposerSurface({
                   title: pin.title,
                   type: pin.type || 'resource',
                 }))}
-                onRemove={onRemovePin}
+                onRemove={onRemovePin ?? (() => undefined)}
               />
               <ManySkillChipList
                 skills={skills.map((skill) => ({ id: skill.id, name: skill.title }))}
@@ -202,8 +205,8 @@ export default function ManyComposerSurface({
                       <span className="max-w-24 truncate">{image.name}</span>
                       <button
                         type="button"
-                        onClick={() => onRemoveImage(image.id)}
-                        aria-label={`${removeLabel}: ${image.name}`}
+                        onClick={() => onRemoveImage?.(image.id)}
+                        aria-label={`${removeLabel ?? ''}: ${image.name}`}
                       >
                         <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
                       </button>
@@ -224,6 +227,7 @@ export default function ManyComposerSurface({
           }}
           onKeyDown={handleKeyDown}
           onPaste={(event) => {
+            if (!onFiles) return;
             const files = imageFilesFromClipboard(event);
             if (files.length === 0) return;
             event.preventDefault();
@@ -240,17 +244,19 @@ export default function ManyComposerSurface({
           className="shrink-0 justify-between gap-2 border-0 px-2 pb-2 pt-0.5"
         >
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || isLoading}
-              title={attachLabel}
-              aria-label={attachLabel}
-            >
-              <HugeiconsIcon icon={Attachment01Icon} />
-            </Button>
+            {onFiles ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || isLoading}
+                title={attachLabel}
+                aria-label={attachLabel}
+              >
+                <HugeiconsIcon icon={Attachment01Icon} />
+              </Button>
+            ) : null}
             {controls}
           </div>
           <div className="relative z-10 flex shrink-0 items-center gap-1">

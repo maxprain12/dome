@@ -134,3 +134,24 @@ test('the agent is given one tool per computer action, acts without a proposal, 
     assert.ok(JSON.stringify(requests[2]).includes('computerId'));
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('asking for a sign-in ends the turn, and a routine is created without ending it',async()=>{
+  let turn=0;const names=['recurrence_create','request_access'];
+  const server=createServer(async(req,res)=>{
+    for await(const _ of req);
+    const name=names[turn++]??'finish_task';
+    const args=name==='recurrence_create'?{prompt:'Revisa Instagram',everyMinutes:120}:name==='request_access'?{label:'Instagram',hosts:['instagram.com']}:{text:'listo'};
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',tool_calls:[{index:0,id:'step-'+turn,type:'function',function:{name,arguments:JSON.stringify(args)}}]},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'tool_calls'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:10,total_tokens:35}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const calls=[];
+  try {
+    await run({taskId:'task-access',prompt:'entra en instagram',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+      saveEntry:async()=>{},beforeRequest:async()=>{},usage:async()=>{},call:async(id,name,args)=>{calls.push({name,args});return {ok:true};}});
+    assert.deepEqual(calls.map(c=>c.name),['recurrence_create','request_access']);
+    assert.deepEqual(calls[1].args.hosts,['instagram.com']);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});

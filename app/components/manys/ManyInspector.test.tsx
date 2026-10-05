@@ -1,40 +1,47 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ManyInspector, { INSPECTOR_TABS } from './ManyInspector';
+import ManyInspector from './ManyInspector';
 import { request, type ManyDetail } from '@/lib/manys/api';
 
 vi.mock('@/lib/manys/api', () => ({ request: vi.fn() }));
 
 const detail: ManyDetail = {
   many: { id: 'many-test', name: 'Peregrini', instructions: '', grant_revision: 1, grants: { projects: [], resources: [], capabilities: ['vault.read', 'computer.read', 'computer.write'] } },
-  conversations: [{ id: 'c' }], tasks: [], messages: [], actions: [], recurrences: [], conflicts: [], computer: { control: 'agent' },
+  conversations: [{ id: 'c' }], tasks: [], messages: [], actions: [], recurrences: [{ id: 'r1', prompt: 'Revisa mis correos cada mañana', next_at: '2026-10-06T07:00:00Z', interval_seconds: 86400 }], conflicts: [], computer: { control: 'agent' },
 };
 
 beforeEach(() => {
   vi.mocked(request).mockReset().mockImplementation(async (path: string) => (path.endsWith('/credentials') ? { credentials: [] } : { state: 'running' }) as never);
 });
+const render_ = (tab: 'details' | 'computer', onTab = vi.fn()) => render(<ManyInspector tab={tab} onTab={onTab} detail={detail} status="idle" busy={false} perform={async () => undefined} />);
 
-describe('the inspector tabs', () => {
-  it('names every tab with a real label, never an i18n error', () => {
-    render(<ManyInspector tab="computer" onTab={() => undefined} detail={detail} busy={false} perform={async () => undefined} />);
+describe('the side of a Many', () => {
+  it('says who it is and has only two tabs, with real labels', () => {
+    render_('details');
+    expect(screen.getByRole('heading', { name: 'Peregrini' })).toBeInTheDocument();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(3);
-    expect(INSPECTOR_TABS.length).toBeGreaterThan(3);
+    expect(tabs).toHaveLength(2);
     for (const tab of tabs) {
       expect(tab.textContent?.trim()).toBeTruthy();
       expect(tab.textContent).not.toMatch(/returned an object|key '|manys\./i);
     }
-    expect(tabs[0]).toHaveTextContent(/Computer|Ordenador|Ordinateur|Computador/);
+    expect(tabs[0]).toHaveTextContent(/Details|Detalles|Détails|Detalhes/);
+    expect(tabs[1]).toHaveTextContent(/Computer|Ordenador|Ordinateur|Computador/);
   });
 
-  it('opens the advanced views from Context and offers a way back', () => {
+  it('keeps permissions, routines and accesses in one simple column', async () => {
+    render_('details');
+    expect(screen.getAllByRole('switch')).toHaveLength(4);
+    expect(screen.getByText('Revisa mis correos cada mañana')).toBeInTheDocument();
+    expect(await screen.findByText(/will ask you for an access|te pedirá un acceso|vous demandera un accès|vai pedir um acesso/)).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Governance|Gobierno|Gouvernance|Governança|Access|Acceso|Context|Contexto/ })).toBeNull();
+  });
+
+  it('changes tab', () => {
     const onTab = vi.fn();
-    const { rerender } = render(<ManyInspector tab="context" onTab={onTab} detail={detail} busy={false} perform={async () => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: /Access|Acceso|Accès|Acesso/ }));
-    expect(onTab).toHaveBeenCalledWith('access');
-    rerender(<ManyInspector tab="access" onTab={onTab} detail={detail} busy={false} perform={async () => undefined} />);
-    expect(screen.queryAllByRole('tab')).toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: /Back to context|Volver a Contexto|Retour au contexte|Voltar ao contexto/ }));
-    expect(onTab).toHaveBeenLastCalledWith('context');
+    render_('details', onTab);
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Computer|Ordenador|Ordinateur|Computador/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Computer|Ordenador|Ordinateur|Computador/ }));
+    expect(onTab).toHaveBeenCalledWith('computer');
   });
 });

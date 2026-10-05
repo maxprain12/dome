@@ -130,7 +130,8 @@ export function ManyErrorNotice({
 }: {
   message: string;
   onRetry: () => void;
-  onReport: () => void;
+  /** Without it there is nobody to report to (a Many that runs in the cloud has no local log). */
+  onReport?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -146,9 +147,11 @@ export function ManyErrorNotice({
         <Button type="button" size="xs" onClick={onRetry}>
           {t('common.retry')}
         </Button>
-        <Button type="button" size="xs" variant="ghost" onClick={onReport}>
-          {t('many.error_report')}
-        </Button>
+        {onReport ? (
+          <Button type="button" size="xs" variant="ghost" onClick={onReport}>
+            {t('many.error_report')}
+          </Button>
+        ) : null}
       </MessageFooter>
     </div>
   );
