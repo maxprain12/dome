@@ -465,5 +465,11 @@
     "outside": "Enviar, publicar, comprar e apagar",
     "outsideHint": "Sempre pede a sua aprovação antes",
     "applies": "Cada mudança vale na hora e pausa o que o Many está fazendo."
+  },
+  "activeTasks": "Tarefas ativas: {{count}}",
+  "inspector": {
+    "back": "Voltar ao contexto",
+    "advanced": "Avançado",
+    "advancedHint": "Logins salvos e registro de atividade deste Many."
   }
 }

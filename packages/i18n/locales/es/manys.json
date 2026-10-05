@@ -465,5 +465,11 @@
     "outside": "Enviar, publicar, comprar y borrar",
     "outsideHint": "Siempre te pide aprobación antes",
     "applies": "Cada cambio se aplica al momento y pausa lo que Many está haciendo ahora."
+  },
+  "activeTasks": "Tareas activas: {{count}}",
+  "inspector": {
+    "back": "Volver a Contexto",
+    "advanced": "Avanzado",
+    "advancedHint": "Inicios de sesión guardados y registro de actividad de este Many."
   }
 }

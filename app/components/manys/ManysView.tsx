@@ -368,7 +368,7 @@ export default function ManysView() {
                       <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                         <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', STATUS_DOT[status])} />
                         {t(statusLabelKey(status))}
-                       
+                        {summary && summary.activeTasks.length > 0 && <span> · {t('manys.activeTasks', { count: summary.activeTasks.length })}</span>}
                       </p>
                     </div>
                   </>

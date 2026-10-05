@@ -465,5 +465,11 @@
     "outside": "Send, publish, buy and delete",
     "outsideHint": "It always asks for your approval first",
     "applies": "Each change applies at once and pauses what Many is doing now."
+  },
+  "activeTasks": "Active tasks: {{count}}",
+  "inspector": {
+    "back": "Back to context",
+    "advanced": "Advanced",
+    "advancedHint": "Saved sign-ins and the activity log for this Many."
   }
 }
