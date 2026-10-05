@@ -26,6 +26,9 @@ describe('stepsOf', () => {
 describe('step labels', () => {
   it('maps known tools and falls back for new ones', () => {
     expect(stepKey('computer_read')).toBe('lookComputer');
+    expect(stepKey('computer_navigate')).toBe('computerNavigate');
+    expect(stepKey('computer_files_write')).toBe('computerWriteFile');
+    expect(stepKey('computer_exec')).toBe('computerExec');
     expect(stepKey('web_research')).toBe('webResearch');
     expect(stepKey('something_new')).toBe('generic');
   });

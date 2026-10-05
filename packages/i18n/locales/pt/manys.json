@@ -423,7 +423,15 @@
     "skill": "Lendo a skill {{detail}}",
     "mcpTools": "Consultando um serviço conectado",
     "mcpCall": "Consultando um serviço conectado: {{detail}}",
-    "generic": "Trabalhando nisso…"
+    "generic": "Trabalhando nisso…",
+    "computerNavigate": "Abrindo uma página no computador dele",
+    "computerClick": "Clicando no computador dele",
+    "computerType": "Digitando no computador dele",
+    "computerKey": "Pressionando uma tecla no computador dele",
+    "computerScroll": "Rolando no computador dele",
+    "computerFiles": "Olhando os arquivos dele",
+    "computerWriteFile": "Salvando um arquivo no computador dele",
+    "computerExec": "Executando um comando no computador dele"
   },
   "toolCard": {
     "working": "Em andamento",

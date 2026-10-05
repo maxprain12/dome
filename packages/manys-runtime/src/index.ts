@@ -6,6 +6,7 @@ import { Type } from '@sinclair/typebox';
 import { AgentHarness, Session, InMemorySessionStorage, type SessionTreeEntry, type AgentTool } from '@dome/agent-core';
 import { NodeExecutionEnv } from '@dome/agent-core/node';
 import { resolveDomeModel } from '@dome/ai';
+import { shrinkOldToolResults } from './trim.js';
 
 export const protocolVersion = 1;
 export interface RuntimeInput {
@@ -79,7 +80,8 @@ export async function run(input:RuntimeInput):Promise<void> {
   harness.on('before_provider_payload',async({payload})=>{
     const images:Record<string,unknown>[]=[];
     const visit=(value:unknown)=>{if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach(visit);return;}const node=value as Record<string,unknown>;if(['image_url','input_image'].includes(String(node.type)))images.push(node);else Object.values(node).forEach(visit);};visit(payload);
-    // History remains durable; only old visual payloads are omitted from the next model request.
+    // History remains durable; only old visual payloads and old large tool results are left out of the next model request.
+    shrinkOldToolResults(payload);
     for(const old of images.slice(0,-4)){for(const key of Object.keys(old))delete old[key];Object.assign(old,{type:model.api==='openai-responses'?'input_text':'text',text:'Earlier screenshot omitted. Take a fresh computer snapshot when needed.'});}
     if(Buffer.byteLength(JSON.stringify(payload))>5242880)throw new Error('request_context_limit');
     const textPayload=JSON.stringify(payload,(_key,value)=>typeof value==='string'&&value.startsWith('data:image/')?'[image]':value);
