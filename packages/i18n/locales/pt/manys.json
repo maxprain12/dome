@@ -400,5 +400,6 @@
   },
   "edit": "Editar nome e instruções",
   "routinesNone": "O Many as agenda quando vê que vale a pena.",
-  "everyHours": "A cada {{count}} h"
+  "everyHours": "A cada {{count}} h",
+  "model": "Modelo"
 }
