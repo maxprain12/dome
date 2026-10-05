@@ -1,0 +1,31 @@
+{
+  "register_title": "Create your account",
+  "login_title": "Welcome back",
+  "description": "An account identifies you in Dome. Cloud services depend on your subscription.",
+  "create": "Create account",
+  "sign_in": "Sign in",
+  "have_account": "Already have an account? Sign in",
+  "need_account": "New to Dome? Create an account",
+  "ready_title": "You're signed in",
+  "continue": "Continue",
+  "confirm_email": "We sent a confirmation link to {{email}}. Confirm your email, then return here to sign in.",
+  "confirmed_login": "I confirmed my email. Sign in",
+  "password_hint": "Use your existing account password.",
+  "password_required": "Enter your password.",
+  "save_error": "We couldn't save your account details. Try again; nothing was lost.",
+  "name_label": "Full name",
+  "email_label": "Email",
+  "password_label": "Password",
+  "name_min_length": "Please enter a valid name (at least 2 characters)",
+  "email_invalid": "Please enter a valid email address",
+  "password_min_length": "Password must be at least 8 characters",
+  "errors": {
+    "invalid_credentials": "Incorrect email or password",
+    "email_taken": "That email already has an account",
+    "weak_password": "The password is too weak",
+    "network": "Couldn't connect. Check your internet connection.",
+    "provider_unreachable": "Couldn't reach Dome Provider. Please try again.",
+    "not_configured": "Dome login isn't configured in this build.",
+    "generic": "Couldn't log in. Please try again."
+  }
+}

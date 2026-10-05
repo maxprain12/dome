@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Home from '@/components/home/Home';
-import Onboarding from '@/components/onboarding/Onboarding';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { initializeApp } from '@/lib/init';
@@ -13,7 +12,6 @@ const INIT_TIMEOUT_MS = 10000;
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [, setDebugInfo] = useState<string>('Starting...');
@@ -103,18 +101,10 @@ export default function HomePage() {
 
           if (cancelled) return;
 
-          setDebugInfo('Checking onboarding...');
-
-          // Check if onboarding is needed
-          if (result.needsOnboarding) {
-            setShowOnboarding(true);
-          }
-
           setIsInitialized(true);
         } else {
           console.error('[Page] Failed to initialize app');
           setIsInitialized(true);
-          setShowOnboarding(true);
         }
       } catch (error) {
         // Handle timeout or any other initialization error
@@ -123,7 +113,6 @@ export default function HomePage() {
         setInitError(error instanceof Error ? error.message : 'Unknown error');
         setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsInitialized(true);
-        setShowOnboarding(true);
       }
     }
 
@@ -134,10 +123,6 @@ export default function HomePage() {
       for (const id of timeoutIds) clearTimeout(id);
     };
   }, [loadUserProfile, loadPreferences]);
-
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-  };
 
   if (!isInitialized) {
     return (
@@ -162,7 +147,7 @@ export default function HomePage() {
           <AlertDescription>{initError}</AlertDescription>
         </Alert>
       )}
-      {showOnboarding ? <Onboarding onComplete={handleOnboardingComplete} /> : <Home />}
+      <Home />
     </>
   );
 }

@@ -20,7 +20,7 @@ describe('edition catalog', () => {
     expect(EDITION_PRESETS.map((edition) => edition.id)).toEqual([...EDITION_IDS]);
   });
 
-  it('migrates legacy onboarding roles onto the three editions', () => {
+  it('migrates legacy roles onto the three editions', () => {
     expect(resolveEditionId('developer')).toBe('dev');
     expect(resolveEditionId('research')).toBe('pro');
     expect(resolveEditionId('generalist')).toBe('pro');

@@ -125,7 +125,6 @@ Stored in settings table: `ai_provider`, `ai_api_key`, `ai_model`, `ai_embedding
 | `ai_api_key` | string | API key for current provider |
 | `ai_model` | string | Model ID |
 | `ollama_base_url` | string | Ollama server URL |
-| `onboarding_completed` | bool | Onboarding flag |
 | `analytics_opted_in` | bool | PostHog consent |
 
 ---

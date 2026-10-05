@@ -31,12 +31,6 @@ function initializeDefaultSettings() {
   const timestamp = Date.now();
   const queries = database.getQueries();
 
-  // Check if onboarding_completed exists, if not, initialize it
-  const onboardingRow = queries.getSetting.get('onboarding_completed');
-  if (!onboardingRow) {
-    queries.setSetting.run('onboarding_completed', 'false', timestamp);
-  }
-
   // Initialize default preferences if they don't exist
   const themeRow = queries.getSetting.get('app_theme');
   if (!themeRow) {
@@ -112,21 +106,6 @@ function createAvatarsDirectory() {
 }
 
 /**
- * Check onboarding status
- */
-function checkOnboardingStatus() {
-  try {
-    const queries = database.getQueries();
-    const row = queries.getSetting.get('onboarding_completed');
-    const completed = row?.value === 'true';
-    return !completed;
-  } catch (error) {
-    console.warn('Could not check onboarding status:', error);
-    return true; // Default to showing onboarding
-  }
-}
-
-/**
  * Helper to wrap a promise with a timeout
  * @param {Promise} promise - The promise to wrap
  * @param {number} timeoutMs - Timeout in milliseconds
@@ -153,10 +132,7 @@ async function initializeApp() {
 
   // If already initialized, return immediately
   if (isInitialized) {
-    return {
-      success: true,
-      needsOnboarding: checkOnboardingStatus(),
-    };
+    return { success: true };
   }
 
   // If initialization is in progress, wait for it
@@ -239,32 +215,20 @@ async function doInitialize(startTime) {
     createAvatarsDirectory();
     console.log('[Init] Step 4 completed in', Date.now() - startTime, 'ms');
 
-    // 5. Check onboarding status
-    console.log('[Init] Step 5: Onboarding status...');
-    const needsOnboarding = checkOnboardingStatus();
-    console.log('[Init] Step 5 completed in', Date.now() - startTime, 'ms');
-
     isInitialized = true;
     console.log('[Init] ✅ Dome inicializado correctamente en', Date.now() - startTime, 'ms');
 
-    return {
-      success: true,
-      needsOnboarding,
-    };
+    return { success: true };
   } catch (error) {
     console.error('[Init] ❌ Error al inicializar Dome:', error);
     console.error('[Init] Stack:', error.stack);
-    // Return success but with onboarding needed to at least show the UI
+    // Return success so the UI is shown anyway
     isInitialized = true; // Mark as initialized to prevent retries
-    return {
-      success: true,
-      needsOnboarding: true,
-    };
+    return { success: true };
   }
 }
 
 module.exports = {
   initializeApp,
-  checkOnboardingStatus,
   isInitialized: () => isInitialized,
 };

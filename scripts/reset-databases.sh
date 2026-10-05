@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script para eliminar las bases de datos SQLite y LanceDB
-# Esto reinicia la aplicación desde cero y muestra el onboarding
+# Esto reinicia la aplicación desde cero
 
 USER_DATA_DIR="$HOME/Library/Application Support/Dome"
 
@@ -28,7 +28,7 @@ echo "✅ Directorio LanceDB eliminado"
 
 echo ""
 echo "✅ ¡Bases de datos eliminadas!"
-echo "🚀 Reinicia la aplicación para ver el onboarding"
+echo "🚀 Reinicia la aplicación"
 echo ""
 echo "Nota: Los archivos en dome-files/ NO se eliminan"
 echo "      Si quieres eliminar todo, ejecuta también:"

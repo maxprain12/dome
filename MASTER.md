@@ -62,7 +62,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| [Manual de Usuario](./docs/manual-usuario.md) | Instalación, onboarding y uso completo de todas las funcionalidades |
+| [Manual de Usuario](./docs/manual-usuario.md) | Instalación y uso completo de todas las funcionalidades |
 
 ### Sitio público (landing)
 
@@ -156,7 +156,6 @@
 | IPC Architecture | [ipc.md](./docs/features/ipc.md) | ✅ Implementado |
 | File Storage | [file-storage.md](./docs/features/file-storage.md) | ✅ Implementado |
 | Settings | [settings.md](./docs/features/settings.md) | ✅ Implementado |
-| Onboarding | [onboarding.md](./docs/features/onboarding.md) | ✅ Implementado |
 
 ---
 

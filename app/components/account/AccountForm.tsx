@@ -6,25 +6,28 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import type { AccountIdentity } from '@/lib/account/completeWelcome';
 
 const AUTH_ERRORS: Record<string, string> = {
-  invalid_credentials: 'onboarding.account_error_invalid_credentials',
-  email_taken: 'onboarding.account_error_email_taken',
-  weak_password: 'onboarding.account_error_weak_password',
-  network_error: 'onboarding.account_error_network',
-  exchange_failed: 'onboarding.account_error_provider_unreachable',
-  supabase_not_configured: 'onboarding.account_error_not_configured',
+  invalid_credentials: 'account.errors.invalid_credentials',
+  email_taken: 'account.errors.email_taken',
+  weak_password: 'account.errors.weak_password',
+  network_error: 'account.errors.network',
+  exchange_failed: 'account.errors.provider_unreachable',
+  supabase_not_configured: 'account.errors.not_configured',
 };
+
+export interface AccountIdentity {
+  name?: string | null;
+  email?: string | null;
+}
 
 interface AccountFormProps {
   onConnected: (identity: AccountIdentity) => Promise<void>;
-  onLocal?: () => Promise<void>;
   onCancel?: () => void;
 }
 
-/** Shared authentication surface for first run and account settings. */
-export default function AccountForm({ onConnected, onLocal, onCancel }: AccountFormProps) {
+/** Sign-in and registration for the Dome account, shown in Settings. */
+export default function AccountForm({ onConnected, onCancel }: AccountFormProps) {
   const { t } = useTranslation();
   const id = useId();
   const [mode, setMode] = useState<'register' | 'login'>('register');
@@ -48,7 +51,7 @@ export default function AccountForm({ onConnected, onLocal, onCancel }: AccountF
     setBusy(true);
     setError(null);
     try { await action(); }
-    catch { setError('welcome.save_error'); }
+    catch { setError('account.save_error'); }
     finally { submitting.current = false; setBusy(false); }
   }
 
@@ -61,14 +64,14 @@ export default function AccountForm({ onConnected, onLocal, onCancel }: AccountF
       let result;
       try {
         result = await window.electron.domeAuth.nativeLogin(email.trim(), password, registering, registering ? name.trim() : undefined);
-      } catch { setError('onboarding.account_error_network'); return; }
+      } catch { setError('account.errors.network'); return; }
       if (!result.success) {
-        setError(AUTH_ERRORS[result.errorCode ?? ''] ?? 'onboarding.account_error_generic');
+        setError(AUTH_ERRORS[result.errorCode ?? ''] ?? 'account.errors.generic');
         return;
       }
       setPassword('');
       if (result.pendingConfirmation) { setConfirmation(true); return; }
-      if (!result.connected) { setError('onboarding.account_error_generic'); return; }
+      if (!result.connected) { setError('account.errors.generic'); return; }
       const account = { name: result.name, email: result.email ?? email.trim() };
       // Keep identity after authentication so a failed local save can retry without logging in twice.
       setIdentity(account);
@@ -86,48 +89,44 @@ export default function AccountForm({ onConnected, onLocal, onCancel }: AccountF
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight">{t(identity ? 'welcome.ready_title' : registering ? 'welcome.register_title' : 'welcome.login_title')}</h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">{t('welcome.account_description')}</p>
+        <h2 className="text-2xl font-semibold tracking-tight">{t(identity ? 'account.ready_title' : registering ? 'account.register_title' : 'account.login_title')}</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">{t('account.description')}</p>
       </div>
       {error && <Alert variant="destructive"><AlertDescription>{t(error)}</AlertDescription></Alert>}
       {identity ? (
         <Button disabled={busy} onClick={() => { void run(() => onConnected(identity)); }}>
-          {busy && <Spinner data-icon="inline-start" />}{t('welcome.enter')}
+          {busy && <Spinner data-icon="inline-start" />}{t('account.continue')}
         </Button>
       ) : confirmation ? (
         <div className="flex flex-col gap-4">
-          <Alert><AlertDescription>{t('welcome.confirm_email', { email })}</AlertDescription></Alert>
-          <Button disabled={busy} onClick={() => { setConfirmation(false); setMode('login'); setSubmitted(false); }}>{t('welcome.confirmed_login')}</Button>
+          <Alert><AlertDescription>{t('account.confirm_email', { email })}</AlertDescription></Alert>
+          <Button disabled={busy} onClick={() => { setConfirmation(false); setMode('login'); setSubmitted(false); }}>{t('account.confirmed_login')}</Button>
         </div>
       ) : (
         <form noValidate onSubmit={(event) => { void authenticate(event); }} className="flex flex-col gap-5" aria-busy={busy}>
           <FieldGroup>
             {registering && <Field data-invalid={nameError}>
-              <FieldLabel htmlFor={`${id}-name`}>{t('onboarding.account_name_label')}</FieldLabel>
+              <FieldLabel htmlFor={`${id}-name`}>{t('account.name_label')}</FieldLabel>
               <Input className="h-10" id={`${id}-name`} name="name" autoComplete="name" value={name} maxLength={100} disabled={busy} onChange={(e) => setName(e.target.value)} aria-invalid={nameError} aria-describedby={nameError ? `${id}-name-error` : undefined} />
-              {nameError && <FieldError id={`${id}-name-error`}>{t('onboarding.name_min_length')}</FieldError>}
+              {nameError && <FieldError id={`${id}-name-error`}>{t('account.name_min_length')}</FieldError>}
             </Field>}
             <Field data-invalid={emailError}>
-              <FieldLabel htmlFor={`${id}-email`}>{t('onboarding.account_email_label')}</FieldLabel>
+              <FieldLabel htmlFor={`${id}-email`}>{t('account.email_label')}</FieldLabel>
               <Input className="h-10" id={`${id}-email`} name="email" type="email" autoComplete="email" value={email} disabled={busy} onChange={(e) => setEmail(e.target.value)} aria-invalid={emailError} aria-describedby={emailError ? `${id}-email-error` : undefined} />
-              {emailError && <FieldError id={`${id}-email-error`}>{t('onboarding.email_invalid')}</FieldError>}
+              {emailError && <FieldError id={`${id}-email-error`}>{t('account.email_invalid')}</FieldError>}
             </Field>
             <Field data-invalid={passwordError}>
-              <FieldLabel htmlFor={`${id}-password`}>{t('onboarding.account_password_label')}</FieldLabel>
+              <FieldLabel htmlFor={`${id}-password`}>{t('account.password_label')}</FieldLabel>
               <Input className="h-10" id={`${id}-password`} name="password" type="password" autoComplete={registering ? 'new-password' : 'current-password'} value={password} disabled={busy} onChange={(e) => setPassword(e.target.value)} aria-invalid={passwordError} aria-describedby={`${id}-password-hint`} />
-              <FieldDescription id={`${id}-password-hint`}>{t(registering ? 'onboarding.password_min_length' : 'welcome.password_hint')}</FieldDescription>
-              {passwordError && <FieldError>{t(registering ? 'onboarding.password_min_length' : 'welcome.password_required')}</FieldError>}
+              <FieldDescription id={`${id}-password-hint`}>{t(registering ? 'account.password_min_length' : 'account.password_hint')}</FieldDescription>
+              {passwordError && <FieldError>{t(registering ? 'account.password_min_length' : 'account.password_required')}</FieldError>}
             </Field>
           </FieldGroup>
-          <Button type="submit" size="lg" disabled={busy}>{busy && <Spinner data-icon="inline-start" />}{t(registering ? 'welcome.create_account' : 'welcome.sign_in')}</Button>
-          <Button type="button" variant="link" disabled={busy} onClick={switchMode}>{t(registering ? 'welcome.have_account' : 'welcome.need_account')}</Button>
+          <Button type="submit" size="lg" disabled={busy}>{busy && <Spinner data-icon="inline-start" />}{t(registering ? 'account.create' : 'account.sign_in')}</Button>
+          <Button type="button" variant="link" disabled={busy} onClick={switchMode}>{t(registering ? 'account.have_account' : 'account.need_account')}</Button>
         </form>
       )}
       {onCancel && <Button variant="ghost" disabled={busy} onClick={onCancel}>{t('access.close')}</Button>}
-      {onLocal && !identity && <div className="flex flex-col gap-2 border-t pt-5">
-        <Button variant="outline" disabled={busy} onClick={() => { void run(onLocal); }}>{t('welcome.continue_local')}</Button>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t('welcome.local_hint')}</p>
-      </div>}
     </div>
   );
 }

@@ -55,16 +55,7 @@ Handles estables del chrome:
 - Many en ventana de más de 900 px de ancho: `complementary` con nombre `Many`. Por debajo: diálogo con nombre `Many`
 - Botón que abre Many: `/Abrir panel Many|Open Many panel/i`
 
-Un perfil nuevo muestra el asistente a pantalla completa (`Onboarding`, portal en `document.body`). El chrome sigue en el DOM debajo. Para llegar a Proyectos o Ajustes hay que terminar el asistente en modo local. Pasos, solo si el control está visible:
-
-1. Botón cuyo nombre contiene `Continuar sin cuenta`, luego botón `Continuar`. Si ese botón no está, el paso de cuenta no aplica en este build.
-2. `Continuar` en idioma y en edición.
-3. Rellena `Nombre completo` con `Verify Dome` y `Correo electrónico` con `verify-dome@example.com`. `Continuar`.
-4. `Configurar más tarde` en el paso de IA.
-5. `Continuar` en permisos (solo macOS).
-6. `Finalizar` y espera a que ese botón desaparezca.
-
-No inicies sesión con una cuenta real.
+Dome abre directamente en Inicio: no hay asistente previo. No inicies sesión con una cuenta real.
 
 ## Evidence
 
@@ -73,7 +64,7 @@ Directorio: `.verify-evidence/<feature>/` en la raíz del repo (gitignored).
 Una prueba guarda la acción y el estado resultante:
 
 - stdout de `see` (nombre accesible) y, si hace falta, `--out .verify-evidence/<feature>/<feature>.txt`
-- captura con `shot`. La captura del viewport en un perfil nuevo muestra el asistente. `--selector '#root'` recorta el shell que está debajo del portal.
+- captura con `shot`. `--selector '#root'` recorta el shell.
 
 No des por probada una pestaña solo porque el chrome existe. El estándar está en `features/README.md`.
 

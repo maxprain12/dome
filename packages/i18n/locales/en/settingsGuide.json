@@ -99,7 +99,8 @@
     "loading": "Loading configuration…",
     "load_error": "Could not load the configuration. Reopen this section to try again.",
     "profile_hint": "This profile is saved on this device. Changing this email does not change your account sign-in email.",
-    "save_error": "Could not save changes. Please try again."
+    "save_error": "Could not save changes. Please try again.",
+    "key_placeholder": "Enter your API key..."
   },
   "access_details": "What each access level includes"
 }

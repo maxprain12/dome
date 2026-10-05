@@ -67,26 +67,6 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<vo
 }
 
 // ===========================
-// Onboarding Functions
-// ===========================
-
-export async function isOnboardingCompleted(): Promise<boolean> {
-  // Check if database is available
-  if (!db.isAvailable()) {
-    console.warn('Database API not available, defaulting to onboarding not completed');
-    return false;
-  }
-
-  const result = await db.getSetting('onboarding_completed');
-  return result.data === 'true';
-}
-
-export async function setOnboardingCompleted(completed: boolean): Promise<void> {
-  const result = await db.setSetting('onboarding_completed', completed ? 'true' : 'false');
-  if (!result.success) throw new Error(result.error || 'onboarding_save_failed');
-}
-
-// ===========================
 // Role & Feature Visibility
 // ===========================
 
@@ -120,18 +100,6 @@ export async function getFeatureVisibility(): Promise<Record<string, boolean>> {
 
 export async function setFeatureVisibility(map: Record<string, boolean>): Promise<void> {
   await db.setSetting('feature_visibility', JSON.stringify(map));
-}
-
-/** Map of sectionKey → seen. Used by the per-section "How to use" cards. */
-export async function getDismissedTours(): Promise<Record<string, boolean>> {
-  if (!db.isAvailable()) return {};
-  const result = await db.getSetting('section_tours_dismissed');
-  return parseJsonRecord(result.data);
-}
-
-export async function setDismissedTours(map: Record<string, boolean>): Promise<void> {
-  const result = await db.setSetting('section_tours_dismissed', JSON.stringify(map));
-  if (!result.success) throw new Error(result.error || 'guide_save_failed');
 }
 
 // ===========================

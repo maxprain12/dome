@@ -20,7 +20,6 @@ const SYNCABLE_SETTING_KEYS = new Set([
   'app_auto_save',
   'app_auto_backup',
   'user_role',
-  'onboarding_completed',
 ]);
 
 /**

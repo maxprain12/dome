@@ -99,7 +99,8 @@
     "loading": "Chargement de la configuration…",
     "load_error": "Impossible de charger la configuration. Rouvrez cette section.",
     "profile_hint": "Ce profil est enregistré sur cet appareil. Cet e-mail ne modifie pas celui de connexion à votre compte.",
-    "save_error": "Impossible d’enregistrer. Réessayez."
+    "save_error": "Impossible d’enregistrer. Réessayez.",
+    "key_placeholder": "Entrez votre clé API..."
   },
   "access_details": "Ce que comprend chaque niveau d’accès"
 }

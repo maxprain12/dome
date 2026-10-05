@@ -8,13 +8,12 @@
 
 export interface InitResult {
   success: boolean;
-  needsOnboarding: boolean;
   error?: string;
 }
 
 /**
  * Initialize the application
- * Returns a result indicating success/failure and onboarding status
+ * Returns a result indicating success or failure
  * 
  * IMPORTANT: This function always returns a result (never throws)
  * so the UI can always be shown, even if initialization fails
@@ -28,7 +27,6 @@ export async function initializeApp(): Promise<InitResult> {
     console.warn('[Init-Renderer] Window not available (SSR), using fallback');
     return {
       success: true,
-      needsOnboarding: true,
     };
   }
 
@@ -38,7 +36,6 @@ export async function initializeApp(): Promise<InitResult> {
     console.warn('[Init-Renderer] This is expected in development without Electron');
     return {
       success: true,
-      needsOnboarding: true,
     };
   }
 
@@ -51,7 +48,6 @@ export async function initializeApp(): Promise<InitResult> {
     console.warn('[Init-Renderer] The preload script may not have loaded correctly');
     return {
       success: true,
-      needsOnboarding: true,
       error: 'Init API not available',
     };
   }
@@ -65,7 +61,6 @@ export async function initializeApp(): Promise<InitResult> {
       console.warn('[Init-Renderer] Invalid init response, using defaults');
       return {
         success: true,
-        needsOnboarding: true,
         error: 'Invalid init response',
       };
     }
@@ -73,7 +68,6 @@ export async function initializeApp(): Promise<InitResult> {
     console.info(`[Init-Renderer] Dome initialized in ${Date.now() - startTime}ms`);
     return {
       success: result.success ?? true,
-      needsOnboarding: result.needsOnboarding ?? true,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -83,7 +77,6 @@ export async function initializeApp(): Promise<InitResult> {
     // Return success so UI is shown, but include error info
     return {
       success: true,
-      needsOnboarding: true,
       error: errorMessage,
     };
   }

@@ -39,7 +39,7 @@ Dome is an open-source desktop app for **founder-creators**. Keep notes, PDFs, v
 
 ## Editions
 
-One app. Pick an edition in onboarding (or Settings → Features). See [docs/product/editions.md](docs/product/editions.md).
+One app. Pick an edition in Settings → Features. See [docs/product/editions.md](docs/product/editions.md).
 
 | Edition | For | Default surfaces |
 | --- | --- | --- |

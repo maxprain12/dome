@@ -21,12 +21,12 @@ export interface AICloudProviderConfigProps {
   onModelChange: (value: string) => void;
   customModel: boolean;
   onCustomModelChange: (value: boolean) => void;
-  /** Onboarding: simpler model selector without full descriptions. */
+  /** Simpler model selector without full descriptions. */
   compact?: boolean;
   wrapInCard?: boolean;
 }
 
-/** API key + model choice for a cloud provider (used by Settings → AI and onboarding). */
+/** API key + model choice for a cloud provider (used by Settings → AI). */
 export default function AICloudProviderConfig({
   provider,
   apiKey,
@@ -67,7 +67,7 @@ export default function AICloudProviderConfig({
             type={showApiKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
-            placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('onboarding.enter_api_key')}
+            placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('settingsGuide.ai.key_placeholder')}
           />
           <InputGroupAddon align="inline-end">
             <Button

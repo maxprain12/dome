@@ -133,7 +133,7 @@ export function tabsFromParsedPayload(
   const migratedTabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs.filter(tab => tab.type !== 'browser').flatMap((tab) => {
     if (['agents','workflows','automations','runs'].includes(tab.type)) return [{...tab,id:'manys',type:'manys' as const,title:i18n.t('manys.title')}];
     if (!['semantic-graph', 'transcriptions', 'transcription-detail'].includes(tab.type as string)) return [tab];
-    return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('sectionGuide.library.title'), resourceId: tab.projectId || activeProjectId || 'default' }];
+    return tab.resourceId ? [{ ...tab, type: 'resource' as const, title: tab.resourceId }] : [{ ...tab, type: 'folder' as const, title: i18n.t('workspace.library'), resourceId: tab.projectId || activeProjectId || 'default' }];
   }), activeProjectId));
   const tabs = migratedTabs.filter((tab,index,all)=>all.findIndex(other=>other.id===tab.id)===index);
   const activeId=['agents','workflows','automations','runs'].includes(String(parsed.activeTabId))?'manys':parsed.activeTabId;

@@ -83,7 +83,6 @@ const ALLOWED_CHANNELS = {
     'window:take-complement-links',
     // Initialization
     'init:initialize',
-    'init:check-onboarding',
     'init:get-status',
     // Database - Projects
     'db:projects:create',
@@ -1033,7 +1032,6 @@ const electronHandler = {
   // ============================================
   init: {
     initialize: () => ipcRenderer.invoke('init:initialize'),
-    checkOnboarding: () => ipcRenderer.invoke('init:check-onboarding'),
     getStatus: () => ipcRenderer.invoke('init:get-status'),
   },
 
