@@ -181,7 +181,7 @@
     "model_not_in_plan": "Tu plan no incluye este modelo.",
     "runtime_unconfigured": "El entorno en la nube no está disponible ahora.",
     "runtime_version_mismatch": "El entorno en la nube se está actualizando. Inténtalo en un momento.",
-    "runtime_ended_without_outcome": "El agente se detuvo sin terminar.",
+    "runtime_ended_without_outcome": "Llegó al límite de pasos de este turno. Escribe «continúa» para que siga donde lo dejó.",
     "computer_capacity_unavailable": "No hay ningún ordenador libre ahora. Inténtalo en un momento.",
     "human_controls_computer": "Tienes el control del ordenador.",
     "take_control_required": "Toma primero el control del ordenador.",
@@ -220,7 +220,8 @@
     "connection_changed": "El servicio cambió después de proponerlo. Pídelo de nuevo.",
     "read_only_tool_needs_no_review": "Esa herramienta solo lee, así que no necesita aprobación.",
     "many_paused": "Many está en pausa. Reanúdalo para darle trabajo.",
-    "computer_permission_denied": "Ese permiso del ordenador está desactivado."
+    "computer_permission_denied": "Ese permiso del ordenador está desactivado.",
+    "credential_ambiguous": "Hay dos accesos con ese nombre."
   },
   "actions": {
     "pending": "Necesita revisión",

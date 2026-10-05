@@ -181,7 +181,7 @@
     "model_not_in_plan": "Your plan does not include this model.",
     "runtime_unconfigured": "The cloud runtime is not available right now.",
     "runtime_version_mismatch": "The cloud runtime is being updated. Try again shortly.",
-    "runtime_ended_without_outcome": "The agent stopped without finishing.",
+    "runtime_ended_without_outcome": "It reached the step limit for this turn. Write “continue” and it picks up where it left off.",
     "computer_capacity_unavailable": "No computer is free right now. Try again shortly.",
     "human_controls_computer": "You have control of the computer.",
     "take_control_required": "Take control of the computer first.",
@@ -220,7 +220,8 @@
     "connection_changed": "The service changed after this was proposed. Ask for it again.",
     "read_only_tool_needs_no_review": "That tool only reads, so it needs no approval.",
     "many_paused": "Many is paused. Resume it to give it work.",
-    "computer_permission_denied": "That computer permission is off."
+    "computer_permission_denied": "That computer permission is off.",
+    "credential_ambiguous": "Two accesses have that name."
   },
   "actions": {
     "pending": "Needs review",
