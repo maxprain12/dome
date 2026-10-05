@@ -468,10 +468,10 @@
     "webHint": "Buscar e ler páginas públicas",
     "computerTitle": "O computador dele",
     "computer": "Usar o computador dele",
-    "computerHint": "Uma área de trabalho com navegador, terminal e arquivos",
+    "computerHint": "Uma área de trabalho com navegador, terminal e arquivos. Ele usa sem pedir sua permissão a cada ação.",
     "outsideTitle": "Agir fora do Dome",
     "outside": "Enviar, publicar, comprar e apagar",
-    "outsideHint": "Sempre pede a sua aprovação antes",
+    "outsideHint": "Ele é instruído a pedir o seu OK antes. É uma instrução ao agente, não um bloqueio técnico.",
     "applies": "Cada mudança vale na hora e pausa o que o Many está fazendo."
   },
   "activeTasks": "Tarefas ativas: {{count}}",

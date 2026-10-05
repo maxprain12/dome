@@ -28,6 +28,7 @@ nothing. Event data never carries arguments, content or credentials.
 | Live screen, click, type, keys | The computer's sockets: the whole Linux desktop over VNC (noVNC in the renderer, bytes relayed by the main process, which holds the session token) and the browser's own screencast for the inline preview and the Browser tab |
 | Terminal: one bounded command | A real PTY (bash) per Many with scrollback, resize and Ctrl+C, only while the person holds the wheel |
 | Take over / return control | Same, plus a fresh snapshot is required before the agent continues |
+| Agent tools | One tool per action, used directly under the owner's switches |
 | Start / stop computer | Status, start and stop; stopping keeps files and the browser profile |
 
 The desktop is a shared machine: the Many works on it, and the person sees and, holding the wheel,
@@ -45,11 +46,17 @@ hands. It sits behind the shell permission because it is the whole machine.
 | Global pause | Per-Many pause (`grants.paused`) and a pause-all from the overview; a paused Many takes no new work and queued work is paused instead of run |
 | Audit with actor | Append-only audit of every governed call, plus `computer_activity` events for what the person did |
 
-Differences: in OpenDots the agent acts on the computer directly once permitted. Here reads are
-direct, and every write (click, type, navigate, shell, files) is a proposal the person reviews,
-bound to the grant revision, expiring, executed once, and never re-sent when the outcome is
-uncertain. Secrets stay in the credential vault and are typed only after approval and only on the
-sites they belong to.
+The agent uses its computer the way OpenDots' does: one tool per action (`computer_navigate`,
+`computer_snapshot`, `computer_click`, `computer_type`, files, `computer_exec`), and with the
+owner's switches on it simply acts, in one run, with no proposal and no approval per action. Every
+call re-reads the owner's switches and a pause, stops while the person holds the wheel, is fenced by
+the lease, goes through the policy rules (hosts, operations) and is audited. Results are clipped to
+the model's budget. Differences from OpenDots on purpose: the computer runs under gVisor with an
+egress filter, and what should not happen without an explicit okay (sending, publishing, buying,
+deleting outside Dome) is asked of the person by the agent (`ask_user`, or `propose_action` for an
+exact action to review). That last part is an instruction to the agent, as in OpenDots, not a
+technical block. Saved credentials are typed only through a reviewed proposal; otherwise the person
+takes the wheel and signs in, and the profile keeps the session.
 
 ## Not covered yet
 

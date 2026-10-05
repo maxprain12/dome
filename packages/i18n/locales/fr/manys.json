@@ -468,10 +468,10 @@
     "webHint": "Chercher et lire des pages publiques",
     "computerTitle": "Son ordinateur",
     "computer": "Utiliser son ordinateur",
-    "computerHint": "Un bureau avec navigateur, terminal et fichiers",
+    "computerHint": "Un bureau avec navigateur, terminal et fichiers. Il les utilise sans vous demander votre accord à chaque action.",
     "outsideTitle": "Agir en dehors de Dome",
     "outside": "Envoyer, publier, acheter et supprimer",
-    "outsideHint": "Il demande toujours votre accord avant",
+    "outsideHint": "Il a pour consigne de demander votre accord avant. C'est une consigne donnée à l'agent, pas un blocage technique.",
     "applies": "Chaque changement s'applique aussitôt et met en pause ce que Many fait."
   },
   "activeTasks": "Tâches actives : {{count}}",

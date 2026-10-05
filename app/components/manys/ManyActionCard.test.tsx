@@ -42,6 +42,11 @@ describe('ManyActionCard', () => {
     expect(screen.queryByText(/ref|operation/i)).toBeNull();
   });
 
+  it('reads a flattened proposal the same way as a nested one', () => {
+    render(<ManyActionCard action={action('pending', { proposal: { capability: 'computer.write', tool: 'computer', parameters: { operation: 'navigate', url: 'https://www.instagram.com' } } })} many="many-1" busy={false} perform={perform} />);
+    expect(screen.getByText(/Open www\.instagram\.com|Abrir www\.instagram\.com/)).toBeInTheDocument();
+  });
+
   it('falls back to what the capability is when it does not recognise the operation', () => {
     render(<ManyActionCard action={action('pending', { proposal: { capability: 'external.publish', tool: 'mail', parameters: { to: 'a@b.c' } } })} many="many-1" busy={false} perform={perform} />);
     expect(screen.getAllByText(/Publish|Publicar|Publier/).length).toBeGreaterThan(0);

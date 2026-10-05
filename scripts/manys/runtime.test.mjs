@@ -106,3 +106,31 @@ test('old large tool results are left out of later requests so a long task does 
     assert.ok(Math.max(...sizes)<32768,`largest request was ${Math.max(...sizes)} characters`);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('the agent is given one tool per computer action, acts without a proposal, and gets a screenshot as an image, not as text',async()=>{
+  let turn=0;const requests=[];
+  const script=[['computer_navigate',{url:'https://example.com'}],['computer_screenshot',{}],['finish_task',{text:'Opened it'}]];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));
+    const [name,args]=script[turn++];
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',tool_calls:[{index:0,id:'step-'+turn,type:'function',function:{name,arguments:JSON.stringify(args)}}]},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'tool_calls'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:10,total_tokens:35}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const calls=[];
+  try {
+    await run({taskId:'task-computer',prompt:'open example.com',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+      saveEntry:async()=>undefined,beforeRequest:async()=>undefined,usage:async()=>undefined,
+      call:async(id,name,args)=>{calls.push([name,args]);return name==='computer_screenshot'?{base64:Buffer.from('png').toString('base64'),computerId:'c',generation:1}:{ok:true};}});
+    assert.deepEqual(calls.map(c=>c[0]),['computer_navigate','computer_screenshot','finish_task']);
+    const names=requests[0].tools.map(tool=>tool.function.name);
+    for(const expected of ['computer_navigate','computer_snapshot','computer_click','computer_type','computer_files_write','computer_exec','propose_action'])assert.ok(names.includes(expected),`missing ${expected}`);
+    for(const gone of ['mcp_tools','mcp_call','skill_read'])assert.ok(!names.includes(gone),`${gone} should be gone`);
+    assert.ok(JSON.stringify(requests[0].messages).includes('need no approval for each action'));
+    // The image travels as an image part (this test model has no vision, so it is replaced by a note); the text never carries the base64.
+    assert.ok(!JSON.stringify(requests[2]).includes(Buffer.from('png').toString('base64')));
+    assert.ok(JSON.stringify(requests[2]).includes('computerId'));
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
