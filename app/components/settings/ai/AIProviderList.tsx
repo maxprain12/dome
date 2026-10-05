@@ -16,7 +16,7 @@ import { providerStatusLabel } from './providerStatus';
 export interface AIProviderListProps {
   /** Provider shown in the detail pane. */
   selected: AIProviderType;
-  /** Provider Dome currently uses for chat (null while loading / in onboarding). */
+  /** Provider Dome currently uses for chat (null while loading). */
   active: AIProviderType | null;
   configured: Record<string, boolean>;
   onSelect: (provider: AIProviderType) => void;

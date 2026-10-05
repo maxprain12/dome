@@ -1,5 +1,3 @@
-import SectionOnboardingCard from '@/components/onboarding/SectionOnboardingCard';
-import { sectionForTab } from '@/lib/onboarding/sectionGuides';
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
@@ -537,7 +535,6 @@ export default function ContentRouter() {
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isPersistent = PERSISTENT_TAB_TYPES.has(tab.type);
-        const guideKey = sectionForTab(tab.type);
         if (!isActive && !isPersistent) return null;
 
         return (
@@ -548,7 +545,7 @@ export default function ContentRouter() {
             isPersistent={isPersistent}
           >
             <TabBoundary tab={tab}>
-              {guideKey ? <SectionOnboardingCard sectionKey={guideKey} active={isActive} autoOpen={tab.type !== 'settings'}><TabContentWithSplit tab={tab} /></SectionOnboardingCard> : <TabContentWithSplit tab={tab} />}
+              <TabContentWithSplit tab={tab} />
             </TabBoundary>
           </TabPaneShell>
         );

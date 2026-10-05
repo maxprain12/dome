@@ -65,4 +65,4 @@ Hoy: un Electron. Mañana (solo si se vende sola): `VITE_DOME_EDITION=pro|study|
 | `study` | study |
 | `dev` / `developer` | dev |
 | `research` / `generalist` | pro |
-| (vacío) | no se fuerza; el onboarding no elige edición |
+| (vacío) | no se fuerza; la edición se elige en Ajustes → Funciones |

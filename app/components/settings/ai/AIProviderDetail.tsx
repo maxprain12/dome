@@ -14,7 +14,7 @@ export interface AIProviderDetailProps {
   provider: AIProviderType;
   active: AIProviderType | null;
   configured: boolean;
-  /** Opens the visible-models curator; omitted where curation is not offered (onboarding). */
+  /** Opens the visible-models curator; omitted where curation is not offered. */
   onConfigureModels?: (provider: AIProviderType) => void;
   /** Credentials / model panel for the provider. */
   children: ReactNode;

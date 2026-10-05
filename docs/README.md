@@ -87,7 +87,6 @@ pnpm run check:remote-protocol # contrato Remote Many vs protocol.json
 | **IPC** | [ipc.md](features/ipc.md) | Whitelist, preload (canónico: [architecture/ipc-channels.md](architecture/ipc-channels.md)) |
 | **File storage** | [file-storage.md](features/file-storage.md) | dome-files |
 | **Settings** | [settings.md](features/settings.md) | Preferencias |
-| **Onboarding** | [onboarding.md](features/onboarding.md) | Welcome |
 | **Ollama** | [guia-instalacion-ollama.md](features/guia-instalacion-ollama.md) | Instalación local |
 
 ### SOPs (`.claude/sops/`)

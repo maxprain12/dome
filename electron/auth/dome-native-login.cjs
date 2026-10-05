@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Native (in-app) email/password login & signup for the onboarding "account gate".
+ * Native (in-app) email/password login & signup for the account form in Settings.
  * Flow: POST /api/auth/password on dome-provider → persistSession
  * (electron/auth/dome-oauth.cjs), so every existing fetchWithDomeAuth consumer
  * (Domain Sync, plan-gate, cloud-sync, …) keeps working unchanged.
@@ -80,9 +80,6 @@ async function loginOrRegister(database, { email, password, isRegister, name, wi
   const { runPostLoginBootstrap } = require('../storage/post-login-bootstrap.cjs');
   const bootstrap = await runPostLoginBootstrap({ database, windowManager });
 
-  const onboardingRow = database.getQueries().getSetting.get('onboarding_completed');
-  const alreadyOnboarded = !isRegister && onboardingRow?.value === 'true';
-
   return {
     success: true,
     connected: true,
@@ -90,7 +87,6 @@ async function loginOrRegister(database, { email, password, isRegister, name, wi
     name: profile.name ?? (name?.trim() || null),
     email: profile.email ?? email.trim(),
     hadRemoteData: Boolean(bootstrap?.hadRemoteData || profile?.name),
-    alreadyOnboarded,
   };
 }
 

@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-04T21:29:40.653Z
+> Última generación: 2026-10-05T09:41:06.690Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -322,8 +322,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `image:metadata` | `electron/ipc/media/images.cjs:82` |
 | `image:resize` | `electron/ipc/media/images.cjs:37` |
 | `image:thumbnail` | `electron/ipc/media/images.cjs:60` |
-| `init:check-onboarding` | `electron/ipc/core/init.cjs:18` |
-| `init:get-status` | `electron/ipc/core/init.cjs:36` |
+| `init:get-status` | `electron/ipc/core/init.cjs:17` |
 | `init:initialize` | `electron/ipc/core/init.cjs:3` |
 | `learn:getKpis` | `electron/ipc/learn/learn.cjs:5` |
 | `learn:getStreak` | `electron/ipc/learn/learn.cjs:17` |

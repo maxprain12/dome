@@ -1,0 +1,31 @@
+{
+  "register_title": "Crea tu cuenta",
+  "login_title": "Te damos la bienvenida",
+  "description": "Una cuenta te identifica en Dome. Los servicios cloud dependen de tu suscripción.",
+  "create": "Crear cuenta",
+  "sign_in": "Iniciar sesión",
+  "have_account": "¿Ya tienes cuenta? Inicia sesión",
+  "need_account": "¿Nuevo en Dome? Crea una cuenta",
+  "ready_title": "Has iniciado sesión",
+  "continue": "Continuar",
+  "confirm_email": "Hemos enviado un enlace de confirmación a {{email}}. Confirma tu correo y vuelve aquí para iniciar sesión.",
+  "confirmed_login": "Ya he confirmado mi correo. Iniciar sesión",
+  "password_hint": "Usa la contraseña de tu cuenta.",
+  "password_required": "Introduce tu contraseña.",
+  "save_error": "No pudimos guardar los datos de tu cuenta. Inténtalo de nuevo; no se perdió nada.",
+  "name_label": "Nombre completo",
+  "email_label": "Correo electrónico",
+  "password_label": "Contraseña",
+  "name_min_length": "Introduce un nombre válido (mínimo 2 caracteres)",
+  "email_invalid": "Introduce un correo electrónico válido",
+  "password_min_length": "La contraseña debe tener al menos 8 caracteres",
+  "errors": {
+    "invalid_credentials": "Email o contraseña incorrectos",
+    "email_taken": "Ese correo ya tiene una cuenta",
+    "weak_password": "La contraseña es demasiado débil",
+    "network": "No se pudo conectar. Comprueba tu conexión a internet.",
+    "provider_unreachable": "No se pudo contactar con Dome Provider. Inténtalo de nuevo.",
+    "not_configured": "El login de Dome no está configurado en esta build.",
+    "generic": "No se pudo iniciar sesión. Inténtalo de nuevo."
+  }
+}

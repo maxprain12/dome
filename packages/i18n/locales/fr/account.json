@@ -1,0 +1,31 @@
+{
+  "register_title": "Créez votre compte",
+  "login_title": "Heureux de vous retrouver",
+  "description": "Un compte vous identifie dans Dome. Les services cloud dépendent de votre abonnement.",
+  "create": "Créer un compte",
+  "sign_in": "Se connecter",
+  "have_account": "Déjà un compte ? Connectez-vous",
+  "need_account": "Nouveau sur Dome ? Créez un compte",
+  "ready_title": "Vous êtes connecté",
+  "continue": "Continuer",
+  "confirm_email": "Un lien de confirmation a été envoyé à {{email}}. Confirmez votre adresse puis revenez vous connecter.",
+  "confirmed_login": "Mon adresse est confirmée. Se connecter",
+  "password_hint": "Utilisez le mot de passe de votre compte.",
+  "password_required": "Saisissez votre mot de passe.",
+  "save_error": "Nous n'avons pas pu enregistrer les informations de votre compte. Réessayez ; rien n'a été perdu.",
+  "name_label": "Nom complet",
+  "email_label": "E-mail",
+  "password_label": "Mot de passe",
+  "name_min_length": "Veuillez entrer un nom valide (au moins 2 caractères)",
+  "email_invalid": "Veuillez entrer une adresse e-mail valide",
+  "password_min_length": "Le mot de passe doit contenir au moins 8 caractères",
+  "errors": {
+    "invalid_credentials": "E-mail ou mot de passe incorrect",
+    "email_taken": "Cet e-mail a déjà un compte",
+    "weak_password": "Le mot de passe est trop faible",
+    "network": "Connexion impossible. Vérifiez votre connexion internet.",
+    "provider_unreachable": "Impossible de contacter Dome Provider. Veuillez réessayer.",
+    "not_configured": "La connexion Dome n'est pas configurée dans cette build.",
+    "generic": "Connexion impossible. Veuillez réessayer."
+  }
+}

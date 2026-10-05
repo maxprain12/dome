@@ -46,7 +46,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - **avatar.copyFile(sourcePath)**: Copy avatar to app storage.
 - **getPathForFile(file), getPathsForFiles(files)**: File path from File object (webUtils).
 - **platform**: isMac, isWindows, isLinux, platform.
-- **init**: initialize, checkOnboarding, getStatus.
+- **init**: initialize, getStatus.
 - **db**: projects, resources, interactions, links, search, settings (see resources.md and preload for exact methods).
 - **resource**: import, importMultiple, getFilePath, readFile, export, delete, regenerateThumbnail.
 - **storage**: getUsage, cleanup, getPath.

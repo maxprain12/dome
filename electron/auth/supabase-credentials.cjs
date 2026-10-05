@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 /**
- * Resolved Supabase Auth credentials for native login/signup (onboarding).
+ * Resolved Supabase Auth credentials for native login/signup (Settings → account).
  *
  * Precedence:
  * 1. process.env SUPABASE_* or NEXT_PUBLIC_SUPABASE_* (dev / overrides)

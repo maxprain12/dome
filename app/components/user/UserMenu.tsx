@@ -15,7 +15,7 @@ export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const { name, email, avatarData, avatarPath, avatarUrl, resetOnboarding, updateUserProfile } = useUserStore();
+  const { name, email, avatarData, avatarPath, avatarUrl, updateUserProfile } = useUserStore();
 
   const handleOpenSettings = () => {
     setIsOpen(false);
@@ -30,24 +30,17 @@ export default function UserMenu() {
     setIsSigningOut(true);
     
     try {
-      await Promise.all([
-        updateUserProfile({ name: '', email: '', avatarPath: undefined, avatarData: undefined, avatarUrl: undefined }),
-        resetOnboarding(),
-      ]);
-      
+      const result = await window.electron.domeAuth.disconnect();
+      if (!result.success) throw new Error('disconnect_failed');
+      await updateUserProfile({ name: '', email: '', avatarPath: undefined, avatarData: undefined, avatarUrl: undefined });
       setIsOpen(false);
-      
-      // Reload the app to show onboarding
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error(t('userMenu.sign_out_error'));
     } finally {
       setIsSigningOut(false);
     }
-  }, [isSigningOut, updateUserProfile, resetOnboarding, t]);
+  }, [isSigningOut, updateUserProfile, t]);
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

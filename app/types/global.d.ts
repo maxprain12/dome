@@ -361,8 +361,7 @@ declare global {
 
       // Initialization API
       init: {
-        initialize: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
-        checkOnboarding: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
+        initialize: () => Promise<{ success: boolean }>;
         getStatus: () => Promise<{ success: boolean; isInitialized: boolean }>;
       };
 
@@ -651,7 +650,6 @@ declare global {
           name?: string | null;
           email?: string | null;
           hadRemoteData?: boolean;
-          alreadyOnboarded?: boolean;
           pendingConfirmation?: boolean;
           error?: string;
           errorCode?: string;

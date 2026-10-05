@@ -170,8 +170,8 @@ export default function AgentEditor({
           <div className="flex min-w-0 flex-col gap-4">
             <SectionCard title={t('orchestration.agent_editor.section_identity')}>
               <div className="flex flex-col gap-4">
-                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-name" className="text-xs">{`${t('onboarding.agent_name_label')} *`}</FieldLabel><Input id="agent-editor-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('onboarding.agent_name_placeholder')} maxLength={80} /><FieldDescription className="text-xs">{name.trim().length === 0 ? t('onboarding.agent_name_required') : undefined}</FieldDescription></Field>
-                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-description" className="text-xs">{t('onboarding.agent_description_label')}</FieldLabel><Textarea id="agent-editor-description" className="min-h-24 resize-y" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('onboarding.agent_description_placeholder')} rows={2} /></Field>
+                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-name" className="text-xs">{`${t('agentEditor.agent_name_label')} *`}</FieldLabel><Input id="agent-editor-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('agentEditor.agent_name_placeholder')} maxLength={80} /><FieldDescription className="text-xs">{name.trim().length === 0 ? t('agentEditor.agent_name_required') : undefined}</FieldDescription></Field>
+                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-description" className="text-xs">{t('agentEditor.agent_description_label')}</FieldLabel><Textarea id="agent-editor-description" className="min-h-24 resize-y" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('agentEditor.agent_description_placeholder')} rows={2} /></Field>
                 <div>
                   <p className="mb-2 text-xs font-medium text-foreground">
                     {t('orchestration.agent_editor.icon_label')}
@@ -201,9 +201,9 @@ export default function AgentEditor({
 
             <SectionCard
               title={t('orchestration.agent_editor.section_instructions')}
-              hint={t('onboarding.instructions_tools_hint')}
+              hint={t('agentEditor.instructions_tools_hint')}
             >
-              <Textarea className="min-h-24 resize-y font-mono text-xs leading-relaxed" id="agent-editor-instructions" value={systemInstructions} onChange={(e) => setSystemInstructions(e.target.value)} placeholder={t('onboarding.instructions_placeholder')} rows={10} />
+              <Textarea className="min-h-24 resize-y font-mono text-xs leading-relaxed" id="agent-editor-instructions" value={systemInstructions} onChange={(e) => setSystemInstructions(e.target.value)} placeholder={t('agentEditor.instructions_placeholder')} rows={10} />
               <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
                 {t('orchestration.agent_editor.chars_count', { count: systemInstructions.length })}
               </p>
@@ -286,7 +286,7 @@ export default function AgentEditor({
                       {name.trim() || t('orchestration.agent_editor.preview_empty_name')}
                     </span>
                     <p className="line-clamp-3 text-xs leading-snug text-muted-foreground">
-                      {description.trim() || t('onboarding.agent_description_placeholder')}
+                      {description.trim() || t('agentEditor.agent_description_placeholder')}
                     </p>
                   </div>
                 </div>

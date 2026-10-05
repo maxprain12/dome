@@ -1,0 +1,9 @@
+{
+  "instructions_tools_hint": "Define the agent role, behavior, and constraints. All native Dome tools and skills are available automatically — you only choose MCP servers separately.",
+  "instructions_placeholder": "Example: You are an experienced horticulturist specializing in native meadows and drought-tolerant gardens. Help plan low-water landscapes based on location, climate, and local plants.",
+  "agent_name_label": "Name",
+  "agent_name_placeholder": "e.g. Researcher, Editor, Summarizer…",
+  "agent_name_required": "The agent needs a name to get started.",
+  "agent_description_label": "Description",
+  "agent_description_placeholder": "Describe what this agent does and what it is for."
+}

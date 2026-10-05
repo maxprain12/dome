@@ -1,11 +1,6 @@
 import { create } from 'zustand';
 import type { UserProfile } from '@/types';
-import {
-  getUserProfile,
-  saveUserProfile,
-  isOnboardingCompleted,
-  setOnboardingCompleted,
-} from '../settings';
+import { getUserProfile, saveUserProfile } from '../settings';
 
 interface UserState {
   // User profile data
@@ -17,13 +12,10 @@ interface UserState {
   avatarPath?: string;
   /** Account photo URL from Dome Provider. Synced across devices. */
   avatarUrl?: string;
-  isOnboardingCompleted: boolean;
 
   // Actions
   loadUserProfile: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
-  completeOnboarding: () => Promise<void>;
-  resetOnboarding: () => Promise<void>;
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -33,12 +25,10 @@ export const useUserStore = create<UserState>((set) => ({
   avatarData: undefined,
   avatarPath: undefined,
   avatarUrl: undefined,
-  isOnboardingCompleted: false,
 
   // Load user profile from database
   loadUserProfile: async () => {
     const profile = await getUserProfile();
-    const onboardingComplete = await isOnboardingCompleted();
 
     set({
       name: profile.name,
@@ -46,7 +36,6 @@ export const useUserStore = create<UserState>((set) => ({
       avatarData: profile.avatarData,
       avatarPath: profile.avatarPath,
       avatarUrl: profile.avatarUrl,
-      isOnboardingCompleted: onboardingComplete,
     });
 
     const remote = await window.electron?.domeAuth?.getProfile?.();
@@ -64,23 +53,5 @@ export const useUserStore = create<UserState>((set) => ({
       ...state,
       ...data,
     }));
-  },
-
-  // Complete onboarding
-  completeOnboarding: async () => {
-    await setOnboardingCompleted(true);
-
-    set({
-      isOnboardingCompleted: true,
-    });
-  },
-
-  // Reset onboarding (for re-running the wizard)
-  resetOnboarding: async () => {
-    await setOnboardingCompleted(false);
-
-    set({
-      isOnboardingCompleted: false,
-    });
   },
 }));

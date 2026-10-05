@@ -14,7 +14,7 @@ function fill() {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'test-password' } });
 }
-it('submits registration through a form and completes only after confirmed authentication', async () => {
+it('submits registration through a form and connects only after confirmed authentication', async () => {
   nativeLogin.mockResolvedValue({ success: true, connected: true, name: 'Ada', email: 'ada@example.com' });
   const complete = vi.fn().mockResolvedValue(undefined);
   render(<AccountForm onConnected={complete} />);
@@ -23,7 +23,7 @@ it('submits registration through a form and completes only after confirmed authe
   await waitFor(() => expect(complete).toHaveBeenCalledWith({ name: 'Ada', email: 'ada@example.com' }));
   expect(nativeLogin).toHaveBeenCalledWith('ada@example.com', 'test-password', true, 'Ada Lovelace');
 });
-it('keeps email confirmation pending without completing onboarding', async () => {
+it('keeps email confirmation pending without connecting the account', async () => {
   nativeLogin.mockResolvedValue({ success: true, pendingConfirmation: true });
   const complete = vi.fn();
   render(<AccountForm onConnected={complete} />);
@@ -38,8 +38,8 @@ it('retries a failed local save without repeating registration', async () => {
   const complete = vi.fn().mockRejectedValueOnce(new Error('disk')).mockResolvedValue(undefined);
   render(<AccountForm onConnected={complete} />);
   fill(); fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-  expect(await screen.findByText(/We could not save your setup/)).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Open my workspace' }));
+  expect(await screen.findByText(/We couldn't save your account details/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
   await waitFor(() => expect(complete).toHaveBeenCalledTimes(2));
   expect(nativeLogin).toHaveBeenCalledTimes(1);
 });
@@ -51,11 +51,4 @@ it('does not apply registration password rules to an existing account', async ()
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'old' } });
   fireEvent.click(screen.getByRole('button', { name: /^Sign in$/ }));
   await waitFor(() => expect(nativeLogin).toHaveBeenCalledWith('ada@example.com', 'old', false, undefined));
-});
-it('local entry does not authenticate or collect personal data', async () => {
-  const local = vi.fn().mockResolvedValue(undefined);
-  render(<AccountForm onConnected={vi.fn()} onLocal={local} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Continue locally' }));
-  await waitFor(() => expect(local).toHaveBeenCalledOnce());
-  expect(nativeLogin).not.toHaveBeenCalled();
 });

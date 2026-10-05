@@ -1,5 +1,5 @@
 /**
- * Shared AI provider options for onboarding and settings.
+ * Shared AI provider options for settings.
  * Single source of truth for order, labels, descriptions, badges, and brand logos.
  */
 

@@ -32,7 +32,7 @@ export interface AIChatProviderPanelsProps {
   groupTitle: string;
   /** Local endpoints (Ollama, LM Studio, vLLM) report whether they answered. */
   onLocalAvailabilityChange?: (available: boolean | null) => void;
-  /** Onboarding: compact model pickers, no API key field for local servers. */
+  /** Compact model pickers, no API key field for local servers. */
   compact?: boolean;
 }
 

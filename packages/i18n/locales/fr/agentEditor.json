@@ -1,0 +1,9 @@
+{
+  "instructions_tools_hint": "Définissez le rôle, le comportement et les contraintes de l’agent. Tous les outils natifs de Dome et les skills sont disponibles automatiquement — vous ne choisissez que les serveurs MCP séparément.",
+  "instructions_placeholder": "Exemple : Vous êtes un horticulteur expérimenté en prairies naturelles et plantes indigènes. Vous aidez à planifier des jardins sobres en eau selon le lieu, le climat et les plantes locales.",
+  "agent_name_label": "Nom",
+  "agent_name_placeholder": "Ex : Chercheur, Éditeur, Résumeur…",
+  "agent_name_required": "L'agent a besoin d'un nom pour commencer.",
+  "agent_description_label": "Description",
+  "agent_description_placeholder": "Décrivez ce que fait cet agent et à quoi il sert."
+}

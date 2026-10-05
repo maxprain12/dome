@@ -8,7 +8,7 @@ Plataforma de escritorio **local-first** con un runtime de agentes (Many) sobre 
 
 **Hero (lo que se vende):** **Dome Pro** — workspace para founder-creadores. Dos polos: **documentos** y **personas**. Email y social son canales de esa red, no productos aparte.
 
-**Suite:** la misma app, tres ediciones (`pro` | `study` | `dev`). Un binario. El usuario elige edición en onboarding y puede cambiarla en Ajustes → Funciones.
+**Suite:** la misma app, tres ediciones (`pro` | `study` | `dev`). Un binario. El usuario elige edición en Ajustes → Funciones.
 
 ## Job-to-be-done (Pro)
 

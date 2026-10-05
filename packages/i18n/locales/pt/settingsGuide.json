@@ -99,7 +99,8 @@
     "loading": "A carregar configuração…",
     "load_error": "Não foi possível carregar a configuração. Volta a abrir esta secção.",
     "profile_hint": "Este perfil é guardado neste dispositivo. Alterar este email não muda o email de acesso à conta.",
-    "save_error": "Não foi possível guardar. Tenta novamente."
+    "save_error": "Não foi possível guardar. Tenta novamente.",
+    "key_placeholder": "Digite sua chave API..."
   },
   "access_details": "O que inclui cada nível de acesso"
 }

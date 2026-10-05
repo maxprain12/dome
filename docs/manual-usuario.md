@@ -9,7 +9,7 @@
 
 1. [¿Qué es Dome?](#1-qué-es-dome)
 2. [Instalación](#2-instalación)
-3. [Primeros pasos (Onboarding)](#3-primeros-pasos-onboarding)
+3. [Primeros pasos](#3-primeros-pasos)
 4. [Organizar tu conocimiento](#4-organizar-tu-conocimiento)
 5. [El editor de notas](#5-el-editor-de-notas)
 6. [Buscar con Cmd+K](#6-buscar-con-cmdk)
@@ -61,25 +61,19 @@ Learn, el canvas de workflows y el estilo de citas APA/MLA existen, pero no son 
 1. Descarga el instalador desde la página oficial de Dome
 2. En macOS: arrastra `Dome.app` a la carpeta Aplicaciones
 3. En Windows: ejecuta el instalador `.exe` y sigue los pasos
-4. Abre Dome — se lanzará el flujo de onboarding
+4. Abre Dome — entrarás directamente en Inicio
 
 > **Nota**: En macOS puede aparecer un aviso de seguridad. Ve a Preferencias del Sistema → Privacidad y Seguridad → Abrir de todas formas.
 
 ---
 
-## 3. Primeros pasos (Onboarding)
+## 3. Primeros pasos
 
-Al abrir Dome por primera vez, verás un flujo de 4 pasos:
+Dome se abre directamente en **Inicio**, sin asistente previo. Todo se configura cuando lo necesitas, desde **Ajustes**:
 
-### Paso 1 — Bienvenida
-Presentación de Dome y sus capacidades principales.
-
-### Paso 2 — Tu perfil
-- Introduce tu nombre y foto de perfil (opcional)
-- Elige **edición**: Pro (documentos y personas), Study (aprender) o Dev (GitHub y agentes)
-
-### Paso 3 — Configurar IA
-Elige cómo quieres usar la inteligencia artificial:
+- **Cuenta**: en Ajustes → General puedes crear una cuenta o iniciar sesión. Sin cuenta, tus notas y archivos siguen disponibles en local.
+- **Edición**: en Ajustes → Funciones eliges Pro (documentos y personas), Study (aprender) o Dev (GitHub y agentes).
+- **IA**: en Ajustes → IA eliges cómo usar la inteligencia artificial:
 
 | Proveedor | Descripción | Coste |
 |-----------|-------------|-------|
@@ -90,9 +84,6 @@ Elige cómo quieres usar la inteligencia artificial:
 | **Dome** | Proxy con suscripción incluida | Suscripción mensual |
 
 Para Ollama, sigue la [guía de instalación](./features/guia-instalacion-ollama.md).
-
-### Paso 4 — ¡Listo!
-Dome ya está configurado. Puedes empezar a añadir recursos.
 
 ---
 
