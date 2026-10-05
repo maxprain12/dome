@@ -400,5 +400,6 @@
   },
   "edit": "Modifier le nom et les consignes",
   "routinesNone": "Many les programme quand il juge que c'est utile.",
-  "everyHours": "Toutes les {{count}} h"
+  "everyHours": "Toutes les {{count}} h",
+  "model": "Modèle"
 }

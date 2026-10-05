@@ -32,6 +32,14 @@ export default function ManyDetails({ detail, busy, perform }: { detail: ManyDet
         <ManyPermissions grants={many.grants} busy={busy} onChange={save} />
         {hasCapability(many.grants, 'vault.read') && <ManyLibraryScope key={many.grant_revision} many={many} busy={busy} onSave={save} />}
       </Section>
+      {many.model_name && (
+        <Section title={t('manys.model')}>
+          <p className="text-sm">
+            <span className="font-medium">{many.model_name}</span>
+            <span className="text-muted-foreground"> · {many.model_source === 'dome' ? t('manys.runtime.dome_credits') : many.model_provider}</span>
+          </p>
+        </Section>
+      )}
       <Section title={t('manys.recurrences')}>
         <ManyRoutines detail={detail} busy={busy} perform={perform} />
       </Section>

@@ -5,7 +5,7 @@ export type ManyCloudRuntime =
   | { source: 'dome_credits' }
   | { source: 'provider_key'; provider: string };
 export interface CloudProviderOption { id: string; name: string }
-export interface CloudMany {id:string;name:string;instructions:string;grants:Grants;grant_revision:number;runtime?:ManyCloudRuntime}
+export interface CloudMany {id:string;name:string;instructions:string;grants:Grants;grant_revision:number;runtime?:ManyCloudRuntime;model_source?:'dome'|'external'|'local'|null;model_provider?:string|null;model_name?:string|null}
 export interface Task {id:string;prompt:string;state:string;question:string|null;checkpoint?:{reason?:string;access?:{label:string;hosts:string[]}};result:{text?:string;resources?:string[]}|null}
 export interface Action {id:string;digest:string;state:string;expires_at:string;proposal:unknown;receipt:unknown;operation_id?:string|null;task_id?:string|null}
 export interface ManyDetail {many:CloudMany;conversations:{id:string}[];tasks:Task[];messages:{id:string;role:string;content:string;task_id:string;created_at?:string}[];actions:Action[];recurrences:{id:string;prompt:string;next_at:string;interval_seconds:number}[];computer:{control:string;last_activity?:string|null}|null;conflicts:{id:string;resource_id:string;title:string|null;current_revision:number;proposal:unknown}[]}

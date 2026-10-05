@@ -400,5 +400,6 @@
   },
   "edit": "Edit name and instructions",
   "routinesNone": "Many schedules them when it sees it is worth it.",
-  "everyHours": "Every {{count}} h"
+  "everyHours": "Every {{count}} h",
+  "model": "Model"
 }
