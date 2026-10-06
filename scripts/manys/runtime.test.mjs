@@ -279,3 +279,52 @@ test('an Anthropic-style model (MiniMax) gets its own token field, a reasoning b
     assert.ok(JSON.stringify(last.messages).includes('Earlier screenshot omitted'));
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('a long task is summarized before it outgrows a request, and the summary is reserved and settled like any model call',async()=>{
+  let turn=0;const requests=[];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;const json=JSON.parse(body);requests.push(json);
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    const summarizing=JSON.stringify(json.messages[0]).includes('context summarization assistant');
+    if(summarizing){
+      send({choices:[{index:0,delta:{role:'assistant',content:'## Goal\nRead the notes.\n## Progress\nSix read.'},finish_reason:null}]});
+      send({choices:[{index:0,delta:{},finish_reason:'stop'}]});
+    }else{
+      const name=turn++<8?'checkpoint':'finish_task';const args=name==='checkpoint'?{plan:'p'.repeat(3000),progress:'q'.repeat(3000)}:{text:'done'};
+      send({choices:[{index:0,delta:{role:'assistant',tool_calls:[{index:0,id:'step-'+turn,type:'function',function:{name,arguments:JSON.stringify(args)}}]},finish_reason:null}]});
+      send({choices:[{index:0,delta:{},finish_reason:'tool_calls'}]});
+    }
+    const prompt=Math.ceil(body.length/4);send({choices:[],usage:{prompt_tokens:prompt,completion_tokens:10,total_tokens:prompt+10}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;let reserved=0,settled=0;const calls=[];
+  try {
+    await run({taskId:'task-long-ctx',prompt:'work',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,compactAtTokens:3000,
+      saveEntry:async()=>{},beforeRequest:async()=>{reserved++;},usage:async()=>{settled++;},call:async(id,name)=>{calls.push(name);return {saved:true};}});
+    const summaries=requests.filter(request=>JSON.stringify(request.messages[0]).includes('context summarization assistant')).length;
+    assert.ok(summaries>=1,'the transcript was summarized');
+    assert.equal(reserved,settled,'every reservation, summaries included, was settled');
+    assert.equal(reserved,requests.length);
+    assert.equal(calls.at(-1),'finish_task');
+    const last=requests.at(-1);assert.ok(JSON.stringify(last.messages).includes('Read the notes'),'the summary replaced the old turns');
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
+
+test('proposing a note ends the turn, like any other proposal waiting for the person',async()=>{
+  let turn=0;
+  const server=createServer(async(req,res)=>{
+    for await(const _ of req);
+    const name=turn++===0?'vault_create':'finish_task';const args=name==='vault_create'?{projectId:'p1',title:'Informe',content:'Texto'}:{text:'should not run'};
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',tool_calls:[{index:0,id:'step-'+turn,type:'function',function:{name,arguments:JSON.stringify(args)}}]},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'tool_calls'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:10,total_tokens:35}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const calls=[];
+  try {
+    await run({taskId:'task-note',prompt:'write a report',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+      saveEntry:async()=>{},beforeRequest:async()=>{},usage:async()=>{},call:async(id,name)=>{calls.push(name);return {actionId:'a1',state:'pending'};}});
+    assert.deepEqual(calls,['vault_create']);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});

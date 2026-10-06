@@ -3,7 +3,7 @@ const SHORT = 60;
 
 export interface ActionSummary {
   /** `manys.actionSummary.<key>` */
-  key: 'navigate' | 'click' | 'type' | 'key' | 'scroll' | 'exec' | 'writeFile';
+  key: 'navigate' | 'click' | 'type' | 'key' | 'scroll' | 'exec' | 'writeFile' | 'createNote';
   values: Record<string, string>;
 }
 
@@ -30,6 +30,7 @@ function target(value: unknown): string {
 export function describeAction(proposal: unknown, savedCredential: string): ActionSummary | null {
   if (!proposal || typeof proposal !== 'object') return null;
   const { tool, parameters } = proposal as { tool?: unknown; parameters?: { operation?: unknown; parameters?: Record<string, unknown> } & Record<string, unknown> };
+  if (tool === 'vault' && parameters?.operation === 'create') return { key: 'createNote', values: { title: short(parameters.title) } };
   if (tool !== 'computer' || !parameters || typeof parameters.operation !== 'string') return null;
   // Older proposals were stored flattened ({ operation, url }); newer ones nest the arguments.
   const { operation: _operation, parameters: nested, ...flat } = parameters;

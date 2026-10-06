@@ -386,7 +386,8 @@
     "key": "Pressionar {{key}}",
     "scroll": "Rolar a página",
     "exec": "Executar {{command}}",
-    "writeFile": "Salvar {{path}}"
+    "writeFile": "Salvar {{path}}",
+    "createNote": "Criar a nota «{{title}}» na tua biblioteca"
   },
   "perm": {
     "library": "Minha biblioteca",
@@ -425,5 +426,13 @@
       "xhigh": "Muito alto",
       "max": "Máximo"
     }
+  },
+  "memory": {
+    "title": "Memória",
+    "hint": "O que o Many recorda entre tarefas. Podes lê-lo, corrigi-lo ou apagá-lo.",
+    "keep": "Recordar entre tarefas",
+    "placeholder": "Nada guardado ainda.",
+    "save": "Guardar",
+    "clear": "Apagar"
   }
 }

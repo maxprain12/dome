@@ -386,7 +386,8 @@
     "key": "Press {{key}}",
     "scroll": "Scroll the page",
     "exec": "Run {{command}}",
-    "writeFile": "Save {{path}}"
+    "writeFile": "Save {{path}}",
+    "createNote": "Create the note “{{title}}” in your library"
   },
   "perm": {
     "library": "My library",
@@ -425,5 +426,13 @@
       "xhigh": "Very high",
       "max": "Max"
     }
+  },
+  "memory": {
+    "title": "Memory",
+    "hint": "What Many remembers between tasks. You can read it, correct it or clear it.",
+    "keep": "Remember between tasks",
+    "placeholder": "Nothing saved yet.",
+    "save": "Save",
+    "clear": "Clear"
   }
 }

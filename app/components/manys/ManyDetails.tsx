@@ -5,6 +5,7 @@ import { listCloudModels, request, setManyModel, type CloudModelCatalog, type Gr
 import ManyModelPicker from './ManyModelPicker';
 import ManyCredentials from './ManyCredentials';
 import ManyLibraryScope from './ManyLibraryScope';
+import ManyMemory from './ManyMemory';
 import ManyPermissions from './ManyPermissions';
 import ManyRoutines from './ManyRoutines';
 import ManySettings from './ManySettings';
@@ -65,6 +66,9 @@ export default function ManyDetails({ detail, busy, perform }: { detail: ManyDet
           )}
         </Section>
       )}
+      <Section title={t('manys.memory.title')}>
+        <ManyMemory key={many.id} manyId={many.id} grants={many.grants} busy={busy} onGrants={save} />
+      </Section>
       <Section title={t('manys.recurrences')}>
         <ManyRoutines detail={detail} busy={busy} perform={perform} />
       </Section>

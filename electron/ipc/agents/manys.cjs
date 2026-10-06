@@ -9,7 +9,7 @@ const {
 } = require('../../ai/cloud-agent-runtime.cjs');
 const { createCloudMany, cloudModels, setManyModel } = require('../../agents/manys-client.cjs');
 const RequestSchema=z.object({
-  method:z.enum(['GET','POST','PATCH','DELETE']).default('GET'),
+  method:z.enum(['GET','POST','PUT','PATCH','DELETE']).default('GET'),
   path:z.string().max(300).regex(/^(?:\/[a-z0-9-]+)*(?:\?(?:after|before)=\d+)?$/),
   body:z.record(z.string(),z.unknown()).optional(),
 }).strict();
