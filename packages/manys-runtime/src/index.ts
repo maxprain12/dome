@@ -8,13 +8,15 @@ import { isContextOverflow } from '@dome/ai';
 import { buildModel, type ModelChoice } from './model.js';
 import { prepareRequestPayload, TEXT_REQUEST_LIMIT } from './payload.js';
 import { buildSystemPrompt, redact, runContextBlock } from './prompt.js';
-import { describeTool, fitResultText, schemas, terminalTools, type ToolName } from './tools.js';
+import { describeTool, fitResultText, schemas, terminalTools, toolNamesFor, type RuntimeProfile, type ToolName } from './tools.js';
 
 export const protocolVersion = 1;
 
 export interface RuntimeInput extends ModelChoice {
   taskId: string; prompt: string; instructions: string; entries: unknown[]; resumeContext: unknown;
   apiKey: string; signal: AbortSignal;
+  /** Which deployment this serves: `dome` (default, with the library tools) or `standalone` (without them). */
+  profile?: RuntimeProfile;
   /** When the transcript passes this many estimated tokens it is summarized. Defaults to 80% of what one request may carry. */
   compactAtTokens?: number;
   saveEntry: (entry: Record<string, unknown>) => Promise<void>;
@@ -63,8 +65,8 @@ export async function run(input: RuntimeInput): Promise<void> {
   await repairInterruptedCalls(session, input.entries as SessionTreeEntry[], (input.resumeContext as { actions?: Receipt[] } | null)?.actions);
 
   let finished = false;
-  const tools: AgentTool[] = (Object.keys(schemas) as ToolName[]).map((name) => ({
-    name, label: name, description: describeTool(name), parameters: schemas[name], executionMode: 'sequential' as const,
+  const tools: AgentTool[] = toolNamesFor(input.profile ?? 'dome').map((name) => ({
+    name, label: name, description: describeTool(name, input.profile ?? 'dome'), parameters: schemas[name], executionMode: 'sequential' as const,
     execute: async (id, args) => {
       const result = await input.call(id, name, args as Record<string, unknown>);
       const ends = terminalTools.has(name);
@@ -88,7 +90,7 @@ export async function run(input: RuntimeInput): Promise<void> {
     autoCompaction: true,
     compaction: { thresholdTokens: input.compactAtTokens ?? DEFAULT_COMPACT_AT_TOKENS, keepRecentTokens: 6000, reserveTokens: 4000 },
     shouldStopAfterTurn: ({ newMessages }) => newMessages.filter((message) => message.role === 'assistant').length >= MAX_TURNS,
-    systemPrompt: buildSystemPrompt(input.instructions),
+    systemPrompt: buildSystemPrompt(input.instructions, input.profile ?? 'dome'),
     getApiKeyAndHeaders: async () => ({ apiKey: input.apiKey }),
     streamOptions: { maxRetries: 0, timeoutMs: 120000 },
   });
