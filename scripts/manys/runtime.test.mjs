@@ -359,3 +359,30 @@ test('the prompt and the tools are recorded once in the session and replayed, no
     assert.equal(requests.at(-1).messages.filter(message=>message.role==='system').length,1);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('the standalone profile declares no library tools and says nothing about Dome or a library',async()=>{
+  const requests=[];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',content:'ok'},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'stop'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:2,total_tokens:27}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;
+  const base={prompt:'go',instructions:'',entries:[],resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,saveEntry:async()=>{},beforeRequest:async()=>{},usage:async()=>{},call:async()=>({})};
+  try {
+    await run({...base,taskId:'task-dome'});
+    await run({...base,taskId:'task-standalone',profile:'standalone'});
+    const names=request=>(request.tools??[]).map(tool=>tool.function?.name??tool.name);
+    const dome=requests[0],standalone=requests[1];
+    assert.ok(names(dome).includes('vault_create')&&names(dome).includes('vault_search'));
+    assert.ok(names(standalone).length>0&&!names(standalone).some(name=>name.startsWith('vault_')),'no vault tool is declared');
+    assert.ok(names(standalone).includes('computer_navigate')&&names(standalone).includes('memory_write'));
+    const text=JSON.stringify(standalone);
+    assert.ok(!/outside Dome|library|vault/i.test(JSON.stringify(standalone.messages.filter(message=>message.role==='system'))),'the prompt does not mention the library');
+    assert.ok(!/outside Dome/.test(JSON.stringify(standalone.tools)),'nor do the tool descriptions');
+    assert.ok(text.length>0);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
