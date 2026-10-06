@@ -28,6 +28,24 @@ function slotsOf(payload: unknown): Slot[] {
       }
       return;
     }
+    // Google: a part { functionResponse: { name, response } }.
+    const functionResponse = node.functionResponse;
+    if (functionResponse && typeof functionResponse === 'object' && !Array.isArray(functionResponse)) {
+      const call = functionResponse as { response?: unknown };
+      slots.push({
+        read: () => JSON.stringify(call.response ?? '') ?? '',
+        write: (text) => { call.response = { output: text }; },
+      });
+      return;
+    }
+    // Bedrock: { toolResult: { toolUseId, content: [{ text } | { json }] } }.
+    const toolResult = node.toolResult;
+    if (toolResult && typeof toolResult === 'object' && Array.isArray((toolResult as { content?: unknown }).content)) {
+      for (const part of (toolResult as { content: Record<string, unknown>[] }).content) {
+        if (part && typeof part.text === 'string') slots.push({ read: () => part.text as string, write: (text) => { part.text = text; } });
+      }
+      return;
+    }
     if (node.type === 'function_call_output' && typeof node.output === 'string') {
       slots.push({ read: () => node.output as string, write: (text) => { node.output = text; } });
       return;
