@@ -99,7 +99,8 @@ describe('Many’s durable interaction',()=>{
  it('pauses the whole team from the overview',async()=>{
    render(<ManysView/>);
    fireEvent.click(await screen.findByRole('button',{name:/^(Pause all|Pausar todos|Tout mettre en pause)$/}));
-   await waitFor(()=>expect(request).toHaveBeenCalledWith('/many-test','PATCH',expect.objectContaining({grants:expect.objectContaining({paused:true})})));
+   // One call for the whole team, not one save per Many.
+   await waitFor(()=>expect(request).toHaveBeenCalledWith('/pause-all','POST',{paused:true}));
  });
  it('names what the Many is doing right now while it works',async()=>{
    const running={id:'task-r',prompt:'Report',state:'running' as const,question:null,result:null};

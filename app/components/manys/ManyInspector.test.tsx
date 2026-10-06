@@ -31,7 +31,8 @@ describe('the side of a Many', () => {
 
   it('keeps permissions, routines and accesses in one simple column', async () => {
     render_('details');
-    expect(screen.getAllByRole('switch')).toHaveLength(4);
+    // Four permissions and one for what it remembers.
+    expect(screen.getAllByRole('switch')).toHaveLength(5);
     expect(screen.getByText('Revisa mis correos cada mañana')).toBeInTheDocument();
     expect(await screen.findByText(/will ask you for an access|te pedirá un acceso|vous demandera un accès|vai pedir um acesso/)).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Governance|Gobierno|Gouvernance|Governança|Access|Acceso|Context|Contexto/ })).toBeNull();

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentHarness, Session, InMemorySessionStorage, type SessionTreeEntry, type AgentTool } from '@dome/agent-core';
+import { AgentHarness, Session, InMemorySessionStorage, compact, type SessionTreeEntry, type AgentTool } from '@dome/agent-core';
 import { NodeExecutionEnv } from '@dome/agent-core/node';
 import { isContextOverflow } from '@dome/ai';
 import { buildModel, type ModelChoice } from './model.js';
-import { prepareRequestPayload } from './payload.js';
+import { prepareRequestPayload, TEXT_REQUEST_LIMIT } from './payload.js';
 import { buildSystemPrompt, redact, runContextBlock } from './prompt.js';
 import { describeTool, fitResultText, schemas, terminalTools, type ToolName } from './tools.js';
 
@@ -15,6 +15,8 @@ export const protocolVersion = 1;
 export interface RuntimeInput extends ModelChoice {
   taskId: string; prompt: string; instructions: string; entries: unknown[]; resumeContext: unknown;
   apiKey: string; signal: AbortSignal;
+  /** When the transcript passes this many estimated tokens it is summarized. Defaults to 80% of what one request may carry. */
+  compactAtTokens?: number;
   saveEntry: (entry: Record<string, unknown>) => Promise<void>;
   beforeRequest: () => Promise<void>; usage: (input: number, output: number) => Promise<void>;
   call: (id: string, tool: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -24,6 +26,8 @@ export interface RuntimeInput extends ModelChoice {
 
 /** A run is at most this many assistant turns; a long task is continued, not stretched. */
 const MAX_TURNS = 40;
+/** What one request may carry as text, in tokens (about four characters each), with a margin so summarizing comes first. */
+const DEFAULT_COMPACT_AT_TOKENS = Math.floor((TEXT_REQUEST_LIMIT / 4) * 0.8);
 
 type Receipt = { id: string; operation_id: string; state: string; receipt: unknown };
 
@@ -76,13 +80,25 @@ export async function run(input: RuntimeInput): Promise<void> {
   const { model, thinkingLevel } = buildModel(input);
   const harness = new AgentHarness({
     env: new NodeExecutionEnv({ cwd }), session, tools, model, thinkingLevel,
-    autoCompaction: false,
+    // A long task is summarized before it outgrows one request, instead of failing with request_context_limit.
+    // The summary is a model call like any other, so it is made in the hook below, where it is reserved and settled.
+    autoCompaction: true,
+    compaction: { thresholdTokens: input.compactAtTokens ?? DEFAULT_COMPACT_AT_TOKENS, keepRecentTokens: 6000, reserveTokens: 4000 },
     shouldStopAfterTurn: ({ newMessages }) => newMessages.filter((message) => message.role === 'assistant').length >= MAX_TURNS,
     systemPrompt: buildSystemPrompt(input.instructions),
     getApiKeyAndHeaders: async () => ({ apiKey: input.apiKey }),
     streamOptions: { maxRetries: 0, timeoutMs: 120000 },
   });
   harness.on('before_provider_request', async () => { input.signal.throwIfAborted(); await input.beforeRequest(); return undefined; });
+  harness.on('session_before_compact', async ({ preparation, customInstructions, signal }) => {
+    signal.throwIfAborted();
+    await input.beforeRequest();
+    const outcome = await compact(preparation, model, input.apiKey, undefined, customInstructions, signal, thinkingLevel === 'off' ? undefined : thinkingLevel);
+    // The summarizer's own usage is not reported back, so it is settled at its size: what went in (the
+    // transcript being summarized) and what came out. A failed summary settles nothing and the run goes on.
+    await input.usage(outcome.ok ? preparation.tokensBefore : 0, outcome.ok ? Math.ceil(outcome.value.summary.length / 4) : 0);
+    return outcome.ok ? { compaction: outcome.value } : { cancel: true };
+  });
   // The payload is shaped by the model library for the API in use (token limit fields included). Here it is
   // only trimmed: old pictures and old large tool results go, and a request still over budget fails clearly.
   harness.on('before_provider_payload', async ({ payload }) => { prepareRequestPayload(payload); return undefined; });

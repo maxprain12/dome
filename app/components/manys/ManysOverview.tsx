@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { delegateToMany, request, type Action, type CloudMany, type ManyDetail, type Task } from '@/lib/manys/api';
 import ManyMark, { manyMarkVariant } from './ManyMark';
 import ManyOptionsMenu from './ManyOptionsMenu';
-import { retryTask, setManyPaused, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
+import { retryTask, STATUS_DOT, statusLabelKey, summarizeMany } from './manyStatus';
 
 export const MANY_TEMPLATES = ['person', 'competitor', 'meeting'] as const;
 export type ManyTemplate = (typeof MANY_TEMPLATES)[number];
@@ -119,7 +119,7 @@ export default function ManysOverview({ manys, details, busy, onOpen, onNew, onD
           <p className="text-sm text-muted-foreground">{t('manys.intro')}</p>
         </div>
         {manys.length > 0 && (
-          <Button type="button" variant="outline" disabled={busy} onClick={() => { void perform(() => Promise.all(manys.map((many) => setManyPaused(many, anyWorking)))); }}>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => { void perform(() => request('/pause-all', 'POST', { paused: anyWorking })); }}>
             <HugeiconsIcon icon={anyWorking ? PauseIcon : PlayCircleIcon} aria-hidden />
             {t(anyWorking ? 'manys.pause.pauseAll' : 'manys.pause.resumeAll')}
           </Button>

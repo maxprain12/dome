@@ -194,6 +194,8 @@ export class AgentHarness<
 	private systemPrompt: AgentHarnessOptions<TSkill, TPromptTemplate, TTool>["systemPrompt"];
 	private streamOptions: AgentHarnessStreamOptions;
 	private readonly autoCompaction: boolean;
+	private readonly compactionSettings: { enabled: boolean; reserveTokens: number; keepRecentTokens: number };
+	private readonly compactionThreshold?: number;
 	private getApiKeyAndHeaders?: AgentHarnessOptions["getApiKeyAndHeaders"];
 	private resources: AgentHarnessResources<TSkill, TPromptTemplate>;
 	private tools = new Map<string, TTool>();
@@ -215,6 +217,12 @@ export class AgentHarness<
 		this.resources = options.resources ?? {};
 		this.streamOptions = cloneStreamOptions(options.streamOptions);
 		this.autoCompaction = options.autoCompaction ?? false;
+		this.compactionSettings = {
+			...DEFAULT_COMPACTION_SETTINGS,
+			...(options.compaction?.reserveTokens ? { reserveTokens: options.compaction.reserveTokens } : {}),
+			...(options.compaction?.keepRecentTokens ? { keepRecentTokens: options.compaction.keepRecentTokens } : {}),
+		};
+		this.compactionThreshold = options.compaction?.thresholdTokens;
 		this.systemPrompt = options.systemPrompt;
 		this.getApiKeyAndHeaders = options.getApiKeyAndHeaders;
 		this.validateUniqueNames(
@@ -462,8 +470,13 @@ export class AgentHarness<
 			convertToLlm,
 			transformContext: async (messages, signal) => {
 				const model = getTurnState().model;
-				if (this.autoCompaction && model.contextWindow > 0 &&
-					shouldCompact(estimateContextTokens(messages, this.contextOverhead(getTurnState())).tokens, model.contextWindow, DEFAULT_COMPACTION_SETTINGS)) {
+				const estimated = this.autoCompaction
+					? estimateContextTokens(messages, this.contextOverhead(getTurnState())).tokens
+					: 0;
+				const overBudget = this.compactionThreshold !== undefined
+					? estimated > this.compactionThreshold
+					: model.contextWindow > 0 && shouldCompact(estimated, model.contextWindow, this.compactionSettings);
+				if (this.autoCompaction && overBudget) {
 					await this.flushPendingSessionWrites();
 					try {
 						if (await this.compactSession(undefined, signal, true)) {
@@ -873,7 +886,7 @@ export class AgentHarness<
 		const thinkingLevel = this.thinkingLevel;
 		signal?.throwIfAborted();
 		const branchEntries = await this.session.getBranch();
-		const preparationResult = prepareCompaction(branchEntries, DEFAULT_COMPACTION_SETTINGS);
+		const preparationResult = prepareCompaction(branchEntries, this.compactionSettings);
 		if (!preparationResult.ok) throw preparationResult.error;
 		const preparation = preparationResult.value;
 		if (!preparation || (preparation.messagesToSummarize.length === 0 && preparation.turnPrefixMessages.length === 0)) {

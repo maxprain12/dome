@@ -386,7 +386,8 @@
     "key": "Appuyer sur {{key}}",
     "scroll": "Faire défiler la page",
     "exec": "Exécuter {{command}}",
-    "writeFile": "Enregistrer {{path}}"
+    "writeFile": "Enregistrer {{path}}",
+    "createNote": "Créer la note « {{title}} » dans ta bibliothèque"
   },
   "perm": {
     "library": "Ma bibliothèque",
@@ -425,5 +426,13 @@
       "xhigh": "Très élevé",
       "max": "Maximum"
     }
+  },
+  "memory": {
+    "title": "Mémoire",
+    "hint": "Ce que Many retient entre les tâches. Tu peux le lire, le corriger ou l’effacer.",
+    "keep": "Se souvenir entre les tâches",
+    "placeholder": "Rien d’enregistré pour l’instant.",
+    "save": "Enregistrer",
+    "clear": "Effacer"
   }
 }

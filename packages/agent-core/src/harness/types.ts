@@ -829,6 +829,12 @@ export interface AgentHarnessOptions<
 	streamOptions?: AgentHarnessStreamOptions;
 	/** Persist a compaction checkpoint before requests approaching the context limit. */
 	autoCompaction?: boolean;
+	/**
+	 * How automatic compaction decides and what it keeps. Without `thresholdTokens` it compacts when the context
+	 * nears the model's window; with it, when the estimated context passes that many tokens, which lets a host
+	 * with a smaller request budget than the model's window (a metered worker) compact before it hits it.
+	 */
+	compaction?: { thresholdTokens?: number; reserveTokens?: number; keepRecentTokens?: number };
 	model: Model<any>;
 	/** Shared provider collection owned by the application profile. */
 	models?: import("@dome/ai").Models;

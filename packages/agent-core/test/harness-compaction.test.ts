@@ -220,4 +220,21 @@ describe('durable harness compaction', () => {
     expect(JSON.stringify(sent)).toContain('durable summary');
     expect(JSON.stringify(sent)).not.toContain('old history');
   });
+
+  it('compacts at a host-chosen token budget well below the model window', async () => {
+    const fresh = async () => {
+      const session = await new InMemorySessionRepo().create();
+      await session.appendMessage({ role: 'user', content: 'older note '.repeat(900), timestamp: 1 });
+      await session.appendMessage(reply('older answer', 3_000));
+      await session.appendMessage({ role: 'user', content: 'newer note '.repeat(900), timestamp: 2 });
+      await session.appendMessage(reply('newer answer', 6_000));
+      return session;
+    };
+    await new AgentHarness({ env, session: await fresh(), model, autoCompaction: true, compaction: { thresholdTokens: 50_000, keepRecentTokens: 2_000 } }).prompt('Continue');
+    expect(completeSimple).not.toHaveBeenCalled();
+    const session = await fresh();
+    await new AgentHarness({ env, session, model, autoCompaction: true, compaction: { thresholdTokens: 4_000, keepRecentTokens: 2_000 } }).prompt('Continue');
+    expect(completeSimple).toHaveBeenCalledTimes(1);
+    expect((await session.getBranch()).filter((entry) => entry.type === 'compaction')).toHaveLength(1);
+  });
 });

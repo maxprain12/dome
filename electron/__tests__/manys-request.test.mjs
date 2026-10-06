@@ -63,6 +63,13 @@ test('accepts the governance paths and rejects anything else in the query', asyn
   assert.equal((await request({ path: '/many-1/audit?before=abc' })).error, 'invalid_request');
 });
 
+test('lets the owner edit memory with PUT and pause the whole team with one POST', async () => {
+  nextResponse = { ok: true, status: 200, body: '{"notes":"x"}' };
+  assert.equal((await request({ method: 'PUT', path: '/many-1/memory', body: { notes: 'x' } })).success, true);
+  assert.equal((await request({ method: 'POST', path: '/pause-all', body: { paused: true } })).success, true);
+  assert.equal((await request({ method: 'PATCH', path: '/many-1/memory', body: { notes: 'x' } })).success, true, 'the path is valid for any method; Provider decides');
+});
+
 after(() => {
   if (previousAuth) require.cache[authPath] = previousAuth;
   else delete require.cache[authPath];
