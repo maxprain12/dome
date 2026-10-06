@@ -298,4 +298,19 @@ describe('system prompt and tools in the transcript', () => {
     expect(JSON.stringify(sent)).toContain('durable summary');
     expect(JSON.stringify(sent)).not.toContain('old history');
   });
+
+  it('keeps the system messages for every later turn of a session that was compacted', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await withTranscript(session).prompt('Seed');
+    await session.appendMessage({ role: 'user', content: 'old history '.repeat(40_000), timestamp: 10 });
+    await session.appendMessage(reply('old answer', 90_000));
+    await session.appendMessage({ role: 'user', content: 'Keep this request '.repeat(5_000), timestamp: 20 });
+    await withTranscript(session, { autoCompaction: true }).prompt('Continue');
+    // A fresh harness over the compacted session (a resumed task): the prompt and tools are still there.
+    await withTranscript(session).prompt('And again');
+    const sent = vi.mocked(streamSimple).mock.calls.at(-1)![1].messages;
+    expect(sent[0].role).toBe('system');
+    expect(sent.filter((message) => message.role === 'system')).toHaveLength(1);
+    expect(JSON.stringify(sent[0])).toContain('alpha');
+  });
 });

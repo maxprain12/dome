@@ -379,17 +379,22 @@ export class AgentHarness<
 		let messages = context.messages;
 		let transcript = false;
 		if (this.transcriptSystem) {
-			if (messages.length === 0) {
+			// The system messages live in the session, but a compaction replaces everything before its cut, them
+			// included. They are not history: find them in the branch and keep them in front.
+			const recorded = (await this.session.getBranch())
+				.flatMap((entry) => (entry.type === "message" && entry.message.role === "system" ? [entry.message] : []));
+			if (recorded.length > 0) {
+				messages = [...recorded, ...messages.filter((message) => message.role !== "system")];
+				transcript = true;
+			} else if (messages.length === 0) {
 				const initial = createInitialSystemMessage(systemPrompt, activeTools.map(toToolDeclaration));
 				if (initial) {
 					await this.session.appendMessage({ ...initial, timestamp: Date.now() });
 					messages = (await this.session.buildContext()).messages;
 				}
 				transcript = true;
-			} else {
-				// A session that began before this mode (no leading system message) keeps the old way.
-				transcript = messages[0]?.role === "system";
 			}
+			// A session that began before this mode (messages, but no system message) keeps the old way.
 		}
 		return {
 			messages,
