@@ -221,7 +221,11 @@
     "read_only_tool_needs_no_review": "That tool only reads, so it needs no approval.",
     "many_paused": "Many is paused. Resume it to give it work.",
     "computer_permission_denied": "That computer permission is off.",
-    "credential_ambiguous": "Two accesses have that name."
+    "credential_ambiguous": "Two accesses have that name.",
+    "time_limit": "Stopped after 15 minutes. Write “continue” and it resumes from the last point.",
+    "model_unknown": "That model is not in the plan.",
+    "request_context_limit": "This task’s conversation is too long. Start a new task.",
+    "computer_response_too_large": "The computer returned too much content."
   },
   "actions": {
     "pending": "Needs review",
@@ -401,5 +405,25 @@
   "edit": "Edit name and instructions",
   "routinesNone": "Many schedules them when it sees it is worth it.",
   "everyHours": "Every {{count}} h",
-  "model": "Model"
+  "model": "Model",
+  "modelPicker": {
+    "choose": "Choose a model",
+    "plan": "{{plan}} plan",
+    "sees": "Sees images",
+    "textOnly": "Text only",
+    "thinks": "Reasons",
+    "context": "{{size}}k context",
+    "noVision": "No vision: it works from page text, not screenshots.",
+    "thinking": "Thinking level",
+    "applies": "Applies from the next task.",
+    "levels": {
+      "off": "No reasoning",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Very high",
+      "max": "Max"
+    }
+  }
 }

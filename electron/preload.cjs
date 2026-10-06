@@ -736,6 +736,8 @@ const ALLOWED_CHANNELS = {
     'browser-extension:revoke',
     'manys:request',
     'manys:cloud-providers',
+    'manys:cloud-models',
+    'manys:set-model',
     'manys:channel:open',
     'manys:channel:send',
     'manys:channel:close',

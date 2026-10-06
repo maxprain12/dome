@@ -30,13 +30,24 @@ const MACHINE_DEFAULT_BASE_URLS = {
   lmstudio: 'http://127.0.0.1:1234/v1',
 };
 
+/**
+ * Providers a worker cannot reach with a key alone: clouds that need a project or an endpoint of their own.
+ * (Sign-in providers are not API-key providers at all.) They keep working on this machine.
+ */
+const CLOUD_INCOMPATIBLE = new Set(['google-vertex', 'azure-openai-responses']);
+
 /** Providers that can authenticate with a saved API key (OAuth and Dome credits are not in this set). */
 const API_KEY_CANDIDATES = [
-  ...API_KEY_CHAT_PROVIDERS,
+  ...[...API_KEY_CHAT_PROVIDERS].filter((id) => !CLOUD_INCOMPATIBLE.has(id)),
   'ollama',
   'vllm',
   'lmstudio',
 ];
+
+/** Dome's provider ids as the model catalog names them. */
+const CATALOG_PROVIDER = { moonshot: 'moonshotai', qwen: 'qwen-token-plan' };
+const THINKING_LEVELS = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+const MAX_MODELS_PER_PROVIDER = 400;
 
 /** Models Provider snapshots when the person does not pick one. Keep aligned with Provider `DEFAULT_MODELS`. */
 const DEFAULT_CLOUD_MODELS = {
@@ -270,6 +281,67 @@ function cloudModelBinding(queries, runtime) {
   return binding;
 }
 
+function catalogModels(ai, provider) {
+  try {
+    return (ai.getModels(CATALOG_PROVIDER[provider] || provider) || [])
+      .filter((model) => (model.type || 'chat') === 'chat')
+      .slice(0, MAX_MODELS_PER_PROVIDER)
+      .map((model) => ({
+        id: model.id,
+        name: model.name || model.id,
+        input: model.input || ['text'],
+        reasoning: Boolean(model.reasoning),
+        contextWindow: model.contextWindow || null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * What a person can pick for a Many: the models of the Dome plan (paid with credits) and, for each saved
+ * provider a worker can reach, its models. Capabilities come from the same catalog the desktop uses, so the
+ * picker can say which models see pictures or think. No keys appear here.
+ * @param {object} ai the @dome/ai module
+ * @param {object} queries
+ * @param {Array<{ id: string, name: string, multiplier: number, minPlan: string, available: boolean }>} domeModels
+ */
+function listCloudModels(ai, queries, domeModels) {
+  const openrouter = new Map(catalogModels(ai, 'openrouter').map((model) => [model.id, model]));
+  const dome = (domeModels || []).map((model) => {
+    const known = openrouter.get(model.id);
+    return { ...model, input: known?.input || ['text'], reasoning: known?.reasoning || false, contextWindow: known?.contextWindow || null };
+  });
+  const saved = listCloudAgentProviders(queries).map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+    models: catalogModels(ai, provider.id),
+    defaultModel: DEFAULT_CLOUD_MODELS[provider.id] || null,
+  }));
+  return { dome, saved };
+}
+
+/** The model a person picked, as the strict object Provider accepts. The key is read here and goes nowhere else. */
+function cloudModelSelection(queries, selection) {
+  if (!selection || typeof selection !== 'object' || Array.isArray(selection)) return null;
+  const model = typeof selection.model === 'string' ? selection.model.trim() : '';
+  if (!model || model.length > 200) return null;
+  const thinking = THINKING_LEVELS.has(selection.thinking) ? selection.thinking : undefined;
+  const withThinking = (body) => (thinking ? { ...body, thinking } : body);
+  if (selection.source === 'dome') return withThinking({ source: 'dome', model });
+  if (selection.source !== 'external') return null;
+  const provider = typeof selection.provider === 'string' ? selection.provider.trim() : '';
+  if (!PROVIDER_ID.test(provider) || CLOUD_INCOMPATIBLE.has(provider)) return null;
+  if (!listCloudAgentProviders(queries).some((entry) => entry.id === provider)) return null;
+  const apiKey = readCloudApiKey(queries, provider);
+  if (!apiKey) return null;
+  const body = { source: 'external', provider, model, apiKey };
+  const base = effectiveBaseUrl(queries, provider);
+  if (base && !isMachineLocalBaseUrl(base) && !MACHINE_DEFAULT_BASE_URLS[provider]) body.baseUrl = base;
+  return withThinking(body);
+}
+
 /** Fields Provider's strict create schema accepts. `runtime` is not one of them. */
 function providerCreateBody(sourceBody) {
   const next = {};
@@ -304,11 +376,16 @@ function prepareCloudManyCreate(queries, body) {
     const allowed = listCloudAgentProviders(queries).some((provider) => provider.id === runtime.provider);
     if (!allowed) return { ok: false, error: 'provider_not_cloud_compatible' };
   }
-  const binding = cloudModelBinding(queries, runtime);
-  if (!binding) return { ok: false, error: 'provider_not_cloud_compatible' };
+  // An exact model chosen in the picker travels inside the create body, so creation is one atomic call.
+  const picked = sourceBody.model === undefined ? undefined : cloudModelSelection(queries, sourceBody.model);
+  if (sourceBody.model !== undefined && !picked) return { ok: false, error: 'invalid_request' };
+  if (picked && (picked.source === 'dome') !== (runtime.source === 'dome_credits')) return { ok: false, error: 'invalid_request' };
+  if (picked && picked.source === 'external' && picked.provider !== runtime.provider) return { ok: false, error: 'invalid_request' };
+  const binding = picked ? null : cloudModelBinding(queries, runtime);
+  if (!picked && !binding) return { ok: false, error: 'provider_not_cloud_compatible' };
   return {
     ok: true,
-    body: providerCreateBody(sourceBody),
+    body: picked ? { ...providerCreateBody(sourceBody), model: picked } : providerCreateBody(sourceBody),
     runtime: publicRuntime(runtime),
     binding,
   };
@@ -316,6 +393,9 @@ function prepareCloudManyCreate(queries, body) {
 
 module.exports = {
   SOURCES,
+  CLOUD_INCOMPATIBLE,
+  listCloudModels,
+  cloudModelSelection,
   isMachineLocalBaseUrl,
   isMachineLocalHostname,
   listCloudAgentProviders,

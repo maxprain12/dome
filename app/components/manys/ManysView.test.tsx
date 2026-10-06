@@ -5,7 +5,7 @@ import ManyReview from './ManyReview';
 import {manyMarkVariant} from './ManyMark';
 import {request,delegateToMany,listCloudProviders,type ManyDetail} from '@/lib/manys/api';
 import {useLiveRuns} from '@/lib/manys/liveRuns';
-vi.mock('@/lib/manys/api',()=>({request:vi.fn(),delegateToMany:vi.fn(),listCloudProviders:vi.fn()}));
+vi.mock('@/lib/manys/api',()=>({request:vi.fn(),delegateToMany:vi.fn(),listCloudProviders:vi.fn(),listCloudModels:vi.fn(async()=>({dome:[],saved:[]})),setManyModel:vi.fn()}));
 const detail:ManyDetail={many:{id:'many-test',name:'Research',instructions:'',grant_revision:1,grants:{projects:[],resources:[],capabilities:['vault.read']}},conversations:[{id:'conversation'}],tasks:[],messages:[],actions:[],recurrences:[],conflicts:[],computer:null};
 beforeEach(()=>{localStorage.clear();useLiveRuns.getState().reset();vi.mocked(request).mockImplementation(async path=>path===''?{manys:[detail.many]}:detail);vi.mocked(delegateToMany).mockResolvedValue({id:'task',prompt:'Report',state:'queued',question:null,result:null});vi.mocked(listCloudProviders).mockResolvedValue([{id:'openai',name:'OpenAI'}]);});
 describe('Many’s durable interaction',()=>{

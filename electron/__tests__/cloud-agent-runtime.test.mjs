@@ -154,3 +154,46 @@ test('deleting a Many forgets only its remembered runtime', () => {
   forgetRuntime(db, '');
   assert.deepEqual(removed, [['DELETE FROM settings WHERE key=?', 'manys_runtime:many-1']]);
 });
+
+test('the picker offers the plan models and the saved providers a worker can reach, with their capabilities', () => {
+  const queries = memoryQueries({ ai_api_key_anthropic: 'sk-ant-key', ai_api_key_openai: 'sk-key', 'ai_api_key_google-vertex': 'vertex-key' });
+  const ai = {
+    getModels(provider) {
+      if (provider === 'openrouter') return [{ id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', input: ['text', 'image'], reasoning: true, contextWindow: 200000 }];
+      if (provider === 'anthropic') return [{ id: 'claude-sonnet-5', name: 'Claude Sonnet 5', input: ['text', 'image'], reasoning: true, contextWindow: 200000 }, { id: 'classify-x', type: 'classifier', name: 'X' }];
+      return [];
+    },
+  };
+  const { listCloudModels } = require('../ai/cloud-agent-runtime.cjs');
+  const result = listCloudModels(ai, queries, [{ id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', multiplier: 2, minPlan: 'dome_pro', available: true }]);
+  assert.deepEqual(result.dome[0].input, ['text', 'image']);
+  assert.equal(result.dome[0].reasoning, true);
+  assert.deepEqual(result.saved.map((entry) => entry.id), ['anthropic', 'openai']);
+  assert.deepEqual(result.saved[0].models.map((model) => model.id), ['claude-sonnet-5']);
+  assert.ok(!JSON.stringify(result).includes('sk-ant-key'));
+});
+
+test('a chosen model becomes the strict object Provider accepts, with the key read here', () => {
+  const queries = memoryQueries({ ai_api_key_anthropic: 'sk-ant-key' });
+  const { cloudModelSelection } = require('../ai/cloud-agent-runtime.cjs');
+  assert.deepEqual(cloudModelSelection(queries, { source: 'dome', model: 'openai/gpt-5-nano', thinking: 'low' }), { source: 'dome', model: 'openai/gpt-5-nano', thinking: 'low' });
+  assert.deepEqual(cloudModelSelection(queries, { source: 'external', provider: 'anthropic', model: 'claude-sonnet-5' }), { source: 'external', provider: 'anthropic', model: 'claude-sonnet-5', apiKey: 'sk-ant-key' });
+  assert.equal(cloudModelSelection(queries, { source: 'external', provider: 'openai', model: 'gpt-5' }), null, 'no saved key');
+  assert.equal(cloudModelSelection(queries, { source: 'external', provider: 'google-vertex', model: 'gemini' }), null, 'needs a project');
+  assert.equal(cloudModelSelection(queries, { source: 'external', provider: 'anthropic', model: '' }), null);
+  assert.equal(cloudModelSelection(queries, { source: 'dome', model: 'x', thinking: 'ludicrous' }).thinking, undefined);
+});
+
+test('creating with a picked model is one call and never sends a model binding', () => {
+  const queries = memoryQueries({ ai_api_key_anthropic: 'sk-ant-key' });
+  const prepared = prepareCloudManyCreate(queries, {
+    name: 'Picky', runtime: { source: 'provider_key', provider: 'anthropic' },
+    model: { source: 'external', provider: 'anthropic', model: 'claude-haiku-4.5' },
+  });
+  assert.equal(prepared.ok, true);
+  assert.equal(prepared.binding, null);
+  assert.equal(prepared.body.model.apiKey, 'sk-ant-key');
+  assert.equal(prepared.body.runtime, undefined);
+  const mismatch = prepareCloudManyCreate(queries, { name: 'x', runtime: { source: 'dome_credits' }, model: { source: 'external', provider: 'anthropic', model: 'm' } });
+  assert.equal(mismatch.ok, false);
+});

@@ -7,7 +7,7 @@ const {
   forgetRuntime,
   publicManyError,
 } = require('../../ai/cloud-agent-runtime.cjs');
-const { createCloudMany } = require('../../agents/manys-client.cjs');
+const { createCloudMany, cloudModels, setManyModel } = require('../../agents/manys-client.cjs');
 const RequestSchema=z.object({
   method:z.enum(['GET','POST','PATCH','DELETE']).default('GET'),
   path:z.string().max(300).regex(/^(?:\/[a-z0-9-]+)*(?:\?(?:after|before)=\d+)?$/),
@@ -28,6 +28,22 @@ function register({ipcMain,windowManager,database}) {
     } catch {
       return {success:false,error:'service_unavailable'};
     }
+  });
+  ipcMain.handle('manys:cloud-models',async(event,payload)=>{
+    if(!windowManager.isAuthorized(event.sender.id))return {success:false,error:'unauthorized'};
+    if(!z.union([z.undefined(),z.null(),z.object({}).strict()]).safeParse(payload).success)return {success:false,error:'invalid_request'};
+    try {return {success:true,data:await cloudModels(database)};}
+    catch (error) {return {success:false,error:publicManyError(error)};}
+  });
+  ipcMain.handle('manys:set-model',async(event,payload)=>{
+    if(!windowManager.isAuthorized(event.sender.id))return {success:false,error:'unauthorized'};
+    const parsed=z.object({id:z.string().uuid(),selection:z.object({
+      source:z.enum(['dome','external']),provider:z.string().max(80).optional(),model:z.string().min(1).max(200),
+      thinking:z.enum(['off','minimal','low','medium','high','xhigh','max']).optional(),
+    }).strict()}).strict().safeParse(payload);
+    if(!parsed.success)return {success:false,error:'invalid_request'};
+    try {return {success:true,data:await setManyModel(database,parsed.data.id,parsed.data.selection)};}
+    catch (error) {return {success:false,error:publicManyError(error)};}
   });
   ipcMain.handle('manys:request',async(event,payload)=>{
     if(!windowManager.isAuthorized(event.sender.id))return {success:false,error:'unauthorized'};

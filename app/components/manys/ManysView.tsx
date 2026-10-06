@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { request, delegateToMany, type CloudMany, type ManyCloudRuntime, type ManyDetail } from '@/lib/manys/api';
+import { request, delegateToMany, type CloudMany, type ManyCloudRuntime, type ManyDetail, type ModelSelection } from '@/lib/manys/api';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/types';
@@ -191,7 +191,7 @@ export default function ManysView() {
     if (controlNow === 'human') setInspector('computer');
   }, [controlNow]);
 
-  const createMany = (input: { name: string; runtime: ManyCloudRuntime }) => run(async () => {
+  const createMany = (input: { name: string; runtime: ManyCloudRuntime; model?: ModelSelection }) => run(async () => {
     const existing = pendingCreate.current;
     const many = existing ?? await request<CloudMany>('', 'POST', input);
     if (!existing) pendingCreate.current = many;

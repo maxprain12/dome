@@ -1,7 +1,7 @@
 'use strict';
 const {z}=require('zod');
 const {randomUUID}=require('node:crypto');
-const {prepareCloudManyCreate,acceptCreatedMany}=require('../ai/cloud-agent-runtime.cjs');
+const {prepareCloudManyCreate,acceptCreatedMany,cloudModelSelection,listCloudModels}=require('../ai/cloud-agent-runtime.cjs');
 const IdSchema=z.string().uuid();
 async function request(database,path,method='GET',body) {
   const {fetchWithDomeAuth,getDomeProviderBaseUrl}=require('../auth/dome-oauth.cjs');
@@ -40,6 +40,12 @@ function preservedCustomProviders(value) {
 async function createCloudMany(database,input) {
   const prepared=prepareCloudManyCreate(database.getQueries(),input??{});
   if(!prepared.ok)throw new Error(prepared.error);
+  if(!prepared.binding) {
+    // The model was chosen in the picker: one call creates the Many with exactly that model.
+    if(JSON.stringify(prepared.body).length>1048576)throw new Error('request_too_large');
+    const created=await request(database,'','POST',prepared.body);
+    return acceptCreatedMany(database.getQueries(),prepared.runtime,created);
+  }
   const current=await request(database,'/model-binding');
   const customProviders=preservedCustomProviders(current?.customProviders);
   const binding=customProviders.length?{...prepared.binding,customProviders}:prepared.binding;
@@ -50,6 +56,18 @@ async function createCloudMany(database,input) {
   await request(database,'/model-binding','POST',binding);
   const created=await request(database,'','POST',prepared.body);
   return acceptCreatedMany(database.getQueries(),prepared.runtime,created);
+}
+/** What a person can pick for a Many. The plan's models come from Provider; the saved providers' from the local catalog. */
+async function cloudModels(database) {
+  const {models}=await request(database,'/models').catch(()=>({models:[]}));
+  return listCloudModels(require('@dome/ai'),database.getQueries(),models);
+}
+/** Changes the model of one Many; it applies from its next task. The key is read here and goes only to Provider. */
+async function setManyModel(database,id,selection) {
+  IdSchema.parse(id);
+  const body=cloudModelSelection(database.getQueries(),selection);
+  if(!body)throw new Error('invalid_request');
+  return request(database,`/${id}/model`,'PUT',body);
 }
 async function execute(database,name,args) {
   if(name==='manys_list')return request(database,'');
@@ -84,4 +102,4 @@ async function delegatePipeline(database,item,manyId,prompt) {
   const task=await request(database,`/${manyId}/tasks`,'POST',{prompt,requestKey,pipelineItemId:item.id});
   db.prepare('DELETE FROM settings WHERE key=?').run(key);return task;
 }
-module.exports={request,definitions,execute,delegatePipeline,createCloudMany};
+module.exports={request,definitions,execute,delegatePipeline,createCloudMany,cloudModels,setManyModel};
