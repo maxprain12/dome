@@ -18,7 +18,7 @@ function resolveModelInput(provider, id, queries, baseUrl) {
     const declared = JSON.parse(raw)[id];
     if (Array.isArray(declared)) return declared.filter((value) => ['text', 'image'].includes(value));
   }
-  const aliases = { 'claude-oauth': 'anthropic', copilot: 'github-copilot' };
+  const aliases = { 'claude-oauth': 'anthropic', copilot: 'github-copilot', 'azure-openai-responses': 'azure' };
   const catalog = ai.getModels(aliases[provider] || provider).find((m) => m.id.toLowerCase() === String(id || '').toLowerCase());
   return catalog?.input || ai.resolveDomeModel({ provider, model: id }).input;
 }

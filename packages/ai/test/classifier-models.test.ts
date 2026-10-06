@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createModels, createProvider, getModelType } from "../src/models.ts";
+import { createModels, createProvider, getModelType } from "../src/models.js";
 import {
 	builtinModels,
 	getAllBuiltinModels,
 	getBuiltinClassifierModel,
 	getBuiltinClassifierModels,
-} from "../src/providers/all.ts";
-import type { Api, ClassifierApi, ClassifierContext, ClassifierModel, ClassifierResult, Model } from "../src/types.ts";
-import { AssistantMessageEventStream } from "../src/utils/event-stream.ts";
+} from "../src/providers/all.js";
+import type { Api, ClassifierApi, ClassifierContext, ClassifierModel, ClassifierResult, Model } from "../src/types.js";
+import { AssistantMessageEventStream } from "../src/utils/event-stream.js";
 
 function classifierModel(provider: string, id: string): ClassifierModel<ClassifierApi> {
 	return {

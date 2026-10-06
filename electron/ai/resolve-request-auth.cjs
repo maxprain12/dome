@@ -12,6 +12,7 @@ const DOME_TO_PI_PROVIDER = {
   'openai-codex': 'openai-codex',
   moonshot: 'moonshotai',
   qwen: 'qwen-token-plan',
+  'azure-openai-responses': 'azure',
 };
 
 const { credentialStoreFor, getModelCollection } = require('./model-collection.cjs');

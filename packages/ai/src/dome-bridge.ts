@@ -273,15 +273,22 @@ function resolveOpenAiCompatProvider(
   return openAiCompletionsModel(modelId, provider, baseUrl || defaultBaseUrl);
 }
 
+/**
+ * Dome's settings and UI still call Azure `azure-openai-responses`; upstream pi renamed the provider
+ * to `azure` (the API id is unchanged). Map at this boundary so stored settings keep working.
+ */
+const DOME_TO_PI_ALIASES: Record<string, string> = { 'azure-openai-responses': 'azure' };
+
 function resolveDefaultProviderModel(
   provider: string,
   modelId: string,
   baseUrl?: string,
 ): Model<Api> {
+  const upstream = DOME_TO_PI_ALIASES[provider] ?? provider;
   return catalogOrOpenAiCompletions(
-    provider as BuiltinProvider,
+    upstream as BuiltinProvider,
     modelId,
-    provider,
+    upstream,
     baseUrl || OPENROUTER_DEFAULT,
   );
 }

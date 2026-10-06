@@ -5,15 +5,15 @@ import {
 	appendGrammarToolInputJsonDelta,
 	makeStrictJsonSchema,
 	resolveJsonSchemaStrictSampling,
-} from "../src/api/constrained-sampling.ts";
+} from "../src/api/constrained-sampling.js";
 import {
 	convertResponsesMessages,
 	convertResponsesTools,
 	processResponsesStream,
-} from "../src/api/openai-responses-shared.ts";
-import type { AssistantMessage, Model, Tool, ToolCall } from "../src/types.ts";
-import { AssistantMessageEventStream } from "../src/utils/event-stream.ts";
-import { normalizeContext } from "../src/utils/transcript.ts";
+} from "../src/api/openai-responses-shared.js";
+import type { AssistantMessage, Model, Tool, ToolCall } from "../src/types.js";
+import { AssistantMessageEventStream } from "../src/utils/event-stream.js";
+import { normalizeContext } from "../src/utils/transcript.js";
 
 function makeModel(): Model<"openai-responses"> {
 	return {
