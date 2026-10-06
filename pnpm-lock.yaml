@@ -647,9 +647,6 @@ importers:
       '@google/genai':
         specifier: ^2.21.0
         version: 2.21.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
-      '@mistralai/mistralai':
-        specifier: ^2.2.1
-        version: 2.3.0(@opentelemetry/api@1.9.1)
       '@smithy/node-http-handler':
         specifier: ^4.12.1
         version: 4.12.1
@@ -2260,14 +2257,6 @@ packages:
   '@mermaid-js/parser@2.0.0':
     resolution: {integrity: sha512-K8BeapFUfrfxbRAUQAG5oBOCwo1+bNWzaVnPxTCutkfrTBn6T/j91FIhqxWJ32SUeQ9T3iy1zcmPZ5ROZEvDrg==}
     engines: {node: '>=22.12.0'}
-
-  '@mistralai/mistralai@2.3.0':
-    resolution: {integrity: sha512-afV0/UAdu5d3hdY6G6lNkKXFM3vpC8PaOimw1LSe/fWnFYWnz5TIZI10DDMHepiN4Mx2sq1ekrulhgT3pTbtLg==}
-    peerDependencies:
-      '@opentelemetry/api': ^1.9.0
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
 
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
@@ -11794,18 +11783,6 @@ snapshots:
   '@mermaid-js/parser@2.0.0':
     dependencies:
       '@chevrotain/types': 11.1.2
-
-  '@mistralai/mistralai@2.3.0(@opentelemetry/api@1.9.1)':
-    dependencies:
-      '@opentelemetry/semantic-conventions': 1.41.1
-      ws: 8.21.0
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.1
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@mixmark-io/domino@2.2.0': {}
 
