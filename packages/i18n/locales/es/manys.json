@@ -221,7 +221,11 @@
     "read_only_tool_needs_no_review": "Esa herramienta solo lee, así que no necesita aprobación.",
     "many_paused": "Many está en pausa. Reanúdalo para darle trabajo.",
     "computer_permission_denied": "Ese permiso del ordenador está desactivado.",
-    "credential_ambiguous": "Hay dos accesos con ese nombre."
+    "credential_ambiguous": "Hay dos accesos con ese nombre.",
+    "time_limit": "Se detuvo tras 15 minutos. Escribe «continúa» y sigue desde el último punto.",
+    "model_unknown": "Ese modelo no está en el plan.",
+    "request_context_limit": "La conversación de esta tarea es demasiado larga. Empieza una tarea nueva.",
+    "computer_response_too_large": "El ordenador devolvió demasiado contenido."
   },
   "actions": {
     "pending": "Necesita revisión",
@@ -401,5 +405,25 @@
   "edit": "Editar nombre e instrucciones",
   "routinesNone": "Many las programa cuando ve que conviene.",
   "everyHours": "Cada {{count}} h",
-  "model": "Modelo"
+  "model": "Modelo",
+  "modelPicker": {
+    "choose": "Elige un modelo",
+    "plan": "plan {{plan}}",
+    "sees": "Ve imágenes",
+    "textOnly": "Solo texto",
+    "thinks": "Razona",
+    "context": "{{size}}k de contexto",
+    "noVision": "Sin visión: trabajará con el texto de las páginas, no con capturas.",
+    "thinking": "Nivel de razonamiento",
+    "applies": "Se aplica desde la próxima tarea.",
+    "levels": {
+      "off": "Sin razonar",
+      "minimal": "Mínimo",
+      "low": "Bajo",
+      "medium": "Medio",
+      "high": "Alto",
+      "xhigh": "Muy alto",
+      "max": "Máximo"
+    }
+  }
 }

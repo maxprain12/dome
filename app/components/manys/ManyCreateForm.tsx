@@ -6,11 +6,15 @@ import { Field, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+  listCloudModels,
   listCloudProviders,
+  type CloudModelCatalog,
   type CloudProviderOption,
   type ManyCloudRuntime,
+  type ModelSelection,
 } from '@/lib/manys/api';
 import ManyMark from './ManyMark';
+import ManyModelPicker from './ManyModelPicker';
 
 type RuntimeChoice = '' | ManyCloudRuntime['source'];
 
@@ -28,13 +32,15 @@ export default function ManyCreateForm({
   busy: boolean;
   /** Name suggested by a template; the person can still change it. */
   presetName?: string;
-  onCreate: (input: { name: string; runtime: ManyCloudRuntime }) => Promise<boolean>;
+  onCreate: (input: { name: string; runtime: ManyCloudRuntime; model?: ModelSelection }) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(presetName);
   const [providers, setProviders] = useState<CloudProviderOption[] | null>(null);
   const [runtime, setRuntime] = useState<RuntimeChoice>('');
   const [providerId, setProviderId] = useState('');
+  const [catalog, setCatalog] = useState<CloudModelCatalog>({ dome: [], saved: [] });
+  const [model, setModel] = useState<ModelSelection | null>(null);
   const unknown = t('manys.unknown_provider');
   const saved = providers ?? [];
   const selected = saved.find((provider) => provider.id === providerId) ?? null;
@@ -57,6 +63,23 @@ export default function ManyCreateForm({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    listCloudModels()
+      .then((value) => { if (active) setCatalog(value); })
+      .catch(() => { /* the form still works with the default model */ });
+    return () => { active = false; };
+  }, []);
+
+  // The model follows the runtime: changing the source or the provider drops a model that no longer applies.
+  useEffect(() => {
+    setModel((current) => {
+      if (runtime === 'dome_credits') return current?.source === 'dome' ? current : null;
+      if (runtime === 'provider_key') return current?.source === 'external' && current.provider === providerId ? current : null;
+      return null;
+    });
+  }, [runtime, providerId]);
 
   const chooseRuntime = (value: string) => {
     if (value === 'dome_credits') {
@@ -92,11 +115,12 @@ export default function ManyCreateForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!choice || !name.trim()) return;
-        const input = { name: name.trim(), runtime: choice };
+        const input = { name: name.trim(), runtime: choice, ...(model ? { model } : {}) };
         onCreate(input).then((savedMany) => {
           if (!savedMany) return;
           setName('');
           setRuntime('');
+          setModel(null);
         }).catch(() => {});
       }}
     >
@@ -148,6 +172,19 @@ export default function ManyCreateForm({
               ))}
             </SelectContent>
           </Select>
+        </Field>
+      )}
+      {choice && (catalog.dome.length > 0 || catalog.saved.length > 0) && (
+        <Field>
+          <FieldLabel htmlFor="many-model">{t('manys.model')}</FieldLabel>
+          <ManyModelPicker
+            id="many-model"
+            catalog={catalog}
+            value={model}
+            disabled={busy}
+            only={choice.source === 'dome_credits' ? { source: 'dome' } : { source: 'external', provider: choice.provider }}
+            onChange={setModel}
+          />
         </Field>
       )}
       <Button disabled={busy || !name.trim() || !choice} type="submit" className="self-end">

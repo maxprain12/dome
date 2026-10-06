@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ManyInspector from './ManyInspector';
 import { request, type ManyDetail } from '@/lib/manys/api';
 
-vi.mock('@/lib/manys/api', () => ({ request: vi.fn() }));
+vi.mock('@/lib/manys/api', () => ({ request: vi.fn(), listCloudModels: vi.fn(async () => ({ dome: [], saved: [] })), setManyModel: vi.fn() }));
 
 const detail: ManyDetail = {
   many: { id: 'many-test', name: 'Peregrini', instructions: '', grant_revision: 1, grants: { projects: [], resources: [], capabilities: ['vault.read', 'computer.read', 'computer.write'] } },

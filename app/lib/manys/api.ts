@@ -5,7 +5,7 @@ export type ManyCloudRuntime =
   | { source: 'dome_credits' }
   | { source: 'provider_key'; provider: string };
 export interface CloudProviderOption { id: string; name: string }
-export interface CloudMany {id:string;name:string;instructions:string;grants:Grants;grant_revision:number;runtime?:ManyCloudRuntime;model_source?:'dome'|'external'|'local'|null;model_provider?:string|null;model_name?:string|null}
+export interface CloudMany {id:string;name:string;instructions:string;grants:Grants;grant_revision:number;runtime?:ManyCloudRuntime;model_source?:'dome'|'external'|'local'|null;model_provider?:string|null;model_name?:string|null;model_thinking?:string|null}
 export interface Task {id:string;prompt:string;state:string;question:string|null;checkpoint?:{reason?:string;access?:{label:string;hosts:string[]}};result:{text?:string;resources?:string[]}|null}
 export interface Action {id:string;digest:string;state:string;expires_at:string;proposal:unknown;receipt:unknown;operation_id?:string|null;task_id?:string|null}
 export interface ManyDetail {many:CloudMany;conversations:{id:string}[];tasks:Task[];messages:{id:string;role:string;content:string;task_id:string;created_at?:string}[];actions:Action[];recurrences:{id:string;prompt:string;next_at:string;interval_seconds:number}[];computer:{control:string;last_activity?:string|null}|null;conflicts:{id:string;resource_id:string;title:string|null;current_revision:number;proposal:unknown}[]}
@@ -29,6 +29,28 @@ export function clearSubmission(manyId:string) {localStorage.removeItem(`manys:p
 export async function delegateToMany(manyId:string,prompt:string) {
   const task=await request<Task>(`/${manyId}/tasks`,'POST',prepareSubmission(manyId,prompt));clearSubmission(manyId);return task;
 }
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export interface CloudModel { id: string; name: string; input: ('text' | 'image')[]; reasoning: boolean; contextWindow: number | null }
+/** A model of the Dome plan, paid with credits. `available` is false when the person's plan does not include it. */
+export interface DomeCloudModel extends CloudModel { multiplier: number; minPlan: string; available: boolean }
+export interface SavedProviderModels { id: string; name: string; models: CloudModel[]; defaultModel: string | null }
+export interface CloudModelCatalog { dome: DomeCloudModel[]; saved: SavedProviderModels[] }
+/** What a person picks for a Many. A key is never part of it: the main process adds it on the way out. */
+export interface ModelSelection { source: 'dome' | 'external'; provider?: string; model: string; thinking?: ThinkingLevel }
+
+/** The models a Many can run on: the plan's, and those of each saved provider a worker can reach. */
+export async function listCloudModels(): Promise<CloudModelCatalog> {
+  const result = await window.electron.invoke('manys:cloud-models') as { success: boolean; error?: string; data?: CloudModelCatalog };
+  if (!result.success) throw new Error(result.error ?? 'service_unavailable');
+  return result.data ?? { dome: [], saved: [] };
+}
+
+/** Changes the model of one Many. It applies from its next task. */
+export async function setManyModel(id: string, selection: ModelSelection): Promise<void> {
+  const result = await window.electron.invoke('manys:set-model', { id, selection }) as { success: boolean; error?: string };
+  if (!result.success) throw new Error(result.error ?? 'service_unavailable');
+}
+
 /** Saved API-key providers whose base URL can run outside this machine. Names only — never keys. */
 export async function listCloudProviders(): Promise<CloudProviderOption[]> {
   const result = await window.electron.invoke('manys:cloud-providers') as {
