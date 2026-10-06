@@ -1,5 +1,5 @@
 import type { AssistantMessage, ImageContent, Model, TextContent, Usage } from "@dome/ai";
-import { completeSimple } from "@dome/ai";
+import { completeSimple, isRetryableAssistantError, retryAssistantCall } from "@dome/ai";
 import type { AgentMessage, ThinkingLevel } from "../../types.js";
 import {
 	convertToLlm,
@@ -154,19 +154,45 @@ export interface ContextUsageEstimate {
 }
 
 function getLastAssistantUsageInfo(messages: AgentMessage[]): { usage: Usage; index: number } | undefined {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		const usage = getAssistantUsage(messages[i]);
-		if (usage) return { usage, index: i };
+	let latestPrefixTimestamp = Number.NEGATIVE_INFINITY;
+	let found: { usage: Usage; index: number } | undefined;
+	for (let i = 0; i < messages.length; i++) {
+		const message = messages[i];
+		const timestamp = typeof message.timestamp === "number" ? message.timestamp : 0;
+		const usage = getAssistantUsage(message);
+		// A newer message placed before this response (a compaction or branch summary) means the usage was
+		// measured against a different prefix. A response that reported no tokens says nothing either.
+		if (usage && timestamp >= latestPrefixTimestamp && calculateContextTokens(usage) > 0) {
+			found = { usage, index: i };
+		}
+		latestPrefixTimestamp = Math.max(latestPrefixTimestamp, timestamp);
 	}
-	return undefined;
+	return found;
 }
 
-/** Estimate context tokens for messages using provider usage when available. */
-export function estimateContextTokens(messages: AgentMessage[]): ContextUsageEstimate {
+/** What the next request carries on top of the transcript: the system prompt and the tool declarations. */
+export interface ContextOverhead {
+	systemPrompt?: string;
+	tools?: readonly unknown[];
+}
+
+function estimateOverheadTokens(overhead: ContextOverhead | undefined): number {
+	if (!overhead) return 0;
+	let chars = overhead.systemPrompt?.length ?? 0;
+	if (overhead.tools && overhead.tools.length > 0) chars += safeJsonStringify(overhead.tools).length;
+	return Math.ceil(chars / 4);
+}
+
+/**
+ * Estimate context tokens for messages using provider usage when it still applies. Usage already includes the
+ * prompt and tools it was measured with; when there is none, `overhead` is added to the message estimate so
+ * the first request of a session is not undercounted by the system prompt and a large tool loadout.
+ */
+export function estimateContextTokens(messages: AgentMessage[], overhead?: ContextOverhead): ContextUsageEstimate {
 	const usageInfo = getLastAssistantUsageInfo(messages);
 
 	if (!usageInfo) {
-		let estimated = 0;
+		let estimated = estimateOverheadTokens(overhead);
 		for (const message of messages) {
 			estimated += estimateTokens(message);
 		}
@@ -484,6 +510,51 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`;
 
+/**
+ * One summarization call, hardened the way pi's compaction is: transient provider errors are retried, and a
+ * response that cannot be a faithful summary (cut off at the token limit, tool calls instead of text, or
+ * empty) is a failure. Storing a truncated summary would silently lose the history it replaced.
+ */
+async function summarize(
+	model: Model<any>,
+	messages: Array<{ role: "user"; content: TextContent[]; timestamp: number }>,
+	options: Record<string, unknown>,
+	label: string,
+): Promise<Result<string, CompactionError>> {
+	const signal = options.signal as AbortSignal | undefined;
+	const request = () =>
+		completeSimple(model, { systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages }, {
+			...options,
+			// A summary is a one-off prompt: do not pin a cache entry for it.
+			cacheRetention: "none",
+		} as never);
+	const response = await retryAssistantCall(
+		request,
+		{ enabled: true, maxRetries: 2, baseDelayMs: 1000, maxAgentDelayMs: 8000 },
+		signal,
+	);
+	if (response.stopReason === "aborted") {
+		return err(new CompactionError("aborted", response.errorMessage || `${label} aborted`));
+	}
+	if (response.stopReason === "error") {
+		const transient = isRetryableAssistantError(response) ? " (the provider kept failing)" : "";
+		return err(new CompactionError("summarization_failed", `${label} failed${transient}: ${response.errorMessage || "Unknown error"}`));
+	}
+	if (response.stopReason === "length") {
+		return err(new CompactionError("summarization_failed", `${label} was cut off at the output limit`));
+	}
+	if (response.content.some((block) => block.type === "toolCall")) {
+		return err(new CompactionError("summarization_failed", `${label} returned a tool call instead of text`));
+	}
+	const text = response.content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text)
+		.join("\n")
+		.trim();
+	if (!text) return err(new CompactionError("summarization_failed", `${label} returned no text`));
+	return ok(text);
+}
+
 /** Generate or update a conversation summary for compaction. */
 export async function generateSummary(
 	currentMessages: AgentMessage[],
@@ -525,29 +596,7 @@ export async function generateSummary(
 			? { maxTokens, signal, apiKey, headers, reasoning: thinkingLevel }
 			: { maxTokens, signal, apiKey, headers };
 
-	const response = await completeSimple(
-		model,
-		{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages },
-		completionOptions,
-	);
-	if (response.stopReason === "aborted") {
-		return err(new CompactionError("aborted", response.errorMessage || "Summarization aborted"));
-	}
-	if (response.stopReason === "error") {
-		return err(
-			new CompactionError(
-				"summarization_failed",
-				`Summarization failed: ${response.errorMessage || "Unknown error"}`,
-			),
-		);
-	}
-
-	const textContent = response.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n");
-
-	return ok(textContent);
+	return summarize(model, summarizationMessages, completionOptions, "Summarization");
 }
 
 /** Prepared inputs for a compaction run. */
@@ -699,9 +748,10 @@ export async function compact(
 	let summary: string;
 
 	if (isSplitTurn && turnPrefixMessages.length > 0) {
-		const [historyResult, turnPrefixResult] = await Promise.all([
+		// One after the other: single-concurrency local providers (Ollama, llama.cpp) stall on two requests at once.
+		const historyResult =
 			messagesToSummarize.length > 0
-				? generateSummary(
+				? await generateSummary(
 						messagesToSummarize,
 						model,
 						settings.reserveTokens,
@@ -712,18 +762,17 @@ export async function compact(
 						previousSummary,
 						thinkingLevel,
 					)
-				: Promise.resolve(ok<string, CompactionError>("No prior history.")),
-			generateTurnPrefixSummary(
-				turnPrefixMessages,
-				model,
-				settings.reserveTokens,
-				apiKey,
-				headers,
-				signal,
-				thinkingLevel,
-			),
-		]);
+				: ok<string, CompactionError>("No prior history.");
 		if (!historyResult.ok) return err(historyResult.error);
+		const turnPrefixResult = await generateTurnPrefixSummary(
+			turnPrefixMessages,
+			model,
+			settings.reserveTokens,
+			apiKey,
+			headers,
+			signal,
+			thinkingLevel,
+		);
 		if (!turnPrefixResult.ok) return err(turnPrefixResult.error);
 		summary = `${historyResult.value}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixResult.value}`;
 	} else {
@@ -776,29 +825,12 @@ async function generateTurnPrefixSummary(
 		},
 	];
 
-	const response = await completeSimple(
+	return summarize(
 		model,
-		{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages },
+		summarizationMessages,
 		model.reasoning && thinkingLevel && thinkingLevel !== "off"
 			? { maxTokens, signal, apiKey, headers, reasoning: thinkingLevel }
 			: { maxTokens, signal, apiKey, headers },
-	);
-	if (response.stopReason === "aborted") {
-		return err(new CompactionError("aborted", response.errorMessage || "Turn prefix summarization aborted"));
-	}
-	if (response.stopReason === "error") {
-		return err(
-			new CompactionError(
-				"summarization_failed",
-				`Turn prefix summarization failed: ${response.errorMessage || "Unknown error"}`,
-			),
-		);
-	}
-
-	return ok(
-		response.content
-			.filter((c): c is { type: "text"; text: string } => c.type === "text")
-			.map((c) => c.text)
-			.join("\n"),
+		"Turn prefix summarization",
 	);
 }

@@ -19,6 +19,7 @@ import type {
 	ThinkingLevel,
 } from "../types.js";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "./compaction/branch-summarization.js";
+import { withOverflowRecovery } from "./utils/overflow-recovery.js";
 import { compact, DEFAULT_COMPACTION_SETTINGS, estimateContextTokens, estimateTokens, prepareCompaction, shouldCompact } from "./compaction/compaction.js";
 import { convertToLlm } from "./messages.js";
 import { formatPromptTemplateInvocation } from "./prompt-templates.js";
@@ -386,6 +387,14 @@ export class AgentHarness<
 		};
 	}
 
+	/** The system prompt and tool declarations the next request carries on top of the transcript. */
+	private contextOverhead(turnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>) {
+		return {
+			systemPrompt: turnState.systemPrompt,
+			tools: turnState.activeTools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
+		};
+	}
+
 	private createStreamFn(getTurnState: () => AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>): StreamFn {
 		return async (model, context, streamOptions) => {
 			const turnState = getTurnState();
@@ -395,7 +404,8 @@ export class AgentHarness<
 				headers: mergeHeaders(turnState.streamOptions.headers, auth?.headers),
 			};
 			const requestOptions = await this.emitBeforeProviderRequest(model, turnState.sessionId, snapshotOptions);
-			return (this.models ? this.models.streamSimple.bind(this.models) : streamSimple)(model, context, {
+			const stream = (this.models ? this.models.streamSimple.bind(this.models) : streamSimple);
+			const open = (ctx: typeof context) => stream(model, ctx, {
 				cacheRetention: requestOptions.cacheRetention,
 				headers: requestOptions.headers,
 				maxRetries: requestOptions.maxRetries,
@@ -415,6 +425,16 @@ export class AgentHarness<
 				timeoutMs: requestOptions.timeoutMs,
 				transport: requestOptions.transport,
 				apiKey: auth?.apiKey,
+			});
+			const first = await open(context);
+			if (!this.autoCompaction) return first;
+			// The provider said the request does not fit: compact the session once and send what is left.
+			return withOverflowRecovery(first, model.contextWindow, async () => {
+				await this.flushPendingSessionWrites();
+				if (!(await this.compactSession(undefined, streamOptions?.signal, true))) return undefined;
+				const rebuilt = convertToLlm((await this.session.buildContext()).messages);
+				const lead = context.messages[0]?.role === "system" ? [context.messages[0]] : [];
+				return open({ ...context, messages: [...lead, ...rebuilt] } as typeof context);
 			});
 		};
 	}
@@ -443,7 +463,7 @@ export class AgentHarness<
 			transformContext: async (messages, signal) => {
 				const model = getTurnState().model;
 				if (this.autoCompaction && model.contextWindow > 0 &&
-					shouldCompact(estimateContextTokens(messages).tokens, model.contextWindow, DEFAULT_COMPACTION_SETTINGS)) {
+					shouldCompact(estimateContextTokens(messages, this.contextOverhead(getTurnState())).tokens, model.contextWindow, DEFAULT_COMPACTION_SETTINGS)) {
 					await this.flushPendingSessionWrites();
 					try {
 						if (await this.compactSession(undefined, signal, true)) {
@@ -495,7 +515,12 @@ export class AgentHarness<
 			},
 			getSteeringMessages: async () => this.drainQueuedMessages(this.steerQueue, this.steeringQueueMode),
 			getFollowUpMessages: async () => this.drainQueuedMessages(this.followUpQueue, this.followUpQueueMode),
-			shouldStopAfterTurn: this.shouldStopAfterTurn,
+			finishTurn: this.shouldStopAfterTurn
+				? async (turn) => {
+						if (turn.message.stopReason === "error" || turn.message.stopReason === "aborted") return undefined;
+						return (await this.shouldStopAfterTurn?.(turn)) ? { action: "end" as const } : undefined;
+					}
+				: undefined,
 		};
 	}
 

@@ -4,7 +4,7 @@ Dome runs **one** agent runtime: the Dome-native loop in `@dome/agent-core`.
 Every agent surface — Many chat, agent-chat runs, workflow agent nodes,
 Agent Team, and the bench harness — goes through it.
 
-> **Upstream reference:** session layout, harness orchestration, and multi-provider
+> **Upstream reference:** the loop is synced with pi 1.0.4 (see `packages/agent-core/UPSTREAM.md`). Session layout, harness orchestration, and multi-provider
 > LLM connectors were informed by the open-source [pi](https://github.com/earendil-works/pi)
 > project (`pi/packages/agent`, `pi/packages/ai`). Dome vendors and extends that design
 > as `@dome/agent-core` and `@dome/ai`; product code does not depend on the upstream repo.
