@@ -34,6 +34,7 @@ const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
 const ManysView = lazy(() => import('@/components/manys/ManysView'));
+const DesktopManysHost = lazy(() => import('@/components/manys/DesktopManysHost'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const PipelinesBoard = lazy(() => import('@/components/pipelines/PipelinesBoard'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
@@ -443,7 +444,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
     case 'workflows':
     case 'automations':
     case 'runs':
-      return <TabBoundary tab={tab}><Suspense fallback={<Loading />}><ManysView /></Suspense></TabBoundary>;
+      return <TabBoundary tab={tab}><Suspense fallback={<Loading />}><DesktopManysHost><ManysView /></DesktopManysHost></Suspense></TabBoundary>;
 
     case 'folder':
       return renderWithResource(tab, (resourceId) => (

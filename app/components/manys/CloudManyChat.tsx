@@ -40,7 +40,8 @@ interface Props {
   suggestions: string[];
   /** What the agent is doing right now, while no reply has started. */
   doing: string;
-  onOpenResource: (id: string) => void;
+  /** Opens what the latest turn produced in the library. Without it the person is not offered the buttons. */
+  onOpenResource?: (id: string) => void;
 }
 
 /**
@@ -100,7 +101,7 @@ export default function CloudManyChat({
         )}
         trailing={(
           <>
-            {produced.length > 0 && !working && (
+            {onOpenResource && produced.length > 0 && !working && (
               <div className="flex flex-wrap gap-2 sm:ml-9">
                 {produced.map((id) => <Button key={id} type="button" size="sm" variant="outline" onClick={() => onOpenResource(id)}>{t('manys.openResource')}</Button>)}
               </div>

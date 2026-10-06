@@ -4,7 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { listCloudModels, request, setManyModel, type CloudModelCatalog, type Grants, type ManyDetail, type ModelSelection } from '@/lib/manys/api';
 import ManyModelPicker from './ManyModelPicker';
 import ManyCredentials from './ManyCredentials';
-import ManyLibraryScope from './ManyLibraryScope';
+import { useManysHost } from './ManysHost';
 import ManyMemory from './ManyMemory';
 import ManyPermissions from './ManyPermissions';
 import ManyRoutines from './ManyRoutines';
@@ -27,6 +27,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export default function ManyDetails({ detail, busy, perform }: { detail: ManyDetail; busy: boolean; perform: (fn: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation();
   const many = detail.many;
+  const { libraryScope: LibraryScope } = useManysHost();
   const [catalog, setCatalog] = useState<CloudModelCatalog>({ dome: [], saved: [] });
   useEffect(() => {
     let active = true;
@@ -44,7 +45,7 @@ export default function ManyDetails({ detail, busy, perform }: { detail: ManyDet
     <div className="flex flex-col gap-6">
       <Section title={t('manys.permissions')}>
         <ManyPermissions grants={many.grants} busy={busy} onChange={save} />
-        {hasCapability(many.grants, 'vault.read') && <ManyLibraryScope key={many.grant_revision} many={many} busy={busy} onSave={save} />}
+        {LibraryScope && hasCapability(many.grants, 'vault.read') && <LibraryScope key={many.grant_revision} many={many} busy={busy} onSave={save} />}
       </Section>
       {many.model_name && (
         <Section title={t('manys.model')}>

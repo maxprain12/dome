@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAppStore } from '@/lib/store/useAppStore';
-import type { CloudMany, Grants } from '@/lib/manys/api';
+import type { ManyLibraryScopeProps } from './ManysHost';
 
-/** Which projects and resources of the library a Many may read (sharing one resource does not share its project). */
-export default function ManyLibraryScope({ many, busy, onSave }: { many: CloudMany; busy: boolean; onSave: (grants: Grants) => void }) {
+/** Desktop: which projects and resources of the local library a Many may read (sharing one resource does not share its project). */
+export default function DesktopLibraryScope({ many, busy, onSave }: ManyLibraryScopeProps) {
   const { t } = useTranslation();
   const [shared, setShared] = useState({ projects: many.grants.projects, resources: many.grants.resources });
   const projects = useAppStore((s) => s.projects);
