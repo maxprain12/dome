@@ -23,9 +23,24 @@ async function getModelCollection(database) {
     const custom = JSON.parse(database.getQueries().getSetting.get('ai_custom_providers')?.value || '[]');
     for (const config of custom) models.setProvider(createCustomProvider(ai, config));
     await models.refresh({ allowNetwork: false });
-    return models;
+    return withProviderAliases(models);
   })().catch(error => { collections.delete(database); throw error; }));
   return collections.get(database);
+}
+// Dome's settings and UI call Azure `azure-openai-responses`; upstream pi renamed that provider to `azure`.
+const PROVIDER_ALIASES = { 'azure-openai-responses': 'azure' };
+function withProviderAliases(models) {
+  const upstream = value => (typeof value === 'string' && PROVIDER_ALIASES[value]) || value;
+  const byArgument = { getProvider: 0, getModels: 0, getModel: 0, getModelOfType: 1, getAuth: 0 };
+  return new Proxy(models, {
+    get(target, prop) {
+      const value = target[prop];
+      if (typeof value !== 'function') return value;
+      const position = byArgument[prop];
+      if (position === undefined) return value.bind(target);
+      return (...args) => { args[position] = upstream(args[position]); return value.apply(target, args); };
+    },
+  });
 }
 function createCustomProvider(ai, config) {
   const apis = {};

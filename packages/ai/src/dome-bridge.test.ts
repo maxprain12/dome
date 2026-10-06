@@ -271,3 +271,10 @@ describe('usage + text helpers', () => {
     expect(extractTextFromAssistantMessage(msg)).toBe('hello world');
   });
 });
+
+describe('Azure alias', () => {
+  it('maps the legacy Dome provider id to the upstream provider', () => {
+    const model = resolveDomeModel({ provider: 'azure-openai-responses', model: 'gpt-5' });
+    expect(model.provider).toBe('azure');
+  });
+});

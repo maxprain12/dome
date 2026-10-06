@@ -6,8 +6,8 @@ import {
 	llamaServerRoot,
 	peakConfidence,
 	renderQuestion,
-} from "../src/api/llama-cpp-classify.ts";
-import type { ClassifierContext, ClassifierModel, ClassifierOptions } from "../src/types.ts";
+} from "../src/api/llama-cpp-classify.js";
+import type { ClassifierContext, ClassifierModel, ClassifierOptions } from "../src/types.js";
 
 let serverCount = 0;
 

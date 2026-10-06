@@ -1,6 +1,6 @@
 import type { ResponseStreamEvent } from "openai/resources/responses/responses.js";
 import { describe, expect, it } from "vitest";
-import { processResponsesStream } from "../src/api/openai-responses-shared.ts";
+import { processResponsesStream } from "../src/api/openai-responses-shared.js";
 import {
 	type AssistantMessage,
 	type AssistantMessageEvent,
@@ -8,8 +8,8 @@ import {
 	AssistantMessageFrameEncoder,
 	type Model,
 	reduceAssistantMessageFrames,
-} from "../src/index.ts";
-import { AssistantMessageEventStream } from "../src/utils/event-stream.ts";
+} from "../src/index.js";
+import { AssistantMessageEventStream } from "../src/utils/event-stream.js";
 
 function seed(): AssistantMessage {
 	return {

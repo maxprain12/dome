@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventStream } from "../src/utils/event-stream.ts";
+import { EventStream } from "../src/utils/event-stream.js";
 
 // Regression tests for https://github.com/earendil-works/pi/issues/9055
 describe("EventStream", () => {
