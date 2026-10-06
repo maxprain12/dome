@@ -16,6 +16,10 @@ import ManyHitlInlineCard from '../../../../app/components/many/ManyHitlInlineCa
 import ManyComposerSurface, {
   type ManyComposerImage,
 } from '../../../../app/components/many/composer/ManyComposerSurface';
+import {
+  ManySkillChipList,
+  PinnedResourceChipList,
+} from '../../../../app/components/many/PinnedResourceChipList';
 import { ManySkillPicker, ManyMentionPicker } from '../../../../app/components/many/composer/ManyComposerPickers';
 import ManyConversationSurface, {
   type ManyConversationSurfaceMessage,
@@ -1149,15 +1153,28 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         onRemoveImage={(id) =>
           setImages((previous) => previous.filter((image) => image.id !== id))
         }
-        onRemovePin={(id) =>
-          setPins((previous) => previous.filter((pin) => pin.id !== id))
-        }
-        onRemoveSkill={(id) =>
-          setSelectedSkills((previous) => previous.filter((skill) => skill.id !== id))
-        }
         images={images}
-        pins={pins}
-        skills={selectedSkills}
+        hasChips={pins.length > 0 || selectedSkills.length > 0}
+        chips={(
+          <>
+            <PinnedResourceChipList
+              resources={pins.map((pin) => ({
+                id: pin.id,
+                title: pin.title,
+                type: pin.type || 'resource',
+              }))}
+              onRemove={(id) =>
+                setPins((previous) => previous.filter((pin) => pin.id !== id))
+              }
+            />
+            <ManySkillChipList
+              skills={selectedSkills.map((skill) => ({ id: skill.id, name: skill.title }))}
+              onRemove={(id) =>
+                setSelectedSkills((previous) => previous.filter((skill) => skill.id !== id))
+              }
+            />
+          </>
+        )}
         placeholder={planRefineArmed ? t('many.plan_refine_placeholder', 'Refine the plan…') : t('askPlaceholder')}
         sendLabel={t('ask')}
         stopLabel={t('cancel')}
