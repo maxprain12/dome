@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { interleaveMessageParts } from './interleaveMessageParts';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 
 const t = ((key: string) => key) as never;
 

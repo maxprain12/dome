@@ -10,6 +10,7 @@ import ManyContextView from './panel/ManyContextView';
 import ManyConversation, {
   type ManyConversationHandle,
 } from './conversation/ManyConversation';
+import ManyMessageView from './conversation/ManyMessageView';
 import ManyWelcome from './conversation/ManyWelcome';
 import { ManyCompactionNotice, ManyPdfRegionChip } from './conversation/ManyNotices';
 import { ManyPlanDockHost } from './conversation/ManyPlanDockHost';
@@ -32,7 +33,11 @@ import { createManyToolsForContext } from '@/lib/ai';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { showToast } from '@/lib/store/useToastStore';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
+import type { ManyMessageRenderer } from '@/lib/many/types';
 import { cn } from '@/lib/utils';
+
+/** The local Many draws every message with all the cards it knows. */
+const renderManyMessage: ManyMessageRenderer = (props) => <ManyMessageView {...props} />;
 
 interface ManyPanelProps {
   width: number;
@@ -528,6 +533,7 @@ export default function ManyPanel({
                 isStreaming={Boolean(streamingMessage?.isStreaming || isLoading)}
                 isEmpty={isTranscriptEmpty}
                 messageGroups={messageGroups}
+                renderMessage={renderManyMessage}
                 lastUserGroupIndex={lastUserGroupIndex}
                 isLoading={isLoading}
                 loadingHint={loadingHint}
@@ -536,8 +542,7 @@ export default function ManyPanel({
                 error={error}
                 onRetryError={handleDismissError}
                 onReportError={handleReportError}
-                supportsTools={supportsTools}
-                onPrompt={setPromptFromSuggestion}
+                welcome={<ManyWelcome variant="panel" supportsTools={supportsTools} onPrompt={setPromptFromSuggestion} />}
               />
             )}
 

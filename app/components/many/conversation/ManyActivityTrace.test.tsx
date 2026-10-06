@@ -93,7 +93,6 @@ describe('ManyActivityTrace', () => {
         working={false}
         copy={copy}
         query="many traces"
-        linkMode="anchor"
         rows={[
           {
             id: 'hit',

@@ -25,11 +25,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { request, delegateToMany, type CloudMany, type ManyCloudRuntime, type ManyDetail, type ModelSelection } from '@/lib/manys/api';
 import { cn } from '@/lib/utils';
-import { useAppStore } from '@/lib/store/useAppStore';
-import type { Resource } from '@/types';
-import { useTabStore } from '@/lib/store/useTabStore';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import CloudManyChat from './CloudManyChat';
+import { useManysHost } from './ManysHost';
 import type { CredentialInput } from './ManyCredentialForm';
 import ManyInspector, { type InspectorTab } from './ManyInspector';
 import ManyRoster, { pendingCount } from './ManyRoster';
@@ -43,6 +41,7 @@ const SUGGESTIONS = ['suggestion1', 'suggestion2', 'suggestion3'] as const;
 
 export default function ManysView() {
   const { t } = useTranslation();
+  const host = useManysHost();
   const [manys, setManys] = useState<CloudMany[]>([]);
   const [selected, setSelected] = useState('');
   const [details, setDetails] = useState<Record<string, ManyDetail>>({});
@@ -140,15 +139,8 @@ export default function ManysView() {
     await run(fn);
   };
 
-  const openResource = (id: string) => perform(async () => {
-    const sync = await window.electron.domainSync.syncNow({ domain: 'library' });
-    if (!sync.success) throw new Error('service_unavailable');
-    const loadedResource = await window.electron.db.resources.getById(id) as { success: boolean; data?: Resource };
-    if (!loadedResource.success || !loadedResource.data) throw new Error('resource_not_found');
-    const resource = loadedResource.data;
-    useAppStore.getState().addResource(resource);
-    useTabStore.getState().openResourceTab(resource.id, resource.type, resource.title);
-  });
+  const openResource = host.openResource;
+  const openProduced = openResource ? (id: string) => { void perform(() => openResource(id)); } : undefined;
 
   const send = () => perform(async () => {
     // One composer: when the agent asked something the message is the answer, otherwise it is a new turn.
@@ -381,7 +373,7 @@ export default function ManysView() {
                 onResume={() => { void perform(() => setManyPaused(detail.many, false)); }}
                 suggestions={SUGGESTIONS.map((key) => t(`manys.${key}`))}
                 doing={currentStep ? t(`manys.steps.${stepKey(currentStep.tool)}`, { detail: stepDetail(currentStep) }) : ''}
-                onOpenResource={(id) => { void openResource(id); }}
+                onOpenResource={openProduced}
               />
             </div>
             {inspector && (

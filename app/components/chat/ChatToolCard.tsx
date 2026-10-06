@@ -18,28 +18,12 @@ import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import { isFilesystemTreeTool, parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
 import { cn } from '@/lib/utils';
+import type { ToolCallData } from '@/lib/chat/types';
 import './chat-tool-card.css';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
  */
-
-export interface ToolCallData {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-  status: 'pending' | 'running' | 'success' | 'error';
-  result?: unknown;
-  error?: string;
-  /** Name of the subagent that produced this call (deepagents `task` delegation). */
-  agentName?: string;
-  /**
-   * Characters of assistant text emitted before this call, used to interleave
-   * the card at the point of the reply where it actually happened.
-   * Absent on messages restored from storage, which fall back to tools-first.
-   */
-  contentOffset?: number;
-}
 
 export type ChatToolSurfaceVariant = 'default' | 'many';
 

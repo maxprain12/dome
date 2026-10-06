@@ -2,7 +2,7 @@
  * Extract actionable draft suggestions from Many tool calls for inline cards.
  */
 
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 
 export type ActionSuggestionKind = 'github_issue' | 'email' | 'social_post';
 

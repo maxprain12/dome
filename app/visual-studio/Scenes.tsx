@@ -26,6 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import ResourceIcon from "@/components/shared/ResourceIcon";
 import ManyAvatar from "@/components/many/ManyAvatar";
 import ManyComposerSurface from "@/components/many/composer/ManyComposerSurface";
+import { PinnedResourceChipList } from "@/components/many/PinnedResourceChipList";
 import ManyConversationSurface from "@/components/many/conversation/ManyConversationSurface";
 import LearnDeckCard from "@/components/learn/library/LearnDeckCard";
 import type { Scene, Settings } from "./settings";
@@ -136,9 +137,9 @@ function Composer({ alternate = false }: { alternate?: boolean }) {
       onStop={noAction}
       onFiles={noAction}
       onRemoveImage={noAction}
-      onRemovePin={noAction}
       images={[]}
-      pins={[{ id: "atlas", title: "Atlas", type: "project" }]}
+      hasChips
+      chips={<PinnedResourceChipList resources={[{ id: "atlas", title: "Atlas", type: "project" }]} onRemove={noAction} />}
       placeholder={t("ask")}
       sendLabel={t("send")}
       stopLabel={t("stop")}

@@ -2,12 +2,12 @@ import { memo } from 'react';
 import { Message, MessageAvatar, MessageContent, MessageGroup } from '@/components/ui/message';
 import { MessageScrollerItem } from '@/components/ui/message-scroller';
 import ManyAvatar, { type ManyAvatarState } from '@/components/many/ManyAvatar';
-import ManyMessageView from './ManyMessageView';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
-import type { ManyMessageData } from '@/lib/many/types';
+import type { ManyMessageData, ManyMessageRenderer } from '@/lib/many/types';
 
 interface ManyTurnProps {
   messages: ManyMessageData[];
+  renderMessage: ManyMessageRenderer;
   onRegenerate?: (messageId: string) => void;
   assistantState?: ManyAvatarState;
   scrollAnchor?: boolean;
@@ -20,6 +20,7 @@ interface ManyTurnProps {
  */
 export default memo(function ManyTurn({
   messages,
+  renderMessage,
   onRegenerate,
   assistantState = 'idle',
   scrollAnchor = false,
@@ -45,15 +46,14 @@ export default memo(function ManyTurn({
                 </MessageAvatar>
               ) : null}
               <MessageContent>
-                <ManyMessageView
-                  message={message}
-                  isLastInGroup={isLastInGroup}
-                  onRegenerate={
+                {renderMessage({
+                  message,
+                  isLastInGroup,
+                  onRegenerate:
                     onRegenerate && isAssistant && isLastInGroup
                       ? () => onRegenerate(message.id)
-                      : undefined
-                  }
-                />
+                      : undefined,
+                })}
               </MessageContent>
             </Message>
           );
@@ -61,7 +61,7 @@ export default memo(function ManyTurn({
       </MessageGroup>
     </MessageScrollerItem>
   );
-}, (previous, next) => previous.onRegenerate === next.onRegenerate
+}, (previous, next) => previous.renderMessage === next.renderMessage && previous.onRegenerate === next.onRegenerate
   && previous.assistantState === next.assistantState && previous.scrollAnchor === next.scrollAnchor
   && previous.className === next.className && previous.messages.length === next.messages.length
   && previous.messages.every((message, index) => message === next.messages[index]));

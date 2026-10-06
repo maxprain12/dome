@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import {
   activitySegmentsFromBlocks,

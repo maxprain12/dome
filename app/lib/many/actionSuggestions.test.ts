@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractActionSuggestions } from './actionSuggestions';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 
 function call(partial: Partial<ToolCallData> & Pick<ToolCallData, 'id' | 'name'>): ToolCallData {
   return {

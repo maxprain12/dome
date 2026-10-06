@@ -1,3 +1,4 @@
+import { getManysTransport } from './transport';
 export interface ComputerPermissions {browser:boolean;files:boolean;shell:boolean}
 export interface Grants {projects:string[];resources:string[];capabilities:string[];computer?:ComputerPermissions;paused?:boolean;memory?:boolean}
 /** How a cloud Many runs. `provider` is a saved provider id, never an API key. Desktop and Companion send the same shape. */
@@ -13,9 +14,8 @@ export interface PolicyMatch {tools?:string[];capabilities?:string[];operations?
 export interface Policy {id:string;many_id:string|null;name:string;effect:'allow'|'deny';mode:'enforce'|'observe';enabled:boolean;match:PolicyMatch}
 export interface AuditEntry {id:string;sequence:number;phase:'decision'|'result';parent_id:string|null;tool:string;operation:string|null;host:string|null;decision:'allowed'|'denied'|'observed_denied'|null;rule_name:string|null;reason:string|null;outcome:'ok'|'error'|null;error_code:string|null;created_at:string}
 export interface Credential {id:string;many_id:string|null;label:string;username:string|null;hosts:string[];created_at:string;last_used_at:string|null}
-export async function request<T>(path:string,method='GET',body?:Record<string,unknown>):Promise<T> {
-  const result=await window.electron.invoke('manys:request',{path,method,body}) as {success:boolean;error?:string;data:T};
-  if(!result.success)throw new Error(result.error??'service_unavailable');return result.data;
+export function request<T>(path:string,method='GET',body?:Record<string,unknown>):Promise<T> {
+  return getManysTransport().request<T>(path,method,body);
 }
 /** Stable id survives a dropped response; retry never creates a second logical task. */
 export function prepareSubmission(manyId:string,prompt:string) {
@@ -39,25 +39,16 @@ export interface CloudModelCatalog { dome: DomeCloudModel[]; saved: SavedProvide
 export interface ModelSelection { source: 'dome' | 'external'; provider?: string; model: string; thinking?: ThinkingLevel }
 
 /** The models a Many can run on: the plan's, and those of each saved provider a worker can reach. */
-export async function listCloudModels(): Promise<CloudModelCatalog> {
-  const result = await window.electron.invoke('manys:cloud-models') as { success: boolean; error?: string; data?: CloudModelCatalog };
-  if (!result.success) throw new Error(result.error ?? 'service_unavailable');
-  return result.data ?? { dome: [], saved: [] };
+export function listCloudModels(): Promise<CloudModelCatalog> {
+  return getManysTransport().listModels();
 }
 
 /** Changes the model of one Many. It applies from its next task. */
-export async function setManyModel(id: string, selection: ModelSelection): Promise<void> {
-  const result = await window.electron.invoke('manys:set-model', { id, selection }) as { success: boolean; error?: string };
-  if (!result.success) throw new Error(result.error ?? 'service_unavailable');
+export function setManyModel(id: string, selection: ModelSelection): Promise<void> {
+  return getManysTransport().setModel(id, selection);
 }
 
 /** Saved API-key providers whose base URL can run outside this machine. Names only — never keys. */
-export async function listCloudProviders(): Promise<CloudProviderOption[]> {
-  const result = await window.electron.invoke('manys:cloud-providers') as {
-    success: boolean;
-    error?: string;
-    data?: { providers: CloudProviderOption[] };
-  };
-  if (!result.success) throw new Error(result.error ?? 'service_unavailable');
-  return result.data?.providers ?? [];
+export function listCloudProviders(): Promise<CloudProviderOption[]> {
+  return getManysTransport().listProviders();
 }

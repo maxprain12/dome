@@ -15,11 +15,10 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller';
 import ManyTurn from './ManyTurn';
-import ManyWelcome from './ManyWelcome';
 import { ManyLoadingMarker, ManyErrorNotice } from './ManyNotices';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import type { ManyAvatarState } from '@/components/many/ManyAvatar';
-import type { ManyMessageData } from '@/lib/many/types';
+import type { ManyMessageData, ManyMessageRenderer } from '@/lib/many/types';
 import { cn } from '@/lib/utils';
 
 export interface ManyConversationHandle {
@@ -33,19 +32,20 @@ interface ManyConversationProps {
   isStreaming: boolean;
   isEmpty: boolean;
   messageGroups: ManyMessageData[][];
+  /** Draws each message of a turn. */
+  renderMessage: ManyMessageRenderer;
   lastUserGroupIndex: number;
   isLoading: boolean;
   /** What the run is doing right now; shown while no assistant message exists yet. */
   loadingHint?: string;
   hasStreamingMessage: boolean;
-  onRegenerate: (messageId: string) => void;
+  /** Without it no message offers to be regenerated (a cloud Many replies from the task, not from a prompt to redo). */
+  onRegenerate?: (messageId: string) => void;
   error: string | null;
   onRetryError: () => void;
   onReportError?: () => void;
-  supportsTools: boolean;
-  onPrompt: (text: string) => void;
-  /** Replaces the local welcome for an empty conversation (a Many that is not the local one has its own). */
-  welcome?: ReactNode;
+  /** What an empty conversation shows. */
+  welcome: ReactNode;
   /** After the last turn, inside the same flow: cards the surface owns, such as something waiting for the person. */
   trailing?: ReactNode;
   className?: string;
@@ -71,8 +71,9 @@ function ScrollerHandleBridge({ handleRef }: { handleRef: Ref<ManyConversationHa
 
 /**
  * The transcript: a MessageScroller thread of turns, with the approval gate,
- * loading marker and error notice living inside the same flow. Empty sessions
- * render the compact welcome.
+ * loading marker and error notice living inside the same flow. Each message is
+ * drawn by `renderMessage`, so the desktop and the cloud Manys share the flow but
+ * not the cards. Empty sessions render `welcome`.
  */
 const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProps>(
   function ManyConversation(
@@ -81,6 +82,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
       isStreaming,
       isEmpty,
       messageGroups,
+      renderMessage,
       lastUserGroupIndex,
       isLoading,
       loadingHint,
@@ -89,8 +91,6 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
       error,
       onRetryError,
       onReportError,
-      supportsTools,
-      onPrompt,
       welcome,
       trailing,
       className,
@@ -112,7 +112,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                 )}
               >
                 {isEmpty ? (
-                  welcome ?? <ManyWelcome variant="panel" supportsTools={supportsTools} onPrompt={onPrompt} />
+                  welcome
                 ) : (
                   <>
                     {messageGroups.map((group, index) => {
@@ -126,6 +126,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                         <ManyTurn
                           key={stableMessageGroupKey(group)}
                           messages={group}
+                          renderMessage={renderMessage}
                           onRegenerate={onRegenerate}
                           assistantState={groupState}
                           scrollAnchor={index === lastUserGroupIndex}

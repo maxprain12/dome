@@ -1,5 +1,5 @@
 import type { AnyArtifact } from '@/components/chat/ArtifactCard';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { parseSocialToolResult } from '@/components/chat/tool-card/socialToolResults';
 import { unwrapToolResultObject } from '@/components/chat/tool-card/toolResultParsers';
 import type { SocialEvidenceCardModel } from '@/components/social/cards/socialCardModel';

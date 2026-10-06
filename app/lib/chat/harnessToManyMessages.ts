@@ -1,4 +1,4 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { newAttachmentId, type StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { truncateToolResultForRenderer } from '@/lib/chat/truncateToolResult';

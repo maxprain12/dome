@@ -1,4 +1,4 @@
-import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ChatMessageData } from '@/lib/chat/types';
 
 type LiveAssistant = {
   id: string;
