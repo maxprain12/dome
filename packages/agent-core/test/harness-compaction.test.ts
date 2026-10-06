@@ -238,3 +238,64 @@ describe('durable harness compaction', () => {
     expect((await session.getBranch()).filter((entry) => entry.type === 'compaction')).toHaveLength(1);
   });
 });
+
+describe('system prompt and tools in the transcript', () => {
+  const tool = (name: string) => ({
+    name, label: name, description: `${name} tool`, parameters: { type: 'object', properties: {}, additionalProperties: false } as never,
+    execute: async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: {} }),
+  });
+  const withTranscript = (session: Session, extra: Record<string, unknown> = {}) => new AgentHarness({
+    env, session, model, transcriptSystem: true, systemPrompt: 'You are exact.', tools: [tool('alpha')], ...extra,
+  });
+
+  it('starts a session with the prompt and the tools as a system message, and does not repeat it', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await withTranscript(session).prompt('First');
+    await withTranscript(session).prompt('Second');
+    const system = (await session.buildContext()).messages.filter((message) => message.role === 'system');
+    expect(system).toHaveLength(1);
+    expect(JSON.stringify(system[0])).toContain('You are exact.');
+    const sent = vi.mocked(streamSimple).mock.calls[1][1].messages;
+    expect(sent[0].role).toBe('system');
+    expect(sent.filter((message) => message.role === 'system')).toHaveLength(1);
+    expect(JSON.stringify(sent[0])).toContain('alpha');
+  });
+
+  it('declares a changed tool set as a delta instead of rewriting the prompt', async () => {
+    const session = await new InMemorySessionRepo().create();
+    const agent = withTranscript(session, { tools: [tool('alpha'), tool('beta')], activeToolNames: ['alpha'] });
+    await agent.prompt('First');
+    await agent.setActiveTools(['alpha', 'beta']);
+    await agent.prompt('Second');
+    const system = (await session.buildContext()).messages.filter((message) => message.role === 'system');
+    expect(system).toHaveLength(2);
+    expect(JSON.stringify(system[1])).toContain('beta');
+    expect(JSON.stringify(system[1])).not.toContain('You are exact.');
+  });
+
+  it('leaves a session that began without a system message the way it was', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await session.appendMessage({ role: 'user', content: 'older', timestamp: 1 });
+    await session.appendMessage(reply('older answer'));
+    await withTranscript(session).prompt('Next');
+    expect((await session.buildContext()).messages.some((message) => message.role === 'system')).toBe(false);
+    const sent = vi.mocked(streamSimple).mock.calls[0][1].messages;
+    expect(sent[0].role).toBe('system');
+    expect(JSON.stringify(sent[0])).toContain('You are exact.');
+  });
+
+  it('puts the system messages back in front after a compaction replaced the old turns', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await withTranscript(session).prompt('Seed');
+    await session.appendMessage({ role: 'user', content: 'old history '.repeat(40_000), timestamp: 10 });
+    await session.appendMessage(reply('old answer', 90_000));
+    await session.appendMessage({ role: 'user', content: 'Keep this request '.repeat(5_000), timestamp: 20 });
+    await withTranscript(session, { autoCompaction: true }).prompt('Continue');
+    expect(completeSimple).toHaveBeenCalled();
+    const sent = vi.mocked(streamSimple).mock.calls.at(-1)![1].messages;
+    expect(sent[0].role).toBe('system');
+    expect(JSON.stringify(sent[0])).toContain('You are exact.');
+    expect(JSON.stringify(sent)).toContain('durable summary');
+    expect(JSON.stringify(sent)).not.toContain('old history');
+  });
+});

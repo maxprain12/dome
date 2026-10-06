@@ -197,6 +197,13 @@ export type PrepareRequest = (
 export interface PrepareNextTurnContext extends AgentTurnContext {}
 
 export interface AgentLoopConfig extends SimpleStreamOptions {
+	/**
+	 * pi's transcript design: the system prompt and the tool declarations live in `messages` as system messages,
+	 * and a change to `context.tools` is declared as `toolsAdded`/`toolsRemoved` before the next request. The
+	 * transcript then replays exactly, and a request's prefix stays identical between turns. When false (the
+	 * default) they stay on `AgentContext` and are folded into every request.
+	 */
+	transcriptSystem?: boolean;
 	model: Model<any>;
 
 	/**

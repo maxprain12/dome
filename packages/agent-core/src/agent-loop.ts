@@ -6,7 +6,11 @@
 import {
 	type AssistantMessage,
 	EventStream,
+	getCurrentTools,
+	getToolStateChanges,
 	normalizeContext,
+	type SystemMessage,
+	type ToolStateChanges,
 	type ToolResultMessage,
 	toToolDeclaration,
 	validateToolArguments,
@@ -119,7 +123,7 @@ export async function runAgentLoop(
 	signal: AbortSignal | undefined,
 	streamFn: StreamFn,
 ): Promise<AgentMessage[]> {
-	const initialMessages = prompts;
+	const initialMessages = config.transcriptSystem ? declareToolChanges(context, prompts) : prompts;
 	const newMessages: AgentMessage[] = [...initialMessages];
 	const currentContext: AgentContext = {
 		...context,
@@ -220,7 +224,7 @@ async function runLoop(
 			}
 
 			// Process prepared and queued messages before the next assistant response.
-			for (const message of [...preparedMessages, ...pendingMessages]) {
+			for (const message of config.transcriptSystem ? declareToolChanges(currentContext, [...preparedMessages, ...pendingMessages]) : [...preparedMessages, ...pendingMessages]) {
 				await emit({ type: "message_start", message });
 				await emit({ type: "message_end", message });
 				currentContext.messages.push(message);
@@ -335,6 +339,60 @@ async function runLoop(
 }
 
 /**
+ * Declare tool loadout changes to the model.
+ *
+ * `context.tools` is what the runtime can execute; the transcript's system messages declare
+ * what the model may call. Before each request the difference becomes `toolsAdded` and
+ * `toolsRemoved` on a system message. When a pending system message exists, its tool fields
+ * are treated as intent and replaced with the delta between the committed transcript and
+ * the executable set, so replay always yields exactly `context.tools`. Otherwise a new
+ * system message is inserted before the first non-system pending message.
+ */
+function declareToolChanges(context: AgentContext, pendingMessages: AgentMessage[]): AgentMessage[] {
+	let systemIndex = -1;
+	for (let i = pendingMessages.length - 1; i >= 0; i--) {
+		if (pendingMessages[i].role === "system") {
+			systemIndex = i;
+			break;
+		}
+	}
+	const pending = pendingMessages[systemIndex] as SystemMessage | undefined;
+	const baseline = pending
+		? pendingMessages.map((message, index) =>
+				index === systemIndex ? withToolChanges(pending, NO_CHANGES) : message,
+			)
+		: pendingMessages;
+	const changes = getToolStateChanges(
+		getCurrentTools([...context.messages, ...baseline]),
+		(context.tools ?? []).map(toToolDeclaration),
+	);
+	const unchanged = changes.toolsAdded.length === 0 && changes.toolsRemoved.length === 0;
+
+	if (pending) {
+		// Keep the caller's message object when it already declares no tool changes.
+		if (unchanged && !pending.toolsAdded?.length && !pending.toolsRemoved?.length) return pendingMessages;
+		return baseline.map((message, index) => (index === systemIndex ? withToolChanges(pending, changes) : message));
+	}
+	if (unchanged) return pendingMessages;
+	const update = withToolChanges({ role: "system", content: "", timestamp: Date.now() }, changes);
+	const insertIndex = pendingMessages.findIndex((message) => message.role !== "system");
+	const index = insertIndex === -1 ? pendingMessages.length : insertIndex;
+	return [...pendingMessages.slice(0, index), update, ...pendingMessages.slice(index)];
+}
+
+const NO_CHANGES: ToolStateChanges = { toolsAdded: [], toolsRemoved: [] };
+
+/** Copy a system message with its tool fields replaced by `changes`; empty lists omit the field. */
+function withToolChanges(message: SystemMessage, { toolsAdded, toolsRemoved }: ToolStateChanges): SystemMessage {
+	const { toolsAdded: _added, toolsRemoved: _removed, ...rest } = message;
+	return {
+		...rest,
+		...(toolsAdded.length > 0 ? { toolsAdded } : {}),
+		...(toolsRemoved.length > 0 ? { toolsRemoved } : {}),
+	};
+}
+
+/**
  * Stream an assistant response from the LLM.
  * This is where AgentMessage[] gets transformed to Message[] for the LLM.
  */
@@ -354,13 +412,16 @@ async function streamAssistantResponse(
 	// Convert to LLM-compatible messages (AgentMessage[] → Message[])
 	const llmMessages = await config.convertToLlm(messages);
 
-	// Dome keeps the system prompt and the tool declarations on the context and folds them into the
-	// leading system message of each request, so a mid-run setTools takes effect on the next request.
-	const llmContext = normalizeContext({
-		systemPrompt: context.systemPrompt,
-		messages: llmMessages,
-		tools: context.tools?.map(toToolDeclaration),
-	});
+	// Two ways to carry the system prompt and the tools. In the transcript (pi's design, `transcriptSystem`) they
+	// are system messages already in `messages`, and changes to the tool set are declared as deltas. Otherwise
+	// Dome keeps them on the context and folds them into the leading system message of every request.
+	const llmContext = config.transcriptSystem
+		? normalizeContext({ messages: llmMessages })
+		: normalizeContext({
+				systemPrompt: context.systemPrompt,
+				messages: llmMessages,
+				tools: context.tools?.map(toToolDeclaration),
+			});
 
 	// Resolve API key (important for expiring tokens)
 	const resolvedApiKey =

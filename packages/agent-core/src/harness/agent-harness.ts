@@ -19,6 +19,7 @@ import type {
 	ThinkingLevel,
 } from "../types.js";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "./compaction/branch-summarization.js";
+import { createInitialSystemMessage, toToolDeclaration } from "@dome/ai";
 import { withOverflowRecovery } from "./utils/overflow-recovery.js";
 import { compact, DEFAULT_COMPACTION_SETTINGS, estimateContextTokens, estimateTokens, prepareCompaction, shouldCompact } from "./compaction/compaction.js";
 import { convertToLlm } from "./messages.js";
@@ -167,6 +168,8 @@ interface AgentHarnessTurnState<
 	TTool extends AgentTool = AgentTool,
 > {
 	messages: AgentMessage[];
+	/** Whether this turn runs with the system prompt and tools in the transcript. */
+	transcript: boolean;
 	resources: AgentHarnessResources<TSkill, TPromptTemplate>;
 	streamOptions: AgentHarnessStreamOptions;
 	sessionId: string;
@@ -196,6 +199,7 @@ export class AgentHarness<
 	private readonly autoCompaction: boolean;
 	private readonly compactionSettings: { enabled: boolean; reserveTokens: number; keepRecentTokens: number };
 	private readonly compactionThreshold?: number;
+	private readonly transcriptSystem: boolean;
 	private getApiKeyAndHeaders?: AgentHarnessOptions["getApiKeyAndHeaders"];
 	private resources: AgentHarnessResources<TSkill, TPromptTemplate>;
 	private tools = new Map<string, TTool>();
@@ -223,6 +227,7 @@ export class AgentHarness<
 			...(options.compaction?.keepRecentTokens ? { keepRecentTokens: options.compaction.keepRecentTokens } : {}),
 		};
 		this.compactionThreshold = options.compaction?.thresholdTokens;
+		this.transcriptSystem = options.transcriptSystem ?? false;
 		this.systemPrompt = options.systemPrompt;
 		this.getApiKeyAndHeaders = options.getApiKeyAndHeaders;
 		this.validateUniqueNames(
@@ -371,8 +376,24 @@ export class AgentHarness<
 				resources,
 			});
 		}
+		let messages = context.messages;
+		let transcript = false;
+		if (this.transcriptSystem) {
+			if (messages.length === 0) {
+				const initial = createInitialSystemMessage(systemPrompt, activeTools.map(toToolDeclaration));
+				if (initial) {
+					await this.session.appendMessage({ ...initial, timestamp: Date.now() });
+					messages = (await this.session.buildContext()).messages;
+				}
+				transcript = true;
+			} else {
+				// A session that began before this mode (no leading system message) keeps the old way.
+				transcript = messages[0]?.role === "system";
+			}
+		}
 		return {
-			messages: context.messages,
+			messages,
+			transcript,
 			resources,
 			streamOptions: cloneStreamOptions(this.streamOptions),
 			sessionId: sessionMetadata.id,
@@ -389,14 +410,26 @@ export class AgentHarness<
 		systemPrompt?: string,
 	): AgentContext {
 		return {
-			systemPrompt: systemPrompt ?? turnState.systemPrompt,
+			systemPrompt: turnState.transcript ? undefined : (systemPrompt ?? turnState.systemPrompt),
 			messages: turnState.messages.slice(),
 			tools: turnState.activeTools.slice(),
 		};
 	}
 
+	/**
+	 * After a compaction the summary replaces the old turns, and the system messages (the prompt and the tool
+	 * declarations) were among them. They are not history: put them back in front, in their original order.
+	 */
+	private keepSystemMessages(before: AgentMessage[], after: AgentMessage[]): AgentMessage[] {
+		const systems = before.filter((message) => message.role === "system");
+		if (systems.length === 0) return after;
+		return [...systems, ...after.filter((message) => message.role !== "system")];
+	}
+
 	/** The system prompt and tool declarations the next request carries on top of the transcript. */
 	private contextOverhead(turnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>) {
+		// In the transcript the prompt and the tools are messages, and are counted with the rest.
+		if (turnState.transcript) return undefined;
 		return {
 			systemPrompt: turnState.systemPrompt,
 			tools: turnState.activeTools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
@@ -441,8 +474,8 @@ export class AgentHarness<
 				await this.flushPendingSessionWrites();
 				if (!(await this.compactSession(undefined, streamOptions?.signal, true))) return undefined;
 				const rebuilt = convertToLlm((await this.session.buildContext()).messages);
-				const lead = context.messages[0]?.role === "system" ? [context.messages[0]] : [];
-				return open({ ...context, messages: [...lead, ...rebuilt] } as typeof context);
+				const lead = context.messages.filter((message) => message.role === "system");
+				return open({ ...context, messages: [...lead, ...rebuilt.filter((message) => message.role !== "system")] } as typeof context);
 			});
 		};
 	}
@@ -467,6 +500,7 @@ export class AgentHarness<
 		return {
 			model: turnState.model,
 			reasoning: turnState.thinkingLevel === "off" ? undefined : turnState.thinkingLevel,
+			transcriptSystem: turnState.transcript,
 			convertToLlm,
 			transformContext: async (messages, signal) => {
 				const model = getTurnState().model;
@@ -480,7 +514,7 @@ export class AgentHarness<
 					await this.flushPendingSessionWrites();
 					try {
 						if (await this.compactSession(undefined, signal, true)) {
-							messages = (await this.session.buildContext()).messages;
+							messages = this.keepSystemMessages(messages, (await this.session.buildContext()).messages);
 						}
 					} catch (error) {
 						// A provider summary failure leaves the original session intact.
