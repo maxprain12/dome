@@ -69,6 +69,34 @@ describe('estimateContextTokens', () => {
   });
 });
 
+describe('estimateContextTokens (pi parity)', () => {
+  it('ignores an assistant response that reported no tokens', () => {
+    const messages = [user('q'), assistantWithUsage(0)];
+    expect(estimateContextTokens(messages).lastUsageIndex).toBeNull();
+  });
+
+  it('discards usage that predates a newer message placed before it (a compaction summary)', () => {
+    const old = { ...assistantWithUsage(9000), timestamp: 10 } as any;
+    const summary = { role: 'user', content: 'summary', timestamp: 500 } as any;
+    const estimate = estimateContextTokens([summary, old, user('z'.repeat(400))]);
+    expect(estimate.lastUsageIndex).toBeNull();
+  });
+
+  it('counts the system prompt and tool declarations when there is no usage yet', () => {
+    const bare = estimateContextTokens([user('x'.repeat(400))]).tokens;
+    const withOverhead = estimateContextTokens([user('x'.repeat(400))], {
+      systemPrompt: 's'.repeat(800),
+      tools: [{ name: 't', description: 'd'.repeat(400), parameters: {} }],
+    }).tokens;
+    expect(withOverhead).toBeGreaterThan(bare + 200);
+  });
+
+  it('does not add the overhead on top of provider usage, which already includes it', () => {
+    const messages = [user('q'), assistantWithUsage(5000)];
+    expect(estimateContextTokens(messages, { systemPrompt: 's'.repeat(8000) }).tokens).toBe(5000);
+  });
+});
+
 describe('token estimation primitives', () => {
   it('calculateContextTokens prefers totalTokens and sums otherwise', () => {
     expect(

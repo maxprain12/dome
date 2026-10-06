@@ -7,13 +7,13 @@
 import {
 	type AssistantMessage,
 	type AssistantMessageEvent,
-	type Context,
 	EventStream,
 	type Model,
 	parseStreamingJson,
 	type SimpleStreamOptions,
 	type StopReason,
 	type ToolCall,
+	type TranscriptContext,
 } from "@dome/ai";
 
 // Create stream class matching ProxyMessageEventStream
@@ -43,22 +43,25 @@ export type ProxyAssistantMessageEvent =
 	| { type: "thinking_end"; contentIndex: number; contentSignature?: string }
 	| { type: "toolcall_start"; contentIndex: number; id: string; toolName: string }
 	| { type: "toolcall_delta"; contentIndex: number; delta: string }
-	| { type: "toolcall_end"; contentIndex: number }
+	| { type: "toolcall_end"; contentIndex: number; toolCall: ToolCall }
 	| {
 			type: "done";
 			reason: Extract<StopReason, "stop" | "length" | "toolUse">;
 			usage: AssistantMessage["usage"];
+			providerThinkingLevel?: string;
 	  }
 	| {
 			type: "error";
 			reason: Extract<StopReason, "aborted" | "error">;
 			errorMessage?: string;
 			usage: AssistantMessage["usage"];
+			providerThinkingLevel?: string;
 	  };
 
 type ProxySerializableStreamOptions = Pick<
 	SimpleStreamOptions,
 	| "temperature"
+	| "samplingParams"
 	| "maxTokens"
 	| "reasoning"
 	| "cacheRetention"
@@ -101,6 +104,7 @@ export interface ProxyStreamOptions extends ProxySerializableStreamOptions {
 function buildProxyRequestOptions(options: ProxyStreamOptions): ProxySerializableStreamOptions {
 	return {
 		temperature: options.temperature,
+		samplingParams: options.samplingParams,
 		maxTokens: options.maxTokens,
 		reasoning: options.reasoning,
 		cacheRetention: options.cacheRetention,
@@ -113,14 +117,18 @@ function buildProxyRequestOptions(options: ProxyStreamOptions): ProxySerializabl
 	};
 }
 
-export function streamProxy(model: Model<any>, context: Context, options: ProxyStreamOptions): ProxyMessageEventStream {
+export function streamProxy(
+	model: Model<any>,
+	context: TranscriptContext,
+	options: ProxyStreamOptions,
+): ProxyMessageEventStream {
 	const stream = new ProxyMessageEventStream();
 
 	(async () => {
 		// Initialize the partial message that we'll build up from events
 		const partial: AssistantMessage = {
 			role: "assistant",
-			stopReason: "stop",
+			stopReason: "pending",
 			content: [],
 			api: model.api,
 			provider: model.provider,
@@ -179,6 +187,19 @@ export function streamProxy(model: Model<any>, context: Context, options: ProxyS
 			reader = response.body!.getReader();
 			const decoder = new TextDecoder();
 			let buffer = "";
+			let sawTerminalEvent = false;
+
+			const processLine = (line: string): void => {
+				if (!line.startsWith("data: ")) return;
+				const data = line.slice(6).trim();
+				if (!data) return;
+				const proxyEvent = JSON.parse(data) as ProxyAssistantMessageEvent;
+				const event = processProxyEvent(proxyEvent, partial);
+				if (event) {
+					if (event.type === "done" || event.type === "error") sawTerminalEvent = true;
+					stream.push(event);
+				}
+			};
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -193,21 +214,32 @@ export function streamProxy(model: Model<any>, context: Context, options: ProxyS
 				buffer = lines.pop() || "";
 
 				for (const line of lines) {
-					if (line.startsWith("data: ")) {
-						const data = line.slice(6).trim();
-						if (data) {
-							const proxyEvent = JSON.parse(data) as ProxyAssistantMessageEvent;
-							const event = processProxyEvent(proxyEvent, partial);
-							if (event) {
-								stream.push(event);
-							}
-						}
-					}
+					processLine(line);
 				}
 			}
 
 			if (options.signal?.aborted) {
 				throw new Error("Request aborted by user");
+			}
+
+			// The final event may not be newline-terminated; flush the decoder and
+			// process whatever is left in the buffer.
+			buffer += decoder.decode();
+			if (buffer) {
+				processLine(buffer);
+			}
+
+			if (!sawTerminalEvent) {
+				// A clean EOF without a done/error event means the server dropped the
+				// response mid-stream. Surface it as an error instead of leaving
+				// consumers waiting on a result that never arrives.
+				partial.stopReason = "error";
+				partial.errorMessage = "Connection closed by proxy server before the response completed";
+				stream.push({
+					type: "error",
+					reason: "error",
+					error: partial,
+				});
 			}
 
 			stream.end();
@@ -336,6 +368,7 @@ function processProxyEvent(
 		case "toolcall_end": {
 			const content = partial.content[proxyEvent.contentIndex];
 			if (content?.type === "toolCall") {
+				Object.assign(content, proxyEvent.toolCall);
 				delete (content as any).partialJson;
 				return {
 					type: "toolcall_end",
@@ -350,12 +383,18 @@ function processProxyEvent(
 		case "done":
 			partial.stopReason = proxyEvent.reason;
 			partial.usage = proxyEvent.usage;
+			if (proxyEvent.providerThinkingLevel !== undefined) {
+				partial.providerThinkingLevel = proxyEvent.providerThinkingLevel;
+			}
 			return { type: "done", reason: proxyEvent.reason, message: partial };
 
 		case "error":
 			partial.stopReason = proxyEvent.reason;
 			partial.errorMessage = proxyEvent.errorMessage;
 			partial.usage = proxyEvent.usage;
+			if (proxyEvent.providerThinkingLevel !== undefined) {
+				partial.providerThinkingLevel = proxyEvent.providerThinkingLevel;
+			}
 			return { type: "error", reason: proxyEvent.reason, error: partial };
 
 		default: {

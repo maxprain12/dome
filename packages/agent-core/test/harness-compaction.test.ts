@@ -164,4 +164,60 @@ describe('durable harness compaction', () => {
     expect(vi.mocked(completeSimple).mock.calls[0][0]).toBe(model);
     expect(vi.mocked(completeSimple).mock.calls[0][2]).toMatchObject({ apiKey: 'original-model-key' });
   });
+
+  it('retries a transient summarizer failure instead of giving up', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await seed(session);
+    vi.mocked(completeSimple)
+      .mockResolvedValueOnce({ ...reply(''), stopReason: 'error', errorMessage: '503 service unavailable' })
+      .mockResolvedValue(reply('durable summary'));
+    await harness(session).prompt('Continue');
+    expect(completeSimple).toHaveBeenCalledTimes(2);
+    expect((await session.getBranch()).filter((entry) => entry.type === 'compaction')).toHaveLength(1);
+  });
+
+  it('refuses to store a summary that was cut off at the output limit', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await seed(session);
+    vi.mocked(completeSimple).mockResolvedValue({ ...reply('half a summ'), stopReason: 'length' });
+    await expect(harness(session).compact()).rejects.toThrow(/cut off/);
+    expect((await session.getBranch()).filter((entry) => entry.type === 'compaction')).toHaveLength(0);
+  });
+
+  it('refuses a summary that is only a tool call', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await seed(session);
+    vi.mocked(completeSimple).mockResolvedValue({ ...reply(''), content: [{ type: 'toolCall', id: 'x', name: 'read', arguments: {} }] });
+    await expect(harness(session).compact()).rejects.toThrow(/tool call/);
+  });
+
+  it('compacts and retries once when the provider rejects the request as too large', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await seed(session);
+    let call = 0;
+    vi.mocked(streamSimple).mockImplementation(() => {
+      call += 1;
+      if (call === 1) {
+        const failed = { ...reply(''), content: [], stopReason: 'error', errorMessage: 'prompt is too long: 250000 tokens > 200000 maximum' } as AssistantMessage;
+        return {
+          async *[Symbol.asyncIterator]() { yield { type: 'start', partial: failed }; yield { type: 'error', reason: 'error', error: failed }; },
+          result: async () => failed,
+        } as ReturnType<typeof streamSimple>;
+      }
+      const message = reply('after recovery', 200);
+      return {
+        async *[Symbol.asyncIterator]() { yield { type: 'start', partial: message }; yield { type: 'done', message }; },
+        result: async () => message,
+      } as ReturnType<typeof streamSimple>;
+    });
+    // Small enough that proactive compaction does not fire, so only the provider's rejection triggers it.
+    vi.mocked(completeSimple).mockResolvedValue(reply('durable summary'));
+    const agent = new AgentHarness({ env, session, model: { ...model, contextWindow: 10_000_000 }, autoCompaction: true });
+    const result = await agent.prompt('Continue');
+    expect(call).toBe(2);
+    expect(JSON.stringify(result.content)).toContain('after recovery');
+    const sent = vi.mocked(streamSimple).mock.calls[1][1].messages;
+    expect(JSON.stringify(sent)).toContain('durable summary');
+    expect(JSON.stringify(sent)).not.toContain('old history');
+  });
 });

@@ -323,12 +323,12 @@ describe('agent loop: hooks', () => {
     expect(result.content[0].text).toBe('rewritten');
   });
 
-  it('shouldStopAfterTurn stops the loop even when tool calls remain', async () => {
+  it('finishTurn ends the loop even when tool calls remain', async () => {
     const streamFn = scriptedStreamFn([
       assistantToolCall([{ id: 't1', name: 'echo', arguments: { value: 'x' } }]),
       assistantText('should never be requested'),
     ]);
-    const config = makeConfig(streamFn, { shouldStopAfterTurn: async () => true });
+    const config = makeConfig(streamFn, { finishTurn: async () => ({ action: 'end' }) });
     await run([userMsg('go')], makeContext([echoTool()]), config, streamFn);
     expect(streamFn.callCount()).toBe(1);
   });

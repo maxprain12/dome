@@ -2,6 +2,7 @@
 export * from "./agent.js";
 // Loop functions
 export * from "./agent-loop.js";
+export { getDefaultStreamFn, setDefaultStreamFn } from "./stream-fn.js";
 export * from "./harness/agent-harness.js";
 export {
 	type BranchPreparation,
