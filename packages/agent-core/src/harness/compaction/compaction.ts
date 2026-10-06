@@ -266,6 +266,11 @@ export function estimateTokens(message: AgentMessage): number {
 			}
 			return Math.ceil(chars / 4);
 		}
+		case "system": {
+			const system = message as { content: string | Array<{ type: string; text?: string }>; toolsAdded?: unknown[] };
+			chars = estimateTextAndImageContentChars(system.content) + (system.toolsAdded ? safeJsonStringify(system.toolsAdded).length : 0);
+			return Math.ceil(chars / 4);
+		}
 		case "custom":
 		case "toolResult": {
 			chars = estimateTextAndImageContentChars(message.content);

@@ -1,5 +1,4 @@
-// Ported from pi (packages/agent/test). Tests marked `it.skip` assert that tool loadouts are declared in the
-// transcript as system messages; Dome keeps the system prompt and tools on the context for now (see UPSTREAM.md).
+// Ported from pi (packages/agent/test); the Agent class runs the loop in transcript mode.
 import {
 	type AssistantMessage,
 	type AssistantMessageEvent,
@@ -177,7 +176,7 @@ describe("Agent", () => {
 		expect(initial.toolsAdded?.map((value) => value.name)).toEqual(["echo"]);
 	});
 
-	it.skip("declares tool loadout changes to the model before the next request", async () => {
+	it("declares tool loadout changes to the model before the next request", async () => {
 		const first = createTool("first");
 		const second = createTool("second");
 		const requests: string[][] = [];
@@ -225,7 +224,7 @@ describe("Agent", () => {
 		expect(initial.toolsAdded?.[0]).not.toHaveProperty("execute");
 	});
 
-	it.skip("merges tool changes into a pending system message", async () => {
+	it("merges tool changes into a pending system message", async () => {
 		const tool: AgentTool = {
 			name: "echo",
 			label: "Echo",
@@ -260,7 +259,7 @@ describe("Agent", () => {
 		});
 	});
 
-	it.skip("rewrites pending tool declarations to match the executable set", async () => {
+	it("rewrites pending tool declarations to match the executable set", async () => {
 		const agent = new Agent({
 			initialState: { systemPrompt: "You are helpful.", tools: [createTool("first")] },
 			streamFn: () => {

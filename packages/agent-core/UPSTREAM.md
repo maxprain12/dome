@@ -9,7 +9,7 @@ Dome's agent runtime is a vendored and extended copy of pi's `packages/agent`.
 
 ## Dome adaptations
 
-- **System prompt on the context.** pi carries the system prompt and tool declarations inside the transcript (`declareToolChanges`). Dome keeps `AgentContext.systemPrompt` and folds it and the tools into the leading system message of every request with `normalizeContext`. Moving to the transcript form is a later step (it changes the session JSONL); the six `it.skip` tests in `test/pi-*.test.ts` describe it.
+- **System prompt and tools, two modes.** pi carries them inside the transcript (`declareToolChanges`); Dome's other surfaces keep `AgentContext.systemPrompt` and fold it and the tools into the leading system message of every request. The loop supports both: `AgentLoopConfig.transcriptSystem` selects pi's form, and `AgentHarnessOptions.transcriptSystem` records the prompt and tools once in a new session (a session that already has messages and no leading system message keeps the old way; compaction puts the system messages back in front). Manys use the transcript form; the Electron agents have not moved yet because it changes their JSONL sessions. pi's Agent and loop suites run in transcript mode with nothing skipped.
 - **MiniMax tool calls.** Calls with an empty name are dropped (`sanitizeAssistantToolCalls`) and the stop reason is fixed up.
 - **Interrupts.** `isAgentInterrupt` errors thrown by a tool (human-in-the-loop approval) abort the loop instead of becoming an error result.
 - **`shouldStopAfterTurn`.** pi removed it; the harness keeps the option and adapts it to `finishTurn` (skipped for error/aborted turns).
@@ -20,6 +20,8 @@ Dome's agent runtime is a vendored and extended copy of pi's `packages/agent`.
 - `estimateContextTokens(messages, overhead?)` follows pi's rules (usage that predates a newer prefix message is discarded, zero-usage responses are ignored) and counts the system prompt and tool declarations when no usage exists yet.
 - Summarization retries transient provider errors, never stores a summary cut off at the output limit, and runs split-turn summaries one after the other.
 - With `autoCompaction`, a provider rejection for context size compacts the session and retries the request once (`harness/utils/overflow-recovery.ts`).
+
+- **Compaction budget.** `AgentHarnessOptions.compaction` (`thresholdTokens`, `keepRecentTokens`, `reserveTokens`) lets a host with a request budget smaller than the model window compact earlier; Manys summarize in the `session_before_compact` hook so the summary is reserved and settled like any model call.
 
 ## Tests
 

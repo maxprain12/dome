@@ -481,6 +481,8 @@ export class Agent {
 			afterToolCall: this.afterToolCall,
 			finishTurn: this.finishTurn,
 			prepareRequest: this.prepareRequest,
+			// pi's Agent keeps the system prompt and tool declarations in its transcript.
+			transcriptSystem: true,
 			prepareNextTurn:
 				this.prepareNextTurnWithContext || this.prepareNextTurn
 					? async (context) => {

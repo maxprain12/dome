@@ -1,5 +1,4 @@
-// Ported from pi (packages/agent/test). Tests marked `it.skip` assert that tool loadouts are declared in the
-// transcript as system messages; Dome keeps the system prompt and tools on the context for now (see UPSTREAM.md).
+// Ported from pi (packages/agent/test), run in pi's transcript mode (`transcriptSystem: true`).
 import {
 	type AssistantMessage,
 	type AssistantMessageEvent,
@@ -110,7 +109,7 @@ describe("default stream function compatibility", () => {
 
 		try {
 			const context: AgentContext = { messages: [], tools: [] };
-			const config: AgentLoopConfig = { model: createModel(), convertToLlm: identityConverter };
+			const config: AgentLoopConfig = { model: createModel(), transcriptSystem: true, convertToLlm: identityConverter };
 			const stream = Reflect.apply(agentLoop, undefined, [
 				[createUserMessage("Hello")],
 				context,
@@ -137,7 +136,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		const streamFn = () => {
@@ -186,7 +185,7 @@ describe("agentLoop with AgentMessage", () => {
 		};
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 		const stream = agentLoop(
 			[initialSystem, createUserMessage("Hello")],
@@ -236,6 +235,7 @@ describe("agentLoop with AgentMessage", () => {
 		let convertedMessages: Message[] = [];
 		const config: AgentLoopConfig = {
 			model: createModel(),
+			transcriptSystem: true,
 			convertToLlm: (messages) => {
 				// Filter out notifications, convert rest
 				convertedMessages = messages
@@ -289,6 +289,7 @@ describe("agentLoop with AgentMessage", () => {
 				transformedMessages = messages.slice(-2);
 				return transformedMessages;
 			},
+			transcriptSystem: true,
 			convertToLlm: (messages) => {
 				convertedMessages = messages.filter(
 					(m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult",
@@ -362,7 +363,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			afterToolCall: async ({ result }) => {
 				observedToolUsage = result.usage;
 				return { usage: patchedToolUsage };
@@ -438,7 +439,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		let callIndex = 0;
@@ -512,7 +513,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			beforeToolCall: async ({ args }) => {
 				const mutableArgs = args as { value: string | number };
 				mutableArgs.value = 123;
@@ -589,7 +590,7 @@ describe("agentLoop with AgentMessage", () => {
 		const userPrompt: AgentMessage = createUserMessage("edit something");
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		let callIndex = 0;
@@ -663,7 +664,7 @@ describe("agentLoop with AgentMessage", () => {
 		const userPrompt: AgentMessage = createUserMessage("echo both");
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			toolExecution: "parallel",
 		};
 
@@ -751,7 +752,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			toolExecution: "sequential",
 			getSteeringMessages: async () => {
 				// Return steering message after tool execution has started.
@@ -864,7 +865,7 @@ describe("agentLoop with AgentMessage", () => {
 		// config is parallel (default), but tool forces sequential
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		let callIndex = 0;
@@ -956,7 +957,7 @@ describe("agentLoop with AgentMessage", () => {
 		const userPrompt: AgentMessage = createUserMessage("run both");
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			// parallel by default, but slowTool forces sequential
 		};
 
@@ -1031,7 +1032,7 @@ describe("agentLoop with AgentMessage", () => {
 		const userPrompt: AgentMessage = createUserMessage("echo both");
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		let callIndex = 0;
@@ -1084,7 +1085,7 @@ describe("agentLoop with AgentMessage", () => {
 		const ordering: string[] = [];
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			finishTurn: ({ context, toolResults }) => {
 				ordering.push("finishTurn");
 				expect(toolResults).toHaveLength(1);
@@ -1132,7 +1133,7 @@ describe("agentLoop with AgentMessage", () => {
 				{ messages: [], tools: [] },
 				{
 					model: createModel(),
-					convertToLlm: identityConverter,
+					transcriptSystem: true, convertToLlm: identityConverter,
 					finishTurn: ({ message }) => {
 						expect(message.stopReason).toBe(reason);
 						ordering.push("finishTurn");
@@ -1192,7 +1193,7 @@ describe("agentLoop with AgentMessage", () => {
 		let prepareNextTurnCalls = 0;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			finishTurn: () => ({ action: "end" }),
 			prepareNextTurn: () => {
 				prepareNextTurnCalls++;
@@ -1239,7 +1240,7 @@ describe("agentLoop with AgentMessage", () => {
 			{ messages: [], tools: [] },
 			{
 				model: createModel(),
-				convertToLlm: identityConverter,
+				transcriptSystem: true, convertToLlm: identityConverter,
 				finishTurn: () => {
 					finishCalls++;
 					return finishCalls === 1 ? { action: "continue" } : undefined;
@@ -1280,7 +1281,7 @@ describe("agentLoop with AgentMessage", () => {
 		let finishCalls = 0;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			finishTurn: () => {
 				finishCalls++;
 				return finishCalls === 1 ? { action: "continue" } : undefined;
@@ -1314,7 +1315,7 @@ describe("agentLoop with AgentMessage", () => {
 		const secondRequestUsers: string[] = [];
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			finishTurn: () => {
 				finishCalls++;
 				return finishCalls === 1 ? { action: "continue" } : undefined;
@@ -1371,7 +1372,7 @@ describe("agentLoop with AgentMessage", () => {
 		let prepareCalls = 0;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			getSteeringMessages: async () => {
 				if (steeringDelivered) return [];
 				steeringDelivered = true;
@@ -1424,7 +1425,7 @@ describe("agentLoop with AgentMessage", () => {
 		let steeringPolls = 0;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			getSteeringMessages: async () => {
 				steeringPolls++;
 				return queued.splice(0);
@@ -1484,7 +1485,7 @@ describe("agentLoop with AgentMessage", () => {
 		let prepared = false;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			prepareNextTurn: async ({ context: currentContext }) => {
 				prepareCalls++;
 				if (prepared) return undefined;
@@ -1555,7 +1556,7 @@ describe("agentLoop with AgentMessage", () => {
 		let secondRequestIncludedSteering = false;
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			prepareNextTurn: () => {
 				queued.push(lateSteering);
 				return undefined;
@@ -1591,7 +1592,7 @@ describe("agentLoop with AgentMessage", () => {
 		expect(secondRequestIncludedSteering).toBe(true);
 	});
 
-	it.skip("action:end receives finalized turn context and stops before queue polling", async () => {
+	it("action:end receives finalized turn context and stops before queue polling", async () => {
 		const toolSchema = Type.Object({ value: Type.String() });
 		const executed: string[] = [];
 		const tool: AgentTool<typeof toolSchema, { value: string }> = {
@@ -1619,7 +1620,7 @@ describe("agentLoop with AgentMessage", () => {
 		let callbackContextRoles: string[] = [];
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			finishTurn: async ({ message, toolResults, context }) => {
 				expect(message.role).toBe("assistant");
 				callbackToolResultIds = toolResults.map((toolResult) => toolResult.toolCallId);
@@ -1690,7 +1691,7 @@ describe("agentLoop with AgentMessage", () => {
 		]);
 	});
 
-	it.skip("should stop after a tool batch when every tool result sets terminate=true", async () => {
+	it("should stop after a tool batch when every tool result sets terminate=true", async () => {
 		const toolSchema = Type.Object({ value: Type.String() });
 		const tool: AgentTool<typeof toolSchema, { value: string }> = {
 			name: "echo",
@@ -1713,7 +1714,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		let llmCalls = 0;
@@ -1763,7 +1764,7 @@ describe("agentLoop with AgentMessage", () => {
 		};
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			beforeToolCall: async () => ({ block: true, reason: "Blocked by policy", terminate: true }),
 		};
 
@@ -1821,7 +1822,7 @@ describe("agentLoop with AgentMessage", () => {
 		};
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			toolExecution: "parallel",
 			beforeToolCall: async ({ args }) => {
 				const { value } = args as { value: string };
@@ -1857,7 +1858,7 @@ describe("agentLoop with AgentMessage", () => {
 		expect(llmCalls).toBe(2);
 	});
 
-	it.skip("should continue after parallel tool calls when not all tool results terminate", async () => {
+	it("should continue after parallel tool calls when not all tool results terminate", async () => {
 		const toolSchema = Type.Object({ value: Type.String() });
 		const tool: AgentTool<typeof toolSchema, { value: string }> = {
 			name: "echo",
@@ -1880,7 +1881,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			toolExecution: "parallel",
 		};
 
@@ -1944,7 +1945,7 @@ describe("agentLoop with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 			afterToolCall: async () => ({ terminate: true }),
 		};
 
@@ -1979,7 +1980,7 @@ describe("agentLoopContinue with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		expect(() =>
@@ -1999,7 +2000,7 @@ describe("agentLoopContinue with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
-			convertToLlm: identityConverter,
+			transcriptSystem: true, convertToLlm: identityConverter,
 		};
 
 		const streamFn = () => {
@@ -2051,6 +2052,7 @@ describe("agentLoopContinue with AgentMessage", () => {
 
 		const config: AgentLoopConfig = {
 			model: createModel(),
+			transcriptSystem: true,
 			convertToLlm: (messages) => {
 				// Convert custom to user message
 				return messages

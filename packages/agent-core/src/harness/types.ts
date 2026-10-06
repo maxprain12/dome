@@ -835,6 +835,13 @@ export interface AgentHarnessOptions<
 	 * with a smaller request budget than the model's window (a metered worker) compact before it hits it.
 	 */
 	compaction?: { thresholdTokens?: number; reserveTokens?: number; keepRecentTokens?: number };
+	/**
+	 * Keep the system prompt and the tool declarations in the session as system messages (pi's transcript design)
+	 * instead of rebuilding them for every request. A new session starts with them; a session that already has
+	 * messages and no leading system message keeps running the old way. The prompt is fixed for the life of the
+	 * session, and a change to the active tools is recorded as a delta.
+	 */
+	transcriptSystem?: boolean;
 	model: Model<any>;
 	/** Shared provider collection owned by the application profile. */
 	models?: import("@dome/ai").Models;

@@ -307,6 +307,9 @@ test('a long task is summarized before it outgrows a request, and the summary is
     assert.equal(reserved,requests.length);
     assert.equal(calls.at(-1),'finish_task');
     const last=requests.at(-1);assert.ok(JSON.stringify(last.messages).includes('Read the notes'),'the summary replaced the old turns');
+    // The prompt and the tools are not history: they survive the summary.
+    assert.equal(last.messages[0].role,'system');assert.ok(JSON.stringify(last.messages[0]).includes('persistent Many collaborator'));
+    assert.ok(Array.isArray(last.tools)&&last.tools.length>20,'the tools are still declared');
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
 
