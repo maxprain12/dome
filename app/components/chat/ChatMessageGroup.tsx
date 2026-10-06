@@ -2,7 +2,8 @@
 import { memo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { UserIcon } from '@hugeicons/core-free-icons';
-import ChatMessage, { type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
+import ChatMessage, { type ChatSurfaceVariant } from './ChatMessage';
+import type { ChatMessageData } from '@/lib/chat/types';
 import ManyAvatar, { type ManyAvatarState } from '@/components/many/ManyAvatar';
 import { Message, MessageAvatar, MessageContent, MessageGroup } from '@/components/ui/message';
 import { cn } from '@/lib/utils';

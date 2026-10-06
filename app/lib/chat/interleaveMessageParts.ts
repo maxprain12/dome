@@ -1,4 +1,4 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import type { ToolLabelT } from '@/lib/chat/toolCatalog';
 

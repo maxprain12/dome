@@ -1,4 +1,4 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { getSubagentDisplayLabel, type ToolLabelT } from '@/lib/chat/toolCatalog';
 

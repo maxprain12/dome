@@ -1,5 +1,5 @@
 import type { BudgetBreakdown } from '@/lib/chat/contextUsage';
-import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ChatMessageData } from '@/lib/chat/types';
 
 function approxTokens(chars: number): number {
   if (!Number.isFinite(chars) || chars <= 0) return 0;

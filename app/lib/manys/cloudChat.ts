@@ -1,4 +1,4 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ManyMessageData } from '@/lib/many/types';
 import type { ManyDetail, Task } from './api';

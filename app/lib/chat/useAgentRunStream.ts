@@ -11,8 +11,8 @@
 
 import { useEffect } from 'react';
 import type { TFunction } from 'i18next';
-import type { ChatMessageData } from '@/components/chat/ChatMessage';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ChatMessageData } from '@/lib/chat/types';
+import type { ToolCallData } from '@/lib/chat/types';
 import type { BudgetBreakdown } from '@/lib/chat/contextUsage';
 import {
   getRun,

@@ -1,4 +1,4 @@
-import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ChatMessageData } from '@/lib/chat/types';
 
 /** Many renders the canonical conversation presentation model. */
 export type ManyMessageData = ChatMessageData;

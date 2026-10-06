@@ -9,7 +9,8 @@ import {
   Copy01Icon,
   RefreshIcon,
 } from '@hugeicons/core-free-icons';
-import ChatToolCard, { ChatToolCardGroup, SubagentToolSection, type ToolCallData } from './ChatToolCard';
+import ChatToolCard, { ChatToolCardGroup, SubagentToolSection } from './ChatToolCard';
+import type { ChatMessageData } from '@/lib/chat/types';
 import { ChatStateMarker } from './ChatStateMarker';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
@@ -31,55 +32,21 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { MessageFooter } from '@/components/ui/message';
 import { cn } from '@/lib/utils';
-import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
+import { extractCitationNumbers } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
-import type { PdfRegionMeta } from '@/lib/store/useManyStore';
 import { stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
-import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
-import type { PersistentRunStep } from '@/lib/automations/api';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 /**
  * ChatMessage - Individual message with actions
  * Supports markdown rendering, copy, tool cards, and inline citations
  */
-
-export interface ChatMessageData {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  isStreaming?: boolean;
-  toolCalls?: ToolCallData[];
-  citationMap?: Map<number, ParsedCitation>;
-  /** Reasoning/chain-of-thought from models (qwen3, etc.) */
-  thinking?: string;
-  /** Custom label for streaming placeholder (e.g. "Ejecutando herramientas...") */
-  streamingLabel?: string;
-  /** Optional label for multi-agent chats or system phases */
-  agentLabel?: string;
-  /** PDF region (cloud vision) — show handoff actions */
-  pdfRegionMeta?: PdfRegionMeta;
-  /** Structured image attachments for resolving dome-att:// placeholders */
-  attachments?: StructuredMessageAttachments;
-  /** Pins that rode with this user turn (Many transcript chips). */
-  pinnedResources?: Array<{
-    id: string;
-    title: string;
-    type: string;
-    kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
-  }>;
-  /** Skills invoked with this user turn (shown as chips, not raw /tokens). */
-  skills?: Array<{ id: string; name: string }>;
-  /** Structured run steps streamed from the agent runtime / run engine. */
-  runSteps?: PersistentRunStep[];
-}
 
 function toolBlockKey(block: ToolDisplayBlock, idx: number): string {
   if (block.type === 'tool') return block.call.id;

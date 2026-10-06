@@ -13,7 +13,7 @@
  * language at the message/session layer.
  */
 
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 
 export interface ChatMessageBase {
   id: string;

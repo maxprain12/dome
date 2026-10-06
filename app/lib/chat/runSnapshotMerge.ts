@@ -33,7 +33,7 @@
  * Kept as a pure function (no React, no i18n, no DOM) so it is unit-testable under
  * the repo's existing `tsx --test` / `node:test` runners without a renderer harness.
  */
-import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ChatMessageData } from '@/lib/chat/types';
 
 export interface RunSnapshotAuthoritative {
   /** Fallback id when there is no previous streaming message yet. */

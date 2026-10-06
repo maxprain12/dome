@@ -1,4 +1,4 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { truncateToolResultForRenderer } from '@/lib/chat/truncateToolResult';
 
 function stableArgsKey(args: Record<string, unknown>): string {

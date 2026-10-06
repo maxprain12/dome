@@ -3,7 +3,7 @@ import type { MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CompactionNoticeData, ManyMessageData } from '@/lib/many/types';
 import type { BudgetBreakdown, LiveTokenUsage } from '@/lib/chat/contextUsage';
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { ToolCallData } from '@/lib/chat/types';
 import { useManyStore, type ManyMessage, type ManyStatus } from '@/lib/store/useManyStore';
 import { estimateLiveBudget } from '@/lib/chat/estimateLiveBudget';
 import { groupMessagesByRole, withLiveStreamingMessage } from '@/lib/chat/groupMessagesByRole';
