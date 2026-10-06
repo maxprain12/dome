@@ -82,6 +82,9 @@ export async function run(input: RuntimeInput): Promise<void> {
     env: new NodeExecutionEnv({ cwd }), session, tools, model, thinkingLevel,
     // A long task is summarized before it outgrows one request, instead of failing with request_context_limit.
     // The summary is a model call like any other, so it is made in the hook below, where it is reserved and settled.
+    // The prompt and the tool declarations are recorded once, in the session, as system messages: a resumed task
+    // replays the very same prefix instead of rebuilding it, and a task that began before this keeps running as it was.
+    transcriptSystem: true,
     autoCompaction: true,
     compaction: { thresholdTokens: input.compactAtTokens ?? DEFAULT_COMPACT_AT_TOKENS, keepRecentTokens: 6000, reserveTokens: 4000 },
     shouldStopAfterTurn: ({ newMessages }) => newMessages.filter((message) => message.role === 'assistant').length >= MAX_TURNS,

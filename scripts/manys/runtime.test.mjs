@@ -331,3 +331,31 @@ test('proposing a note ends the turn, like any other proposal waiting for the pe
     assert.deepEqual(calls,['vault_create']);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('the prompt and the tools are recorded once in the session and replayed, not rebuilt, when a task resumes',async()=>{
+  const requests=[];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const send=payload=>res.write(`data: ${JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model:'test-model',...payload})}\n\n`);
+    send({choices:[{index:0,delta:{role:'assistant',content:'ok'},finish_reason:null}]});
+    send({choices:[{index:0,delta:{},finish_reason:'stop'}]});
+    send({choices:[],usage:{prompt_tokens:25,completion_tokens:2,total_tokens:27}});res.end('data: [DONE]\n\n');
+  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;const saved=[];
+  const input=entries=>({taskId:'task-transcript',prompt:'go',instructions:'',entries,resumeContext:{},model:'test-model',provider:'openrouter',apiKey:'test',baseUrl:`http://127.0.0.1:${port}/v1`,signal:new AbortController().signal,
+    saveEntry:async entry=>{saved.push(structuredClone(entry));},beforeRequest:async()=>{},usage:async()=>{},call:async()=>({ok:true})});
+  try {
+    await run(input([]));
+    const systems=saved.filter(entry=>entry.type==='message'&&entry.message.role==='system');
+    assert.equal(systems.length,1,'one system message was saved with the session');
+    assert.ok(JSON.stringify(systems[0]).includes('persistent Many collaborator'));
+    assert.ok(Array.isArray(systems[0].message.toolsAdded)&&systems[0].message.toolsAdded.length>20,'the tool declarations travel with it');
+    // Resuming: the saved entries come back, and nothing declares the same tools again.
+    const before=saved.length;
+    await run(input(structuredClone(saved)));
+    const again=saved.slice(before).filter(entry=>entry.type==='message'&&entry.message.role==='system');
+    assert.equal(again.length,0,'a resumed task does not repeat the system message');
+    assert.equal(requests.at(-1).messages.filter(message=>message.role==='system').length,1);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
