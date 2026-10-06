@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
+import { getManysTransport } from './transport';
 
 /** One event of the feed, as the main process relays it. */
 export interface ManyEvent {
@@ -130,23 +131,12 @@ export const useLiveRuns = create<LiveState>((set) => ({
   reset: () => set({ runs: {}, lastSequence: 0 }),
 }));
 
-type Bridge = { invoke: (channel: string, ...args: unknown[]) => Promise<unknown>; on: (channel: string, callback: (event: ManyEvent) => void) => () => void };
-
 /** Subscribes this window to the live feed while it is mounted. `onEvent` runs for every event. */
 export function useManyEvents(onEvent?: (event: ManyEvent) => void): void {
   const callback = useRef(onEvent);
   callback.current = onEvent;
-  useEffect(() => {
-    const bridge = (window as { electron?: Bridge }).electron;
-    if (!bridge) return undefined;
-    const unsubscribe = bridge.on('manys:events:event', (event: ManyEvent) => {
-      useLiveRuns.getState().apply(event);
-      callback.current?.(event);
-    });
-    void bridge.invoke('manys:events:subscribe');
-    return () => {
-      unsubscribe();
-      void bridge.invoke('manys:events:unsubscribe');
-    };
-  }, []);
+  useEffect(() => getManysTransport().subscribeEvents((event) => {
+    useLiveRuns.getState().apply(event);
+    callback.current?.(event);
+  }), []);
 }
