@@ -23,23 +23,11 @@ import {
   InputGroupTextarea,
 } from '@/components/ui/input-group';
 import { cn } from '@/lib/utils';
-import { PinnedResourceChipList, ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 
 export interface ManyComposerImage {
   id: string;
   name: string;
   dataUrl: string;
-}
-
-export interface ManyComposerPin {
-  id: string;
-  title: string;
-  type?: string;
-}
-
-export interface ManyComposerSkill {
-  id: string;
-  title: string;
 }
 
 interface ManyComposerSurfaceProps {
@@ -50,11 +38,11 @@ interface ManyComposerSurfaceProps {
   /** Without it the composer takes no attachments: no button, no paste, no drop. */
   onFiles?: (files: File[]) => void;
   onRemoveImage?: (id: string) => void;
-  onRemovePin?: (id: string) => void;
-  onRemoveSkill?: (id: string) => void;
   images?: ManyComposerImage[];
-  pins?: ManyComposerPin[];
-  skills?: ManyComposerSkill[];
+  /** Chips above the text (pinned resources, skills): the host draws them, since what they open is the host's. */
+  chips?: ReactNode;
+  /** The chips count as something to send, so the person can send them without typing. */
+  hasChips?: boolean;
   placeholder: string;
   sendLabel: string;
   stopLabel: string;
@@ -94,11 +82,9 @@ export default function ManyComposerSurface({
   onStop,
   onFiles,
   onRemoveImage,
-  onRemovePin,
-  onRemoveSkill,
   images = [],
-  pins = [],
-  skills = [],
+  chips,
+  hasChips = false,
   placeholder,
   sendLabel,
   stopLabel,
@@ -121,7 +107,7 @@ export default function ManyComposerSurface({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const canSend =
-    !disabled && Boolean(value.trim() || images.length > 0 || pins.length > 0 || skills.length > 0);
+    !disabled && Boolean(value.trim() || images.length > 0 || hasChips);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (onInputKeyDown?.(event)) return;
@@ -176,24 +162,13 @@ export default function ManyComposerSurface({
           islandClassName,
         )}
       >
-        {pins.length > 0 || images.length > 0 || skills.length > 0 ? (
+        {hasChips || images.length > 0 ? (
           <InputGroupAddon
             align="block-start"
             className="min-w-0 overflow-hidden px-0 pt-0"
           >
             <div className="flex min-w-0 w-full flex-col gap-y-2 px-2.5 pt-2">
-              <PinnedResourceChipList
-                resources={pins.map((pin) => ({
-                  id: pin.id,
-                  title: pin.title,
-                  type: pin.type || 'resource',
-                }))}
-                onRemove={onRemovePin ?? (() => undefined)}
-              />
-              <ManySkillChipList
-                skills={skills.map((skill) => ({ id: skill.id, name: skill.title }))}
-                onRemove={onRemoveSkill}
-              />
+              {chips}
               {images.length > 0 ? (
                 <div className="flex min-w-0 flex-wrap gap-1.5">
                   {images.map((image) => (

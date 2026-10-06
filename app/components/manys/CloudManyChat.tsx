@@ -7,12 +7,16 @@ import { ChatSuggestionPills } from '@/components/chat/ChatSuggestionPills';
 import ManyAvatar from '@/components/many/ManyAvatar';
 import ManyComposerSurface from '@/components/many/composer/ManyComposerSurface';
 import ManyConversation, { type ManyConversationHandle } from '@/components/many/conversation/ManyConversation';
+import type { ManyMessageRenderer } from '@/lib/many/types';
 import type { Action, ManyDetail, Task } from '@/lib/manys/api';
 import { buildCloudGroups } from '@/lib/manys/cloudChat';
 import type { LiveRuns } from '@/lib/manys/liveRuns';
+import CloudMessageView from './CloudMessageView';
 import ManyReview from './ManyReview';
 import ManyAccessRequest from './ManyAccessRequest';
 import type { CredentialInput } from './ManyCredentialForm';
+
+const renderCloudMessage: ManyMessageRenderer = (props) => <CloudMessageView {...props} />;
 
 interface Props {
   detail: ManyDetail;
@@ -45,8 +49,8 @@ interface Props {
 }
 
 /**
- * The cloud Many's conversation, drawn with the local Many's own components so the two read alike:
- * the same turns, tool trace, error notice and composer. What the cloud adds (a decision waiting for the
+ * The cloud Many's conversation, drawn with the local Many's own flow so the two read alike: the
+ * same turns, tool trace, error notice and composer, with messages drawn by a view that needs nothing from the desktop. What the cloud adds (a decision waiting for the
  * person, a pause) sits inside the same flow.
  */
 export default function CloudManyChat({
@@ -80,15 +84,13 @@ export default function CloudManyChat({
         isStreaming={working}
         isEmpty={empty}
         messageGroups={groups}
+        renderMessage={renderCloudMessage}
         lastUserGroupIndex={lastUserGroupIndex}
         isLoading={working}
         loadingHint={doing || undefined}
         hasStreamingMessage={hasStreamingMessage}
-        onRegenerate={() => undefined}
         error={failure}
         onRetryError={onRetry}
-        supportsTools
-        onPrompt={onDraft}
         welcome={(
           <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
             <ManyAvatar size="lg" state="idle" />

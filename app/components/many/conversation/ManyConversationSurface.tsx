@@ -29,7 +29,8 @@ import {
 } from '@/components/ui/message-scroller';
 import { Spinner } from '@/components/ui/spinner';
 import ManyAvatar from '@/components/many/ManyAvatar';
-import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
+import ManyActivityTrace, { ManyActivityBlocks, type ActivityUrlOpener } from '@/components/many/conversation/ManyActivityTrace';
+import { openUrlInDome } from '@/lib/links/openDomeHref';
 import { ManyReferenceCards } from '@/components/many/conversation/ManyVisualCards';
 import { ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 import {
@@ -130,11 +131,12 @@ function resolveTraceCopy(
   });
 }
 
-function defaultLinkMode(): 'ipc' | 'anchor' {
+/** Inside the desktop links go through its router; anywhere else they stay plain anchors. */
+function defaultUrlOpener(): ActivityUrlOpener | undefined {
   const host = globalThis as {
     window?: { electron?: { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> } };
   };
-  return typeof host.window?.electron?.invoke === 'function' ? 'ipc' : 'anchor';
+  return typeof host.window?.electron?.invoke === 'function' ? openUrlInDome : undefined;
 }
 
 function SurfaceUserTurn({
@@ -189,13 +191,13 @@ function SurfaceAssistantActivity({
   copy,
   reasoningLabel,
   renderAssistant,
-  linkMode,
+  onOpenUrl,
 }: {
   message: ManyConversationSurfaceMessage;
   copy: ActivityTraceCopy;
   reasoningLabel: string;
   renderAssistant?: (message: ManyConversationSurfaceMessage) => ReactNode;
-  linkMode: 'ipc' | 'anchor';
+  onOpenUrl?: ActivityUrlOpener;
 }) {
   const { t } = useTranslation();
   const live = Boolean(message.isStreaming && !message.text);
@@ -212,7 +214,7 @@ function SurfaceAssistantActivity({
           copy={copy}
           title={live ? reasoningLabel : copy.reasoningDone}
           reasoning={message.reasoning}
-          linkMode={linkMode}
+          onOpenUrl={onOpenUrl}
         />
       ) : null}
       {segments.length > 0 ? (
@@ -220,7 +222,7 @@ function SurfaceAssistantActivity({
           segments={segments}
           copy={copy}
           toolLabelT={t}
-          linkMode={linkMode}
+          onOpenUrl={onOpenUrl}
           renderToolDetail={(call) => <SurfaceToolDetail call={call} />}
         />
       ) : null}
@@ -269,7 +271,7 @@ export default function ManyConversationSurface({
 }: ManyConversationSurfaceProps) {
   const { t } = useTranslation();
   const copy = useMemo(() => resolveTraceCopy(t, traceCopy), [t, traceCopy]);
-  const linkMode = defaultLinkMode();
+  const onOpenUrl = defaultUrlOpener();
   return (
     <MessageScrollerProvider key={threadId} autoScroll defaultScrollPosition="end">
       <MessageScroller className={cn('min-h-0 flex-1', className)} data-surface="many">
@@ -320,7 +322,7 @@ export default function ManyConversationSurface({
                               copy={copy}
                               reasoningLabel={reasoningLabel}
                               renderAssistant={renderAssistant}
-                              linkMode={linkMode}
+                              onOpenUrl={onOpenUrl}
                             />
                           )}
                         </MessageContent>

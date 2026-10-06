@@ -9,6 +9,7 @@ import {
 import { ChatToolResultBody, SubagentToolSection } from '@/components/chat/ChatToolCard';
 import ChatTodoList from '@/components/chat/ChatTodoList';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import { openUrlInDome } from '@/lib/links/openDomeHref';
 import SourceReference from '@/components/chat/SourceReference';
 import ManyActionSuggestion from '@/components/many/conversation/ManyActionSuggestion';
 import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
@@ -361,7 +362,7 @@ function AssistantMessageParts({
               blocks={part.blocks}
               copy={copy}
               toolLabelT={toolLabelT}
-              linkMode="ipc"
+              onOpenUrl={openUrlInDome}
               renderToolDetail={(call) => <ChatToolResultBody toolCall={call} />}
               renderTodos={(call) => {
                 const todos = parseTodos(call.arguments);

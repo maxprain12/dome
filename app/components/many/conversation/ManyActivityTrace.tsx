@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   ArrowRight01Icon,
@@ -35,9 +35,9 @@ import {
   type ActivityToolStatus,
 } from '@/lib/chat/manyActivityTrace';
 import { cn } from '@/lib/utils';
-import { openDomeHref } from '@/lib/links/openDomeHref';
 
-export type ActivityLinkMode = 'ipc' | 'anchor';
+/** Opens a link of the trace. Without one a link is a plain anchor that opens in a new browser tab. */
+export type ActivityUrlOpener = (url: string) => void;
 
 const TRACE_DURATION = 'duration-[var(--duration-ui)] ease-[var(--ease-out)] motion-reduce:transition-none';
 
@@ -56,12 +56,6 @@ function kindIcon(kind: ActivityTraceKind) {
       return exhaustive;
     }
   }
-}
-
-function openActivityUrl(url: string, mode: ActivityLinkMode, event: MouseEvent<HTMLAnchorElement>) {
-  if (mode === 'anchor') return;
-  event.preventDefault();
-  openDomeHref(url).catch(() => {});
 }
 
 function rowTone(status: ActivityToolStatus): string {
@@ -97,7 +91,7 @@ export type ManyActivityTraceProps = {
   selectedId?: string | null;
   onSelectRow?: (row: ActivityTraceRow) => void;
   renderDetail?: (row: ActivityTraceRow) => ReactNode;
-  linkMode?: ActivityLinkMode;
+  onOpenUrl?: ActivityUrlOpener;
   className?: string;
 };
 
@@ -114,7 +108,7 @@ export default function ManyActivityTrace({
   selectedId = null,
   onSelectRow,
   renderDetail,
-  linkMode = 'ipc',
+  onOpenUrl,
   className,
 }: ManyActivityTraceProps) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
@@ -204,10 +198,10 @@ export default function ManyActivityTrace({
                     {row.href ? (
                       <a
                         href={row.href}
-                        target={linkMode === 'anchor' ? '_blank' : undefined}
+                        target={onOpenUrl ? undefined : '_blank'}
                         rel="noopener noreferrer"
                         className={cn(rowClass, 'text-foreground hover:bg-muted/70')}
-                        onClick={(event) => openActivityUrl(row.href!, linkMode, event)}
+                        onClick={onOpenUrl ? (event) => { event.preventDefault(); onOpenUrl(row.href!); } : undefined}
                       >
                         {content}
                       </a>
@@ -242,7 +236,7 @@ export function ManyToolActivityTrace({
   copy,
   toolLabelT,
   renderDetail,
-  linkMode = 'ipc',
+  onOpenUrl,
   className,
 }: {
   kind: ActivityKind;
@@ -250,7 +244,7 @@ export function ManyToolActivityTrace({
   copy: ActivityTraceCopy;
   toolLabelT: ToolLabelT;
   renderDetail?: (call: ActivityToolCall) => ReactNode;
-  linkMode?: ActivityLinkMode;
+  onOpenUrl?: ActivityUrlOpener;
   className?: string;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -286,7 +280,7 @@ export function ManyToolActivityTrace({
           ? () => renderDetail(selectedCall)
           : undefined
       }
-      linkMode={linkMode}
+      onOpenUrl={onOpenUrl}
       className={className}
     />
   );
@@ -323,7 +317,7 @@ export function ManyActivityBlocks({
   renderToolDetail,
   renderTodos,
   renderSubagent,
-  linkMode = 'ipc',
+  onOpenUrl,
   className,
 }: {
   blocks?: ActivityDisplayBlock[];
@@ -333,7 +327,7 @@ export function ManyActivityBlocks({
   renderToolDetail?: (call: ActivityToolCall) => ReactNode;
   renderTodos?: (call: ActivityToolCall) => ReactNode;
   renderSubagent?: (props: { agentKey: string; agentLabel: string; children: ReactNode }) => ReactNode;
-  linkMode?: ActivityLinkMode;
+  onOpenUrl?: ActivityUrlOpener;
   className?: string;
 }) {
   const segments = segmentsProp ?? activitySegmentsFromBlocks(blocks ?? []);
@@ -349,7 +343,7 @@ export function ManyActivityBlocks({
           renderToolDetail={renderToolDetail}
           renderTodos={renderTodos}
           renderSubagent={renderSubagent}
-          linkMode={linkMode}
+          onOpenUrl={onOpenUrl}
         />
       ))}
     </div>
@@ -377,7 +371,7 @@ function ActivitySegmentView({
   renderToolDetail,
   renderTodos,
   renderSubagent,
-  linkMode,
+  onOpenUrl,
 }: {
   segment: ActivitySegment;
   copy: ActivityTraceCopy;
@@ -385,7 +379,7 @@ function ActivitySegmentView({
   renderToolDetail?: (call: ActivityToolCall) => ReactNode;
   renderTodos?: (call: ActivityToolCall) => ReactNode;
   renderSubagent?: (props: { agentKey: string; agentLabel: string; children: ReactNode }) => ReactNode;
-  linkMode: ActivityLinkMode;
+  onOpenUrl?: ActivityUrlOpener;
 }) {
   if (segment.type === 'todos') {
     return renderTodos ? renderTodos(segment.call) : <SimpleTodoList call={segment.call} />;
@@ -402,7 +396,7 @@ function ActivitySegmentView({
             renderToolDetail={renderToolDetail}
             renderTodos={renderTodos}
             renderSubagent={renderSubagent}
-            linkMode={linkMode}
+            onOpenUrl={onOpenUrl}
           />
         ))}
       </>
@@ -419,7 +413,7 @@ function ActivitySegmentView({
       copy={copy}
       toolLabelT={toolLabelT}
       renderDetail={renderToolDetail}
-      linkMode={linkMode}
+      onOpenUrl={onOpenUrl}
     />
   );
 }

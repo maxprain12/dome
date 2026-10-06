@@ -219,3 +219,8 @@ export function openDomeHref(href: string): Promise<void> {
   if (value.startsWith('dome://studio/')) return openStudio(value);
   return Promise.resolve();
 }
+
+/** `openDomeHref` as a fire-and-forget opener, for components that take a plain `(url) => void`. */
+export function openUrlInDome(url: string): void {
+  openDomeHref(url).catch(() => {});
+}
