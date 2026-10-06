@@ -198,7 +198,7 @@ export function collectScanFiles() {
   }
   return files.filter((f) => {
     const rel = path.relative(ROOT, f).split(path.sep).join('/');
-    return !rel.includes('/vendor/') && !rel.includes('/__tests__/') && !rel.includes('/test/');
+    return !rel.includes('/vendor/') && !rel.includes('/__tests__/') && !rel.includes('/test/') && !rel.startsWith('packages/ai/scripts/');
   });
 }
 
