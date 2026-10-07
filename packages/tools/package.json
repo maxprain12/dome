@@ -16,7 +16,7 @@
     "test": "echo \"@dome/tools: no tests yet\" && exit 0"
   },
   "dependencies": {
-    "@dome/ai": "workspace:*",
+    "@dome/ai": "npm:@maxprain12/ai@^0.2.0",
     "typebox": "^1.1.38"
   }
 }

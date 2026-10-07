@@ -10,6 +10,8 @@ Releases are built by hand on each OS and uploaded to the update feed. Woodpecke
 | Windows | `CSC_LINK` / `CSC_KEY_PASSWORD`, Node 24, pnpm 11.8.0 |
 | Linux x64 | `flatpak-builder` and runtimes 24.08 (`Platform`, `Sdk`, `Electron2.BaseApp`), Node 24, pnpm 11.8.0 |
 
+Every machine needs `NPM_TOKEN` (a token with `read:packages`, for the private manys-kit packages) in `.env.release.local` and the line `//npm.pkg.github.com/:_authToken=${NPM_TOKEN}` in its user-level `~/.npmrc` (pnpm 11 ignores it in the project `.npmrc`; see CLAUDE.md → Private packages).
+
 Every machine has the same `.env.release.local` (from `.env.release.example`), with the staging keys and the public R2 keys.
 
 ## Steps

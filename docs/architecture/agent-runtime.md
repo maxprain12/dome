@@ -4,10 +4,35 @@ Dome runs **one** agent runtime: the Dome-native loop in `@dome/agent-core`.
 Every agent surface — Many chat, agent-chat runs, workflow agent nodes,
 Agent Team, and the bench harness — goes through it.
 
-> **Upstream reference:** the loop is synced with pi 1.0.4 (see `packages/agent-core/UPSTREAM.md`). Session layout, harness orchestration, and multi-provider
+> **Upstream reference:** the loop is synced with pi 1.0.4 (see `packages/agent-core/UPSTREAM.md` in manys-kit). Session layout, harness orchestration, and multi-provider
 > LLM connectors were informed by the open-source [pi](https://github.com/earendil-works/pi)
 > project (`pi/packages/agent`, `pi/packages/ai`). Dome vendors and extends that design
 > as `@dome/agent-core` and `@dome/ai`; product code does not depend on the upstream repo.
+
+## Where the code lives (manys-kit)
+
+`@dome/agent-core` and `@dome/ai` are **not** in this repo. Their source is the private
+[`maxprain12/manys-kit`](https://github.com/maxprain12/manys-kit) repo (`packages/agent-core`,
+`packages/ai`), published to GitHub Packages as `@maxprain12/agent-core` and `@maxprain12/ai`
+(lockstep versions). Dome keeps its import names with **npm aliases** in `package.json`:
+
+```json
+"@dome/agent-core": "npm:@maxprain12/agent-core@^0.2.0",
+"@dome/ai": "npm:@maxprain12/ai@^0.2.0"
+```
+
+So `import('@dome/agent-core')` in `electron/*.cjs` is unchanged. The same applies to
+`packages/tools` (`@dome/ai`). The Remote Many protocol (`@maxprain12/remote-many`) is a plain
+dependency (no alias); `@maxprain12/manys-runtime` is used by Provider and manys-cloud, not by Dome.
+
+**To change the agent loop, harness, compaction, skills loader or an LLM connector:**
+
+1. Edit it in `manys-kit` (never patch `node_modules`, and do not re-add a copy here).
+2. Release a lockstep version there: `node scripts/release.mjs <x.y.z>` (pushing the `v*` tag publishes).
+3. Bump the two aliases (and `@maxprain12/remote-many` if it changed) in Dome's `package.json`
+   and `packages/tools/package.json`, run `NPM_TOKEN=<read:packages token> pnpm install`, commit the lockfile.
+
+Installing needs a token with `read:packages` (see [CLAUDE.md](../../CLAUDE.md#private-packages-manys-kit)).
 
 ## Entry point
 
@@ -143,7 +168,7 @@ Downstream nodes see only the **final assistant text** of upstream agent nodes (
 
 ## Provider tool schema (MiniMax / strict APIs)
 
-`@dome/ai` and `@dome/tools` normalize tool `parameters` / `input_schema` to a non-empty
+`@dome/ai` (manys-kit) and `@dome/tools` normalize tool `parameters` / `input_schema` to a non-empty
 `{ type: "object", properties: {} }` shape. MiniMax does **not** support Anthropic native
 client tools for that provider.
 

@@ -26,7 +26,7 @@
  * `isStreaming` / `timestamp` / label still come from the row. Delta-only
  * fields (`thinking`, `runSteps`, `toolCalls`) stay on `prev`.
  *
- * pi (the upstream reference vendored in packages/agent-core) renders directly from
+ * pi (the upstream reference vendored in @dome/agent-core) renders directly from
  * a single ordered event stream with no competing snapshot channel; this merge
  * restores that single-source-of-truth behaviour for the bubble body.
  *

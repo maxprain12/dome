@@ -14,7 +14,7 @@ const args = parseArgs(process.argv.slice(2));
 const size = Math.max(1, Number(args.size || process.env.SONAR_COVERAGE_BATCH_SIZE || 2));
 const outPath = path.resolve(args.out || '.quality-loop/batch.json');
 
-const PREFERRED_PREFIXES = ['app/lib/', 'electron/', 'packages/agent-core/src/', 'packages/ai/src/'];
+const PREFERRED_PREFIXES = ['app/lib/', 'electron/'];
 const SKIP_RE =
   /(\.test\.|\.generated\.|node_modules\/|coverage\/|dist\/|vendor\/|globals\.css$|i18n\.ts$)/i;
 

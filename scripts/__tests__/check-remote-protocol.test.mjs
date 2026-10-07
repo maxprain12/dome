@@ -9,7 +9,7 @@ import {
   diffLists,
   extractDocTypeList,
   extractExecutorCommandTypes,
-} from '../generate-remote-protocol.mjs';
+} from '../check-remote-protocol.mjs';
 
 const SPEC = {
   name: 'remote-many',
@@ -68,9 +68,9 @@ describe('extractExecutorCommandTypes', () => {
 });
 
 describe('cjsLoadsCanonicalJson', () => {
-  it('requires the shared protocol.json', () => {
+  it('requires the protocol.json of @maxprain12/remote-many', () => {
     assert.equal(
-      cjsLoadsCanonicalJson("const spec = require('../../shared/remote-many/protocol.json');\n"),
+      cjsLoadsCanonicalJson("const spec = require('@maxprain12/remote-many/protocol.json');\n"),
       true,
     );
     assert.equal(cjsLoadsCanonicalJson("const COMMAND_TYPES = ['session.start'];\n"), false);
@@ -92,19 +92,15 @@ describe('collectDriftErrors', () => {
       cjsSource: "const COMMAND_TYPES = ['session.start'];\n",
       docs: '### Comandos\n\n`session.start`\n\n### Eventos\n\n`start` · `text`\n',
       executor: "if (command.type === 'session.start') {}\n",
-      generatedTs: 'generated',
-      committedTs: 'stale',
     });
     assert.ok(errors.some((line) => line.includes('refs.list')));
     assert.ok(errors.some((line) => line.includes('mode.set')));
     assert.ok(errors.some((line) => line.includes('plan')));
     assert.ok(errors.some((line) => line.includes('visual')));
     assert.ok(errors.some((line) => line.includes('protocol.json')));
-    assert.ok(errors.some((line) => line.includes('desincronizado')));
   });
 
-  it('passes when CJS, docs, executor and generated TS match the spec', () => {
-    const generated = 'export const REMOTE_COMMAND_TYPES = [];\n';
+  it('passes when CJS, docs and executor match the spec', () => {
     const errors = collectDriftErrors(SPEC, {
       protocol: {
         PROTOCOL_NAME: 'remote-many',
@@ -115,11 +111,9 @@ describe('collectDriftErrors', () => {
         EVENT_TYPES: SPEC.eventTypes,
         AGENT_MODES: SPEC.agentModes,
       },
-      cjsSource: "const spec = require('../../shared/remote-many/protocol.json');\n",
+      cjsSource: "const spec = require('@maxprain12/remote-many/protocol.json');\n",
       docs: '### Comandos\n\n`refs.list` · `mode.set`\n\n### Eventos\n\n`plan` · `visual` · `refs`\n',
       executor: "if (command.type === 'refs.list') {}\nif (command.type === 'mode.set') {}\n",
-      generatedTs: generated,
-      committedTs: generated,
     });
     assert.deepEqual(errors, []);
   });

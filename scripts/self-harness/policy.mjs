@@ -75,7 +75,7 @@ export function repoRead(repoRoot, requestedPath, startLine = 1, endLine = 300) 
   return lines.slice(start - 1, end).map((line, index) => `${start + index}: ${line}`).join('\n');
 }
 
-export function repoSearch(repoRoot, query, requestedPath = 'packages/agent-core/src/') {
+export function repoSearch(repoRoot, query, requestedPath = 'electron/agents/') {
   if (!String(query || '').trim()) throw new Error('Search query is required');
   const { absolute } = assertReadablePath(repoRoot, requestedPath);
   const result = spawnSync('rg', ['-n', '--max-count', '80', '--', String(query), absolute], {

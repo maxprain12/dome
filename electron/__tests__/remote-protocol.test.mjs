@@ -1,9 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const {
@@ -17,12 +14,10 @@ const {
   isEnvelope,
 } = require('../remote/protocol.cjs');
 
-const spec = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../shared/remote-many/protocol.json'), 'utf8'),
-);
+const spec = require('@maxprain12/remote-many/protocol.json');
 
 describe('remote-many protocol contract', () => {
-  it('loads the shared JSON as the runtime source of truth', () => {
+  it('loads the @maxprain12/remote-many JSON as the runtime source of truth', () => {
     assert.equal(PROTOCOL_VERSION, spec.version);
     assert.deepEqual([...COMMAND_TYPES], spec.commandTypes);
     assert.deepEqual([...EVENT_TYPES], spec.eventTypes);

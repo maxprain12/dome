@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { runAgentLoop } from '../../../packages/agent-core/dist/index.js';
+import { runAgentLoop } from '@dome/agent-core';
 import { createToolFromDefinition } from '../../../packages/tools/dist/index.js';
 const rt = (await import('../../agents/agent-runtime.cjs')).default;
 

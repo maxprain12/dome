@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 /**
- * Remote Many protocol contract.
+ * Remote Many protocol drift check (dome side).
  *
- * Canonical source: shared/remote-many/protocol.json
- *   pnpm run generate:remote-protocol   write shared/remote-many/protocol.ts
- *   pnpm run check:remote-protocol      CI: fail if CJS / TS / docs drift
+ * The wire contract lives in the manys-kit package `@maxprain12/remote-many`
+ * (`protocol.json`, generated TypeScript types). This script only guards the
+ * Dome code that has to follow it:
+ *   - electron/remote/protocol.cjs loads the package JSON (no hand-copied lists)
+ *   - electron/remote/executor.cjs handles every command type
+ *   - docs/architecture/remote-many.md lists the same commands and events
+ *
+ *   pnpm run check:remote-protocol
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,14 +20,11 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 
-export const SPEC_REL = 'shared/remote-many/protocol.json';
-export const TS_REL = 'shared/remote-many/protocol.ts';
+export const SPEC_MODULE = '@maxprain12/remote-many/protocol.json';
 export const CJS_REL = 'electron/remote/protocol.cjs';
 export const EXECUTOR_REL = 'electron/remote/executor.cjs';
 export const DOCS_REL = 'docs/architecture/remote-many.md';
 
-const SPEC_PATH = path.join(ROOT, SPEC_REL);
-const TS_PATH = path.join(ROOT, TS_REL);
 const CJS_PATH = path.join(ROOT, CJS_REL);
 const EXECUTOR_PATH = path.join(ROOT, EXECUTOR_REL);
 const DOCS_PATH = path.join(ROOT, DOCS_REL);
@@ -30,12 +32,11 @@ const DOCS_PATH = path.join(ROOT, DOCS_REL);
 /** @typedef {{ name: string, version: number, hkdfInfo: string, maxEnvelopeBytes: number, commandTtlMs: number, eventTtlMs: number, heartbeatMs: number, onlineWindowMs: number, pairingTtlMs: number, agentModes: string[], commandTypes: string[], eventTypes: string[] }} ProtocolSpec */
 
 /**
- * @param {string} filePath
  * @returns {ProtocolSpec}
  */
-export function loadSpec(filePath = SPEC_PATH) {
-  const spec = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  assertSpec(spec, filePath);
+export function loadSpec() {
+  const spec = require(SPEC_MODULE);
+  assertSpec(spec, SPEC_MODULE);
   return spec;
 }
 
@@ -147,101 +148,12 @@ export function extractExecutorCommandTypes(source) {
  * @returns {boolean}
  */
 export function cjsLoadsCanonicalJson(source) {
-  return source.includes("require('../../shared/remote-many/protocol.json')");
-}
-
-/**
- * @param {string[]} values
- */
-function asConstArray(values) {
-  return values.map((value) => `  '${value}',`).join('\n');
+  return source.includes(`require('${SPEC_MODULE}')`);
 }
 
 /**
  * @param {ProtocolSpec} spec
- */
-export function buildTypeScript(spec) {
-  return `/**
- * GENERATED — do not edit.
- * Canonical source: shared/remote-many/protocol.json
- * Regenerar: pnpm run generate:remote-protocol
- */
-export const REMOTE_PROTOCOL_NAME = ${JSON.stringify(spec.name)} as const;
-export const REMOTE_PROTOCOL_VERSION = ${spec.version} as const;
-export const REMOTE_HKDF_INFO = ${JSON.stringify(spec.hkdfInfo)} as const;
-export const REMOTE_MAX_ENVELOPE_BYTES = ${spec.maxEnvelopeBytes} as const;
-export const REMOTE_COMMAND_TTL_MS = ${spec.commandTtlMs} as const;
-export const REMOTE_EVENT_TTL_MS = ${spec.eventTtlMs} as const;
-export const REMOTE_HEARTBEAT_MS = ${spec.heartbeatMs} as const;
-export const REMOTE_ONLINE_WINDOW_MS = ${spec.onlineWindowMs} as const;
-export const REMOTE_PAIRING_TTL_MS = ${spec.pairingTtlMs} as const;
-
-export const REMOTE_AGENT_MODES = [
-${asConstArray(spec.agentModes)}
-] as const;
-
-export const REMOTE_COMMAND_TYPES = [
-${asConstArray(spec.commandTypes)}
-] as const;
-
-export const REMOTE_EVENT_TYPES = [
-${asConstArray(spec.eventTypes)}
-] as const;
-
-export type ManyAgentMode = (typeof REMOTE_AGENT_MODES)[number];
-export type RemoteCommandType = (typeof REMOTE_COMMAND_TYPES)[number];
-export type RemoteEventType = (typeof REMOTE_EVENT_TYPES)[number];
-
-const COMMAND_TYPE_SET: ReadonlySet<string> = new Set(REMOTE_COMMAND_TYPES);
-const EVENT_TYPE_SET: ReadonlySet<string> = new Set(REMOTE_EVENT_TYPES);
-const AGENT_MODE_SET: ReadonlySet<string> = new Set(REMOTE_AGENT_MODES);
-
-export interface RemoteEnvelope {
-  v: number;
-  kid: string;
-  nonce: string;
-  ciphertext: string;
-}
-
-export function isRemoteAgentMode(value: string): value is ManyAgentMode {
-  return AGENT_MODE_SET.has(value);
-}
-
-export function isRemoteCommandType(value: string): value is RemoteCommandType {
-  return COMMAND_TYPE_SET.has(value);
-}
-
-export function isRemoteEventType(value: string): value is RemoteEventType {
-  return EVENT_TYPE_SET.has(value);
-}
-
-export function isRemoteEnvelope(value: unknown): value is RemoteEnvelope {
-  if (!value || typeof value !== 'object') return false;
-  const row = value as Record<string, unknown>;
-  return (
-    row.v === REMOTE_PROTOCOL_VERSION &&
-    typeof row.kid === 'string' &&
-    row.kid.length > 0 &&
-    typeof row.nonce === 'string' &&
-    row.nonce.length > 0 &&
-    typeof row.ciphertext === 'string' &&
-    row.ciphertext.length > 0
-  );
-}
-
-export function envelopeByteLength(envelope: RemoteEnvelope): number {
-  try {
-    return new TextEncoder().encode(JSON.stringify(envelope)).length;
-  } catch {
-    return Number.POSITIVE_INFINITY;
-  }
-}
-`;
-}
-
-/**
- * @param {ProtocolSpec} spec
- * @param {{ protocol?: Record<string, unknown>, docs?: string, executor?: string, cjsSource?: string, generatedTs?: string, committedTs?: string }} [inputs]
+ * @param {{ protocol?: Record<string, unknown>, docs?: string, executor?: string, cjsSource?: string }} [inputs]
  */
 export function collectDriftErrors(spec, inputs = {}) {
   /** @type {string[]} */
@@ -265,7 +177,7 @@ export function collectDriftErrors(spec, inputs = {}) {
     }
   }
   if (typeof inputs.cjsSource === 'string' && !cjsLoadsCanonicalJson(inputs.cjsSource)) {
-    errors.push(`${CJS_REL} must require ${SPEC_REL}`);
+    errors.push(`${CJS_REL} must require ${SPEC_MODULE}`);
   }
   if (typeof inputs.docs === 'string') {
     const commands = extractDocTypeList(inputs.docs, '### Comandos');
@@ -277,11 +189,6 @@ export function collectDriftErrors(spec, inputs = {}) {
     const handled = extractExecutorCommandTypes(inputs.executor);
     errors.push(...diffLists(spec.commandTypes, handled, 'executor commandTypes'));
   }
-  if (typeof inputs.generatedTs === 'string' && typeof inputs.committedTs === 'string') {
-    if (inputs.generatedTs !== inputs.committedTs) {
-      errors.push(`${TS_REL} desincronizado. Ejecuta: pnpm run generate:remote-protocol`);
-    }
-  }
   return errors;
 }
 
@@ -289,26 +196,14 @@ function readIfExists(filePath) {
   return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
 }
 
-export function runGenerate() {
-  const spec = loadSpec();
-  const ts = buildTypeScript(spec);
-  fs.mkdirSync(path.dirname(TS_PATH), { recursive: true });
-  fs.writeFileSync(TS_PATH, ts);
-  return { spec, ts, path: TS_PATH };
-}
-
 export function runCheck() {
   const spec = loadSpec();
   const protocol = require(CJS_PATH);
-  const generatedTs = buildTypeScript(spec);
-  const committedTs = readIfExists(TS_PATH);
   const errors = collectDriftErrors(spec, {
     protocol,
     cjsSource: readIfExists(CJS_PATH),
     docs: readIfExists(DOCS_PATH),
     executor: readIfExists(EXECUTOR_PATH),
-    generatedTs,
-    committedTs,
   });
   return { spec, errors };
 }
@@ -316,19 +211,13 @@ export function runCheck() {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
-  const check = process.argv.includes('--check');
-  if (check) {
-    const { spec, errors } = runCheck();
-    if (errors.length > 0) {
-      console.error('Remote Many protocol drift:');
-      for (const error of errors) console.error(`- ${error}`);
-      process.exit(1);
-    }
-    console.log(
-      `remote-many protocol OK · v${spec.version} · ${spec.commandTypes.length} commands · ${spec.eventTypes.length} events`,
-    );
-    process.exit(0);
+  const { spec, errors } = runCheck();
+  if (errors.length > 0) {
+    console.error('Remote Many protocol drift:');
+    for (const error of errors) console.error(`- ${error}`);
+    process.exit(1);
   }
-  const { path: outPath, spec } = runGenerate();
-  console.log(`Wrote ${path.relative(ROOT, outPath)} (${spec.commandTypes.length} commands, ${spec.eventTypes.length} events)`);
+  console.log(
+    `remote-many protocol OK · v${spec.version} · ${spec.commandTypes.length} commands · ${spec.eventTypes.length} events`,
+  );
 }

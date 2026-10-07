@@ -103,6 +103,13 @@ Ecosystem index (ES): [MASTER.md](MASTER.md).
 
 **Prerequisites:** [Node.js](https://nodejs.org/) **22.13+** (pnpm 11), [pnpm](https://pnpm.io/installation) (`corepack enable` or `npm install -g pnpm`), macOS / Windows / Linux.
 
+The agent runtime (`@dome/agent-core`, `@dome/ai`) and the Remote Many protocol are private packages from `maxprain12/manys-kit` on GitHub Packages, so `pnpm install` needs a token with `read:packages`. One-time setup (the line stores a reference to `NPM_TOKEN`, not the token):
+
+```bash
+echo '//npm.pkg.github.com/:_authToken=${NPM_TOKEN}' >> ~/.npmrc
+export NPM_TOKEN=$(gh auth token)   # or a classic PAT with read:packages
+```
+
 ```bash
 git clone https://github.com/maxprain12/dome.git
 cd dome

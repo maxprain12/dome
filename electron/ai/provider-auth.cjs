@@ -2,7 +2,7 @@
 
 /**
  * Provider authentication rules — main process source of truth.
- * Keep Ollama hostname logic in sync with packages/ai/src/ollama-mode.ts and app/lib/ai/providerAuth.ts.
+ * Keep Ollama hostname logic in sync with src/ollama-mode.ts in @dome/ai (manys-kit) and app/lib/ai/providerAuth.ts.
  *
  * @see docs/features/ai-provider-auth.md
  */

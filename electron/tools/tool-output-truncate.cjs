@@ -2,7 +2,7 @@
 
 /**
  * Truncation for tool outputs (lines + bytes).
- * Mirrors packages/agent-core/src/harness/utils/truncate.ts for sync CJS handlers.
+ * Mirrors harness/utils/truncate.ts in @dome/agent-core (manys-kit) for sync CJS handlers.
  */
 
 const DEFAULT_MAX_LINES = 2000;

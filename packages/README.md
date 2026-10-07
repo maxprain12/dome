@@ -9,12 +9,17 @@
 
 | Package | Owns | Boundary | Node-only? |
 | --- | --- | --- | --- |
-| [`@dome/ai`](./ai) | Multi-provider LLM (OpenAI / Anthropic / Google / Ollama / OpenRouter / Copilot) | leaf | **yes** |
-| [`@dome/agent-core`](./agent-core) | `runAgentLoop`, hooks, session, compaction, skills (LangGraph replacement) | deps: `@dome/ai`, `@dome/tools`, `@dome/prompts` | **yes** |
-| [`@dome/tools`](./tools) | Tool registry (one module per tool family) | deps: `@dome/ai` | **yes** (execution); schema is renderer-safe |
+| [`@dome/tools`](./tools) | Tool registry (one module per tool family) | deps: `@dome/ai` (registry package) | **yes** (execution); schema is renderer-safe |
 | [`@dome/prompts`](./prompts) | Prompt sections + system-prompt assembler | leaf | **yes** (used by main) |
 | [`@dome/i18n`](./i18n) | Translations, language × namespace | leaf | **no** — renderer-safe (the only @dome/* the renderer can import at runtime) |
 | `@dome/app` | Electron shell + renderer (composition root) | **stays at the root** for now | n/a |
+
+`@dome/ai` and `@dome/agent-core` no longer live in this repo: they are the
+`@maxprain12/ai` and `@maxprain12/agent-core` packages of the private
+[manys-kit](https://github.com/maxprain12/manys-kit) repo, installed from GitHub Packages
+under the **same import names** through npm aliases in `package.json`
+(`"@dome/ai": "npm:@maxprain12/ai@^0.2.0"`). See
+[`../docs/architecture/agent-runtime.md`](../docs/architecture/agent-runtime.md#where-the-code-lives-manys-kit).
 
 `@dome/app` is **not** created in Phase 0. The Electron app stays at the repo root
 (`electron/` + `app/`) and consumes the new packages as they fill in. See
@@ -31,7 +36,7 @@ buildable. `@dome/app` is deferred to Phase 7 so we don't churn build scripts,
 ## Boundary rule (R9)
 
 The renderer (`app/**`) **must not** import the Node-only packages `@dome/ai`,
-`@dome/agent-core`, `@dome/tools`, or `@dome/prompts`. The only `@dome/*` package the
+`@dome/agent-core` (nor their `@maxprain12/*` names), `@dome/tools`, or `@dome/prompts`. The only `@dome/*` package the
 renderer can pull from at runtime is `@dome/i18n`. Other packages may be imported **as
 types** (e.g. `import type { Foo } from '@dome/ai'` is fine when `Foo` is a type-only
 export — once those packages have real exports).
@@ -49,11 +54,9 @@ Each package's `tsconfig.json` sets `composite: true` and (where appropriate) li
 
 | Package | References |
 | --- | --- |
-| `@dome/ai` | — |
 | `@dome/i18n` | — |
 | `@dome/prompts` | — |
-| `@dome/tools` | `@dome/ai` |
-| `@dome/agent-core` | `@dome/ai`, `@dome/prompts`, `@dome/tools` |
+| `@dome/tools` | — (`@dome/ai` is a registry dependency, not a project reference) |
 
 The **root** `tsconfig.json` is **not** composite (it uses `noEmit: true` for the
 renderer / Vite pipeline). We deliberately do **not** add root-level project references
@@ -86,7 +89,8 @@ The repo already has a custom ESLint plugin at
 [`tools/eslint-plugin-dome/`](../tools/eslint-plugin-dome/) with the
 `no-renderer-node-imports` rule. The rule was extended (same file, additive change) to
 also report an R9 message when an `import` or `require` in the renderer targets
-`@dome/ai`, `@dome/agent-core`, `@dome/tools`, or `@dome/prompts`. We **did not** invent a
+`@dome/ai`, `@dome/agent-core`, `@dome/tools`, or `@dome/prompts` (and, after the move to manys-kit,
+`@maxprain12/ai`, `@maxprain12/agent-core`, `@maxprain12/manys-runtime`). We **did not** invent a
 new lint system; we reused the repo's existing one.
 
 ## What Phase 0 does **not** do
@@ -99,5 +103,3 @@ new lint system; we reused the repo's existing one.
   empty `tsc -b` skeletons and `echo "no tests yet" && exit 0` test scripts, so adding
   them to CI is a no-op until they have real code).
 - No root `tsconfig.json` is changed.
-- No file is named "harness" inside `@dome/agent-core/` (preserved naming rule; see the
-  `dome-agent-core.md` spec for the rationale around `electron/harness-*.cjs`).

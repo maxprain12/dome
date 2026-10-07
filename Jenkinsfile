@@ -2,6 +2,7 @@ pipeline {
   agent any
 
   environment {
+    NPM_TOKEN = credentials('npm_token')
     PNPM_VERSION = '11.8.0'
     NODE_VERSION = '24.13.0'
     NODE_HOME = "${WORKSPACE}/.jenkins-node"
@@ -59,6 +60,9 @@ pipeline {
         sh '''
           set -eux
           # ignore-scripts skips electron postinstall (binary download) — restore it explicitly
+          # private @dome/ai / @dome/agent-core / remote-many (manys-kit, GitHub Packages): pnpm 11 only
+          # expands NPM_TOKEN from the user-level ~/.npmrc, not from the project .npmrc
+          echo '//npm.pkg.github.com/:_authToken=${NPM_TOKEN}' > ~/.npmrc
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm rebuild electron
           npm rebuild better-sqlite3 || true
