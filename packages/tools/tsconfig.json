@@ -10,8 +10,5 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "allowImportingTsExtensions": false
   },
-  "include": ["src", "src/**/*.json"],
-  "references": [
-    { "path": "../ai" }
-  ]
+  "include": ["src", "src/**/*.json"]
 }

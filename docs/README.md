@@ -27,7 +27,7 @@ Documentación del proyecto Dome Desktop (**v2.8.9**). Además de este índice:
 ### Comandos útiles (DB / packages)
 
 ```bash
-pnpm run build:packages      # @dome/db, @dome/agent-core, …
+pnpm run build:packages      # @dome/db, @dome/tools (agent-core / ai vienen de manys-kit)
 pnpm run test:drizzle-spike  # smoke Drizzle (settings + tags)
 pnpm run db:perf-baseline    # métricas locales de dome.db
 pnpm run check:ipc-inventory # tras añadir canales IPC

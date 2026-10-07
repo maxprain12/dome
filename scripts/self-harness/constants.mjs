@@ -19,8 +19,6 @@ export const PHASES = Object.freeze([
 ]);
 
 export const EDITABLE_PREFIXES = Object.freeze([
-  'packages/agent-core/src/',
-  'packages/agent-core/test/',
   'packages/prompts/sections/',
   'packages/prompts/surfaces/',
   'packages/prompts/src/',
@@ -57,7 +55,6 @@ export const DEFAULT_LIMITS = Object.freeze({
 });
 
 export const DEFAULT_GATES = Object.freeze([
-  ['pnpm', ['--filter', '@dome/agent-core', 'run', 'test']],
   ['pnpm', ['run', 'typecheck']],
   ['pnpm', ['run', 'lint']],
   ['pnpm', ['run', 'build']],

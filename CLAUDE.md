@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
 - **Resource search**: SQLite FTS5 over original and extracted text; PDF/image OCR uses the configured model when available.
-- **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
+- **AI**: Dome-native agent runtime (`@dome/agent-core`, published from the private `manys-kit` repo — see [Private packages](#private-packages-manys-kit)) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + **shadcn/ui** (Base UI primitives; config in `components.json`, components in `app/components/ui/`). `app/components/ui/` contains **only** original shadcn components; app-level compositions (SubpageHeader, ListState, DatePicker, ThemeProvider…) live in `app/components/shared/`. The legacy `Dome*`/`Hub*` wrappers were fully removed — see `.claude/sops/shadcn-ui.md`.
 - **i18n**: react-i18next; strings in `packages/i18n/locales/{en,es,fr,pt}/` (`app/lib/i18n.ts` bootstraps i18next)
@@ -24,6 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 The project uses **pnpm** only; the lockfile is **`pnpm-lock.yaml`**.
+
+`pnpm install` needs a GitHub token with `read:packages` (private `@maxprain12/*` packages) — one-time setup in [Private packages (manys-kit)](#private-packages-manys-kit).
 
 ```bash
 # Development (recommended)
@@ -327,6 +329,23 @@ When adding a dependency that calls a binary or loads a native addon:
 - `pnpm run check:asar-unpack` (`scripts/check-asar-unpack.cjs`) runs in CI on **every PR and every push to `main`** (CI `Lint` job). It discovers every production dependency that ships a `.node` addon or a bundled binary and **fails** if any isn't covered by an `asarUnpack` glob. It also keeps `after-pack.cjs` `criticalModules` consistent with `asarUnpack`. For a new spawned-binary installer with no `.node` file, add its name prefix to `BINARY_PACKAGE_PREFIXES` in that script.
 - `scripts/after-pack.cjs` is a **hard gate** during `electron:build` / release: it throws (fails the build) if a critical module isn't in `app.asar.unpacked`, or if the platform ffmpeg binary is missing/inside `app.asar`/not executable. A broken release build cannot be produced.
 
+## Private packages (manys-kit)
+
+`@dome/ai`, `@dome/agent-core` and the Remote Many protocol are **not** in this repo. They are packages of the private repo [`maxprain12/manys-kit`](https://github.com/maxprain12/manys-kit) (`@maxprain12/ai`, `@maxprain12/agent-core`, `@maxprain12/manys-runtime`, `@maxprain12/remote-many`, `@maxprain12/manys-server`), published to GitHub Packages. `manys-runtime` and `manys-server` are used by Provider / manys-cloud, not by Dome.
+
+- **npm aliases keep the import names.** `package.json` (root) and `packages/tools/package.json` declare `"@dome/ai": "npm:@maxprain12/ai@^0.2.0"` and `"@dome/agent-core": "npm:@maxprain12/agent-core@^0.2.0"`, so every `@dome/ai` / `@dome/agent-core` import (`import('@dome/agent-core')` in `electron/*.cjs`, types in `packages/tools`) is unchanged. This is a dependency alias, not a code shim: do not add a re-export file or rename the imports piecemeal. `@maxprain12/remote-many` is imported by its real name (`electron/remote/protocol.cjs` requires `@maxprain12/remote-many/protocol.json`).
+- **Changing that code**: edit it in `manys-kit` (never in `node_modules`, never copy it back here), release a lockstep version there (`node scripts/release.mjs <x.y.z>`), then bump the aliases / `@maxprain12/remote-many` here and commit the lockfile. See [docs/architecture/agent-runtime.md](docs/architecture/agent-runtime.md#where-the-code-lives-manys-kit).
+- **Install auth (one-time per machine).** The committed `.npmrc` only maps the scope (`@maxprain12:registry=https://npm.pkg.github.com`). pnpm 11 ignores `${NPM_TOKEN}` auth lines in a *project* `.npmrc`, so the credential reference goes in your user-level `~/.npmrc` (a reference, not the token):
+
+  ```bash
+  echo '//npm.pkg.github.com/:_authToken=${NPM_TOKEN}' >> ~/.npmrc   # single quotes: stores the reference
+  export NPM_TOKEN=$(gh auth token)                                  # or a classic PAT with read:packages
+  pnpm install
+  ```
+
+  Never write the token to a file, log or commit. CI: Woodpecker secret `npm_token` → `NPM_TOKEN` in every step that installs (`.woodpecker/ci.yaml`); Jenkinsfiles use the credential `npm_token`; release machines put `NPM_TOKEN` in `.env.release.local`.
+- **Packaging**: the registry packages are ordinary dependencies, so electron-builder bundles them like any other module. `materialize:workspace-deps` / `verify:workspace-deps` only handle the remaining workspace packages (`@dome/tools`, `@dome/db`). See `.claude/sops/workspace-packages-packaging.md`.
+
 ## Security Requirements
 
 1. `contextIsolation: true`, `nodeIntegration: false` on all windows
@@ -353,7 +372,8 @@ When replacing or rewriting a component, **never leave residual code behind**:
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
 6. **Native addons / bundled binaries**: Any new dep with a `.node` addon or a spawned executable MUST be added to `asarUnpack` (and `after-pack.cjs` `criticalModules`), and its path rewritten from `app.asar` → `app.asar.unpacked` before `spawn`. See **Build & Packaging → asarUnpack**. Forgetting this crashes the packaged app only (dev is fine).
 7. **Residual components**: no `*V2`/`*New` names, no deprecated alias re-exports, no dead variants — delete the old component before creating its replacement. See **Component Lifecycle — No Residual Code**.
-8. **Sonar regressions (P-011)**: do not reintroduce patterns in [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md) (`void` in handlers, bare `.sort()`, `require('fs')` without `node:`, `postMessage('*')`, identical ternaries, etc.). Local/CI: `pnpm run check:sonar-patterns` and `pnpm run test:sonar-patterns`.
+8. **Private registry**: `pnpm install` (and any script/CI step that installs) fails with 401 without `NPM_TOKEN` + the `~/.npmrc` reference. See **Private packages (manys-kit)**.
+9. **Sonar regressions (P-011)**: do not reintroduce patterns in [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md) (`void` in handlers, bare `.sort()`, `require('fs')` without `node:`, `postMessage('*')`, identical ternaries, etc.). Local/CI: `pnpm run check:sonar-patterns` and `pnpm run test:sonar-patterns`.
 
 ## File-based skills (Claude / Agent Skills)
 

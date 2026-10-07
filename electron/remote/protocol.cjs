@@ -1,6 +1,6 @@
 'use strict';
 
-const spec = require('../../shared/remote-many/protocol.json');
+const spec = require('@maxprain12/remote-many/protocol.json');
 
 function freezeStrings(values, label) {
   if (!Array.isArray(values) || values.length === 0) {

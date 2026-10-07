@@ -4,7 +4,7 @@ Referencia única sobre **cómo debe autenticarse cada proveedor** en Dome. Cual
 
 1. [`electron/ai/provider-auth.cjs`](../../electron/ai/provider-auth.cjs) — main process (fuente de verdad en runtime)
 2. [`app/lib/ai/providerAuth.ts`](../../app/lib/ai/providerAuth.ts) — renderer (preflight UI)
-3. [`packages/ai/src/ollama-mode.ts`](../../packages/ai/src/ollama-mode.ts) — lógica Ollama en `@dome/ai`
+3. `src/ollama-mode.ts` del paquete `@dome/ai` (repo `manys-kit`, `packages/ai`) — lógica Ollama
 4. **Este documento**
 
 ---
@@ -100,6 +100,6 @@ Al añadir un proveedor nuevo:
 2. Añadir fila a la matriz de este doc.
 3. Implementar en `resolve-provider-config.cjs` y, si aplica, `provider-auth.cjs`.
 4. Actualizar `checkChatProviderReady()` y UI de Ajustes.
-5. Si usa `@dome/ai`, registrar en `packages/ai/src/dome-bridge.ts`.
+5. Si usa `@dome/ai`, registrar en `src/dome-bridge.ts` de `@dome/ai` (repo `manys-kit`; ver [agent-runtime.md](../architecture/agent-runtime.md#where-the-code-lives-manys-kit)).
 
 **No** duplicar checks ad hoc de “¿hay apiKey?” en handlers IPC sin pasar por estas reglas.

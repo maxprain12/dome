@@ -13,7 +13,7 @@
  *  4. getCopilotToken() — exchange the OAuth token for a short-lived Copilot
  *     token (cached in-memory) used as the Bearer for api.*.githubcopilot.com.
  *
- * Constants/endpoints mirror the editor integration used by packages/ai.
+ * Constants/endpoints mirror the editor integration used by @dome/ai (manys-kit).
  */
 
 // "Iv1.b507a08c87ecfe98" — the well-known GitHub Copilot (editor) client id.

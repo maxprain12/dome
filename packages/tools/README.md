@@ -5,7 +5,7 @@ per tool family**, each with a typed schema, a pluggable execution implementatio
 render/definition wrapper. This package is the dismantlement of the 4,142-line
 `electron/ai-tools-handler.cjs` monolith into independently trackable units.
 
-Depends only on `@dome/ai` (for tools that themselves call the LLM, e.g. deep-research).
+Depends only on `@dome/ai` (an alias of the manys-kit package `@maxprain12/ai`; for tools that themselves call the LLM, e.g. deep-research).
 Does **not** depend on `@dome/agent-core` — the runtime imports the registry, not vice-versa.
 
 This package is **Node-only** (main process). The renderer may import schema/definition

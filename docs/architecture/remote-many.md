@@ -17,7 +17,7 @@ Companion controla el Many de Desktop a través de un relay cifrado en Dome Prov
 
 ## Protocolo `remote-many/1`
 
-**Fuente canónica:** [`shared/remote-many/protocol.json`](../../shared/remote-many/protocol.json). El runtime Desktop (`electron/remote/protocol.cjs`) carga ese JSON. Los tipos TypeScript (`shared/remote-many/protocol.ts`, reexportados en `app/lib/remote-protocol.ts`) se generan con `pnpm run generate:remote-protocol`. CI falla si CJS, TS, docs o el executor se desvían (`pnpm run check:remote-protocol`).
+**Fuente canónica:** `protocol.json` del paquete `@maxprain12/remote-many` (repo privado [`manys-kit`](https://github.com/maxprain12/manys-kit), `packages/remote-many`; se edita ahí y se genera `protocol.ts` con su script `generate`). Dome lo consume como dependencia del registro: el runtime Desktop (`electron/remote/protocol.cjs`) carga `@maxprain12/remote-many/protocol.json` y los tipos TypeScript se importan de `@maxprain12/remote-many`. CI falla si el CJS, los docs o el executor se desvían del JSON del paquete (`pnpm run check:remote-protocol`). Para cambiar el contrato: editar en manys-kit, publicar versión, subir `@maxprain12/remote-many` aquí y ajustar `electron/remote/executor.cjs` y este doc.
 
 Sobre de transporte (único objeto que ve Provider):
 
@@ -55,7 +55,7 @@ Servicio saliente en `electron/remote/`. Ejecuta con Run Engine. `powerSaveBlock
 
 ## Sister repos
 
-Companion y Provider **no** viven en este repo. Deben copiar `commandTypes` y `eventTypes` de `shared/remote-many/protocol.json`. No inventar campos.
+Companion y Provider **no** viven en este repo. Deben tomar `commandTypes` y `eventTypes` de `protocol.json` de `@maxprain12/remote-many` (o consumir el paquete). No inventar campos.
 
 ### dome-companion follow-up
 
@@ -69,4 +69,4 @@ A la fecha de este cambio el enum Swift en Companion `main` ya lista esos tipos.
 
 ### dome-provider follow-up
 
-`lib/remote-protocol.ts` está desfasado: le faltan `refs.list` / `refs.preview` / `refs.export` / `mode.set` y los eventos `plan` / `visual` / `refs`. Provider solo retransmite sobres opacos, pero ese archivo es el contrato TypeScript que Mateo contrastó. Actualizarlo contra `shared/remote-many/protocol.json` en un PR de `dome-provider`.
+`lib/remote-protocol.ts` de Provider está desfasado: le faltan `refs.list` / `refs.preview` / `refs.export` / `mode.set` y los eventos `plan` / `visual` / `refs`. Provider solo retransmite sobres opacos, pero ese archivo es el contrato TypeScript que Mateo contrastó. Actualizarlo contra `protocol.json` de `@maxprain12/remote-many` (o sustituirlo por el paquete) en un PR de `dome-provider`.

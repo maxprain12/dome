@@ -16,7 +16,7 @@ El ordenador se abre junto a la conversación. Tomar control pausa y fencea al a
 - `app/lib/manys/api.ts`: cliente IPC e idempotencia de envío.
 - `electron/ipc/agents/manys.cjs`: proxy OAuth sin exponer credenciales al renderer.
 - `electron/agents/manys-client.cjs`: herramientas del Many local y delegación de pipelines.
-- `packages/manys-runtime/`: harness portable, protocolo 1.
+- `@maxprain12/manys-runtime` (repo `manys-kit`, `packages/manys-runtime`): harness portable, protocolo 1. Dome no lo importa; lo consumen Provider y `manys-cloud`.
 - Provider `lib/manys/`: contratos, repositorios, créditos, vault, ejecución y gateway.
 
 [Plan versionado](../../plans/active/2026-10-03-manys-v1.md). La infraestructura se prepara con la guía `docs/manys.md` de Provider.

@@ -80,7 +80,7 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 | Styling | Tailwind CSS + CSS Variables | — |
 | Database | better-sqlite3 + `@dome/db` (Drizzle) | schema v53 |
 | Búsqueda textual | SQLite FTS5 | — |
-| Agent runtime | `@dome/agent-core` (loop nativo, sin LangGraph) | workspace |
+| Agent runtime | `@dome/agent-core` (loop nativo, sin LangGraph) | registro privado (`manys-kit`, alias npm) |
 | AI providers | OpenAI, Anthropic, Google, Ollama, Dome | — |
 | Editor | Tiptap (ProseMirror) | — |
 | State (global) | Zustand | — |

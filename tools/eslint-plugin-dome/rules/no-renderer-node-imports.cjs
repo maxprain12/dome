@@ -34,7 +34,11 @@ see: docs/architecture/boundaries.md | docs/principles.md`,
     // Phase 0 — workspace-scaffold (R9). The new monorepo packages that touch Node/DB/native
     // modules are main-process-only. @dome/i18n is the one renderer-safe package.
     // Pattern matches the @dome scope + any of the Node-only names.
-    const DOME_NODE_ONLY = /^@dome\/(ai|agent-core|tools|prompts)(?:\/.*)?$/;
+    // @dome/ai and @dome/agent-core are npm aliases of @maxprain12/ai and
+    // @maxprain12/agent-core (manys-kit); forbid both spellings. @maxprain12/remote-many
+    // is browser-safe and stays importable.
+    const DOME_NODE_ONLY =
+      /^(?:@dome\/(?:ai|agent-core|tools|prompts)|@maxprain12\/(?:ai|agent-core|manys-runtime))(?:\/.*)?$/;
 
     return {
       ImportDeclaration(node) {

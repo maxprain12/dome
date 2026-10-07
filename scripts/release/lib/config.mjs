@@ -6,6 +6,7 @@ export const PLATFORM = { darwin: 'mac', win32: 'win', linux: 'linux' }[process.
 export const CHANNELS = ['beta', 'latest'];
 
 const COMMON_KEYS = [
+  'NPM_TOKEN',
   'DOME_GOOGLE_DRIVE_CLIENT_ID',
   'DOME_GOOGLE_DRIVE_CLIENT_SECRET',
   'DOME_GOOGLE_CALENDAR_CLIENT_ID',

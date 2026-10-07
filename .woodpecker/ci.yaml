@@ -1,3 +1,14 @@
+# @dome/ai, @dome/agent-core and @maxprain12/remote-many are private packages of
+# maxprain12/manys-kit on GitHub Packages. Every step that runs `pnpm install` gets the
+# `npm_token` secret (a token with read:packages) as NPM_TOKEN and registers it for the
+# registry through the user-level ~/.npmrc: pnpm 11 ignores `${NPM_TOKEN}` auth lines
+# in a project .npmrc, and the line below stores only the reference, never the token.
+variables:
+  - &npm_auth "echo '//npm.pkg.github.com/:_authToken=$${NPM_TOKEN}' > ~/.npmrc"
+  - &npm_env
+    NPM_TOKEN:
+      from_secret: npm_token
+
 when:
   - event: pull_request
   - event: push
@@ -6,15 +17,19 @@ when:
 steps:
   - name: typecheck
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run typecheck
 
   - name: lint-and-contracts
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run lint
       - pnpm run check:main-syntax
@@ -40,7 +55,6 @@ steps:
       - pnpm run test:security
       - pnpm run test:manys
       - pnpm run build:packages
-      - pnpm --filter @dome/ai run test
       - node --test electron/__tests__/local-web-search.test.mjs electron/__tests__/native-browser-actions.test.mjs electron/__tests__/browser-workspace-performance.test.mjs electron/__tests__/window-renderer-recovery.test.mjs electron/__tests__/ai-capabilities.test.mjs
       - pnpm --filter @dome/prompts test
       - node --test scripts/test-dome-prompts.mjs
@@ -48,33 +62,38 @@ steps:
       - pnpm run test:tool-cap
       - node --test electron/__tests__/tool-stubs.test.mjs electron/__tests__/social-explorations.test.mjs electron/__tests__/many-agent-mode.test.mjs electron/__tests__/many-plan.test.mjs electron/__tests__/agent-runtime-caps.test.mjs electron/__tests__/hitl-allowlist.test.mjs
       - pnpm run test:contacts-mail
-      - pnpm --filter @dome/agent-core run test
       - pnpm run smoke:mcp-sdk
       - pnpm run test:many-thread-bridge
       - pnpm run test:execution-log-display
 
   - name: sonar-diff
     image: node:24-bookworm
+    environment: *npm_env
     when:
       - event: pull_request
     commands:
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - git fetch origin "$$CI_COMMIT_TARGET_BRANCH" --depth=1
       - pnpm run check:sonar-patterns -- --diff="origin/$$CI_COMMIT_TARGET_BRANCH"
 
   - name: vite-build
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run build
 
   - name: electron-smoke
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libnspr4 libasound2 libgbm1 libxss1 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libx11-xcb1 libxcb-dri3-0
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile
       - pnpm rebuild
       - node node_modules/electron/install.js
@@ -87,8 +106,10 @@ steps:
 
   - name: depcruise
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run depcruise
 
@@ -110,9 +131,11 @@ steps:
 
   - name: browser-extension
     image: node:24-bookworm
+    environment: *npm_env
     commands:
       - apt-get update && apt-get install -y xvfb
       - npm i -g pnpm@11.8.0
+      - *npm_auth
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm run extension:test
       - pnpm --filter @dome/browser-extension run typecheck

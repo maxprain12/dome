@@ -66,25 +66,23 @@ Sonar only sees lines present in `coverage/lcov.info` (see `sonar-project.proper
 Historically that file was merged from:
 
 - `coverage/electron/lcov.info` (`c8` + `electron/__tests__`)
-- `packages/agent-core/coverage/lcov.info`
 
-Most of the ~234k ncloc (`app/`, other packages) contributed **0** covered lines → overall % stays tiny even when electron/agent-core are well tested.
+Most of the ~234k ncloc (`app/`, other packages) contributed **0** covered lines → overall % stays tiny even when electron is well tested.
 
 ### How we raise it
 
 1. **Always** run `pnpm run test:coverage` before `dome-sonar` analysis (Jenkins already does).
 2. Expand lcov inputs (see `scripts/sonar/merge-coverage.mjs`):
    - Renderer: `coverage/renderer/lcov.info` (`vitest` + `@vitest/coverage-v8`)
-   - Packages with tests: `agent-core`, `ai`
+   - `agent-core` and `ai` live in `manys-kit` now and are covered there, not in this report
 3. Prefer tests on **new code** (QG often requires ≥50–80% on new code) over boiling the ocean on legacy UI.
 4. **Jenkins coverage mode** (~1/3 of hourly runs): `sonar:pick-coverage` → OpenCode `sonar-coverage` agent adds tests for top `uncovered_lines` files → PR `test/sonar-coverage-*`. Over days this compounds without blocking issue fixes.
 
 ### Local commands
 
 ```bash
-pnpm run test:coverage          # electron + renderer + agent-core + ai → coverage/lcov.info
+pnpm run test:coverage          # electron + renderer → coverage/lcov.info
 pnpm run test:coverage:renderer # vitest app/**/*.test.*
-pnpm run test:coverage:ai       # @dome/ai vitest coverage
 pnpm run test:coverage:electron # c8 on electron/__tests__
 ```
 

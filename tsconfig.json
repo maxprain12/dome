@@ -51,8 +51,7 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
-    "shared/prompt-assembler/index.ts",
-    "shared/remote-many/**/*.ts"
+    "shared/prompt-assembler/index.ts"
   ],
   "exclude": [
     "node_modules",

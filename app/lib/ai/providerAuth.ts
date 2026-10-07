@@ -1,6 +1,6 @@
 /**
  * Provider auth helpers for renderer preflight checks.
- * Keep Ollama hostname logic in sync with packages/ai/src/ollama-mode.ts and electron/ai/provider-auth.cjs.
+ * Keep Ollama hostname logic in sync with src/ollama-mode.ts in @dome/ai (manys-kit) and electron/ai/provider-auth.cjs.
  *
  * @see docs/features/ai-provider-auth.md
  */
