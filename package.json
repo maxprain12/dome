@@ -253,7 +253,7 @@
     "posthog-js": "^1.372.1",
     "pptx-preview": "^1.0.7",
     "pptxgenjs": "^3.12.0",
-    "protobufjs": "^7.6.4",
+    "protobufjs": "^7.6.6",
     "punycode": "^2.3.1",
     "pyodide": "^314.0.2",
     "qrcode": "^1.5.4",
@@ -285,7 +285,7 @@
   },
   "overrides": {
     "@tootallnate/once": "^3.0.1",
-    "protobufjs": "^7.6.4",
+    "protobufjs": "^7.6.6",
     "@protobufjs/utf8": "^1.1.1",
     "langsmith": "^0.6.0"
   },
