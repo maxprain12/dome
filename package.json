@@ -238,7 +238,7 @@
     "jszip": "^3.10.1",
     "katex": "^0.18.9",
     "langfuse-langchain": "^3.38.20",
-    "linkedom": "^0.18.13",
+    "linkedom": "^0.18.14",
     "llm-chunk": "^0.0.1",
     "lowlight": "^3.1.0",
     "mammoth": "^1.11.0",
