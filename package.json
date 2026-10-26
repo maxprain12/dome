@@ -227,7 +227,7 @@
     "docx": "^9.6.1",
     "driver.js": "^1.4.0",
     "electron-ollama": "^0.1.25",
-    "electron-updater": "^6.8.9",
+    "electron-updater": "^6.8.11",
     "emoji-mart": "^5.6.0",
     "exceljs": "^4.4.0",
     "fast-xml-parser": "5.11.2",
