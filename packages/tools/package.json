@@ -17,6 +17,6 @@
   },
   "dependencies": {
     "@dome/ai": "npm:@maxprain12/ai@^0.2.0",
-    "typebox": "^1.1.38"
+    "typebox": "^1.4.3"
   }
 }
